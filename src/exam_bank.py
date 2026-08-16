@@ -38,9 +38,9 @@ def _ref_inter(s1, s2):
     return res
 
 def _ref_echo_validator(text):
-    if text == "":
-        return False
     clean = "".join(ch.lower() for ch in text if ch.isalpha())
+    if clean == "":
+        return False
     return clean == clean[::-1]
 
 def _ref_mirror_matrix(matrix):
@@ -50,18 +50,33 @@ def _ref_hidenp(small, big):
     it = iter(big)
     return all(ch in it for ch in small)
 
+_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
 def _ref_number_base_converter(number, from_base, to_base):
+    # Deliberately does NOT use int(number, base): that would also accept
+    # "+10", " 10 " and "1_0", which the subject says nothing about.
+    # Every oracle must be self-contained (see grader.oracle_source), so the
+    # digit table is defined here rather than pulled from the module.
     digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if not isinstance(number, str):
+        return "ERROR"
+    if not isinstance(from_base, int) or not isinstance(to_base, int):
+        return "ERROR"
     if not 2 <= from_base <= 36 or not 2 <= to_base <= 36:
         return "ERROR"
-    try:
-        dec = int(number, from_base)
-    except (ValueError, TypeError):
+    neg = number.startswith("-")
+    body = number[1:] if neg else number
+    if body == "":
         return "ERROR"
+    dec = 0
+    for ch in body.upper():
+        value = digits.find(ch)
+        if value < 0 or value >= from_base:
+            return "ERROR"
+        dec = dec * from_base + value
     if dec == 0:
         return "0"
-    neg = dec < 0
-    dec = abs(dec)
     res = ""
     while dec > 0:
         res = digits[dec % to_base] + res
@@ -174,16 +189,19 @@ def _fuzz_hidenp(rng):
 
 def _fuzz_number_base_converter(rng):
     fb, tb = rng.randint(2, 36), rng.randint(2, 36)
-    val = rng.randint(0, 100000)
-    digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    s, v = "", val
-    if v == 0:
-        s = "0"
+    v = rng.randint(0, 100000)
+    s = "0" if v == 0 else ""
     while v > 0:
-        s = digits[v % fb] + s
+        s = _DIGITS[v % fb] + s
         v //= fb
-    if rng.random() < 0.15:
+    if rng.random() < 0.20:                 # negative numbers
+        s = "-" + s
+    if rng.random() < 0.20:                 # digits are case-insensitive
+        s = s.lower()
+    if rng.random() < 0.15:                 # out-of-range base -> ERROR
         fb = rng.choice([0, 1, 37, 40, -2])
+    elif rng.random() < 0.15:               # junk input -> ERROR
+        s = rng.choice(["", "+1", " 1", "1_0", "1 ", "!", "-"])
     return [s, fb, tb]
 
 def _fuzz_pattern_tracker(rng):
@@ -294,22 +312,26 @@ EXERCISES = {
         "level": 2, "function": "echo_validator",
         "oracle": _ref_echo_validator, "fuzz": _fuzz_echo_validator,
         "subject": _sub("py_echo_validator", """
-        Write a function that checks whether a string is a palindrome,
-        ignoring case and spaces; only alphabetic characters are considered.
-        An empty string ("") returns False.
+        Write a function that checks whether a string is a palindrome.
+        Only alphabetic characters are considered: case, spaces, digits and
+        punctuation are all ignored. If there is no letter left to compare
+        (empty string, "42", "!!!", …) the answer is False.
 
             def echo_validator(text: str) -> bool:
 
         Examples:
             echo_validator("racecar")                     -> True
             echo_validator("A man a plan a canal Panama") -> True
+            echo_validator("No lemon, no melon")          -> True
             echo_validator("race a car")                  -> False
             echo_validator("")                            -> False
+            echo_validator("12 21")                       -> False
         """),
         "cases": [
             ["racecar"], ["A man a plan a canal Panama"], ["race a car"],
             ["Was it a car or a cat I saw"], ["hello"], ["Madam Im Adam"],
-            [""], ["a"], ["ab"], ["Aa"], ["Noon"], ["12 21"],
+            [""], ["a"], ["ab"], ["Aa"], ["Noon"], ["12 21"], ["!!!"],
+            ["   "], ["a1b2a"], ["ab1ba"],
             ["No lemon, no melon"], ["Able was I ere I saw Elba"],
         ],
     },
@@ -340,15 +362,22 @@ EXERCISES = {
         "oracle": _ref_number_base_converter, "fuzz": _fuzz_number_base_converter,
         "subject": _sub("py_number_base_converter", """
         Write a function that converts a number from one base to another.
-        Bases 2 to 36 inclusive. Use digits 0-9 and letters A-Z for values
-        10-35. Return "ERROR" on invalid input.
+        Both bases go from 2 to 36 inclusive. Digits are 0-9 then A-Z for the
+        values 10-35; the OUTPUT always uses upper-case letters, the INPUT
+        accepts either case. A leading '-' is allowed, nothing else is: no
+        '+', no spaces, no underscores.
+
+        Return the string "ERROR" for anything invalid: a base outside 2..36,
+        an empty number, or a digit that does not exist in `from_base`.
 
             def number_base_converter(number: str, from_base: int, to_base: int) -> str:
 
         Examples:
             number_base_converter("1010", 2, 10) -> "10"
             number_base_converter("FF", 16, 10)  -> "255"
+            number_base_converter("ff", 16, 10)  -> "255"
             number_base_converter("255", 10, 16) -> "FF"
+            number_base_converter("-1010", 2, 10)-> "-10"
             number_base_converter("123", 1, 10)  -> "ERROR"
             number_base_converter("G", 16, 10)   -> "ERROR"
         """),
@@ -358,6 +387,9 @@ EXERCISES = {
             ["0", 10, 2], ["1", 2, 10], ["0", 2, 16], ["ZZ", 36, 2],
             ["10", 2, 2], ["abc", 16, 10], ["", 10, 2], ["7", 8, 8],
             ["100", 10, 37], ["DEAD", 16, 10], ["11111111", 2, 16],
+            ["-1010", 2, 10], ["-FF", 16, 10], ["-0", 10, 2], ["-", 10, 2],
+            ["+10", 10, 2], [" 10", 10, 2], ["1_0", 2, 10], ["12", 2, 10],
+            ["100", 10, 1], ["777", 8, 16], ["deadBEEF", 16, 36],
         ],
     },
     "py_pattern_tracker": {
@@ -484,8 +516,8 @@ EXERCISES = {
         Write a function that alternates the case of ALPHABETIC characters
         only. Non-alphabetic characters stay unchanged and are NOT counted in
         the alternation index. The first alpha is lowercase, the second
-        uppercase, and so on. A space resets the alternation (the next alpha
-        after a space is lowercase again).
+        uppercase, and so on. Whitespace resets the alternation (the next
+        alpha after a space, tab or newline is lowercase again).
 
             def string_sculptor(text: str) -> str:
 
@@ -506,7 +538,8 @@ EXERCISES = {
         "subject": _sub("py_twist_sequence", """
         Write a function that rotates an array to the RIGHT by k positions.
         Rotating right by k means the last k elements move to the front.
-        k may be larger than the length of the array.
+        k is never negative but may be larger than the length of the array.
+        Return a NEW list; do not modify the one you were given.
 
             def twist_sequence(arr: list[int], k: int) -> list[int]:
 
@@ -570,7 +603,26 @@ EXERCISES = {
     },
 }
 
-# Pool per level (for the random pick in the exam)
+# ══════════════════════════════════════════════════════════════
+#  INDEXES  ·  built from EXERCISES, validated at import time
+# ══════════════════════════════════════════════════════════════
 LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
-    LEVELS[_ex["level"]].append(_name)
+    _lvl = _ex["level"]
+    if _lvl not in LEVELS:
+        raise ValueError("exam_bank: %s has level %r, expected 1..%d"
+                         % (_name, _lvl, N_LEVELS))
+    LEVELS[_lvl].append(_name)
+
+for _lvl, _pool in LEVELS.items():
+    if not _pool:
+        raise ValueError("exam_bank: level %d has no exercise" % _lvl)
+
+
+def signature_of(name):
+    """The `def …:` line of an exercise, as shown in its subject."""
+    for line in EXERCISES[name]["subject"].splitlines():
+        stripped = line.strip()
+        if stripped.startswith("def ") and stripped.endswith(":"):
+            return stripped
+    return None

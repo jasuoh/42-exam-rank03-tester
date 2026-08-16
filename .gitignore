@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ExamShell — your own solutions stay local (delete this line to commit them)
+rendu/

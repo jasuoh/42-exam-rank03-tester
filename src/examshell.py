@@ -23,7 +23,6 @@ function. The folder is created for you.
 import argparse
 import os
 import random
-import sys
 import time
 
 from . import grader, ui
@@ -91,6 +90,45 @@ def grade_exercise(ex_name, rng, cfg):
                           strict_imports=cfg.strict_imports, tests=tests)
     ui.report(report, cfg.show_fails)
     return report.ok
+
+
+def grade_all(cfg):
+    """Grade every exercise that has a solution in cfg.rendu.
+
+    Each exercise is graded with a fresh `random.Random(cfg.seed)`, so this
+    matches `--grade EXERCISE --seed N` run one at a time. Returns True iff
+    every solution that was found passed all of its tests.
+    """
+    rows, found, all_ok = [], 0, True
+    for _, level, name, _func in exercise_entries():
+        path = os.path.join(cfg.rendu, name + ".py")
+        if not os.path.isfile(path):
+            rows.append((level, name, "missing", "—"))
+            continue
+        found += 1
+        ex = EXERCISES[name]
+        rng = random.Random(cfg.seed)
+        try:
+            tests = grader.build_tests(name, ex, rng, cfg.fuzz)
+        except grader.BankError as exc:
+            ui.error("exercise bank is broken: %s" % exc)
+            all_ok = False
+            rows.append((level, name, "ko", "bank error"))
+            continue
+        report = grader.grade(name, ex, cfg.rendu, timeout=cfg.timeout,
+                              strict_imports=cfg.strict_imports, tests=tests)
+        all_ok = all_ok and report.ok
+        label = ("%d/%d" % (report.passed, report.total) if not report.fatal
+                 else report.fatal_title)
+        rows.append((level, name, "ok" if report.ok else "ko", label))
+
+    ui.overview_table(rows)
+    if found == 0:
+        ui.note("no solutions found in %s/ — nothing to grade" % cfg.rendu)
+    else:
+        ui.info("%d/%d solutions found — run --grade EXERCISE for details"
+                % (found, len(rows)))
+    return all_ok
 
 
 def exercise_entries():
@@ -372,6 +410,7 @@ def build_parser():
                "  python3 -m src --exam --seed 42      reproducible exam\n"
                "  python3 -m src --practice py_inter   drill one exercise\n"
                "  python3 -m src --grade py_inter      grade once, no UI\n"
+               "  python3 -m src --grade-all           grade every rendu/ solution\n"
                "  python3 -m src --check               validate the bank\n")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--exam", action="store_true",
@@ -382,6 +421,8 @@ def build_parser():
                       help="print the exercise pool and exit")
     mode.add_argument("--grade", metavar="EXERCISE",
                       help="grade one exercise and exit (0 = OK, 1 = KO)")
+    mode.add_argument("--grade-all", action="store_true",
+                      help="grade every solution found in rendu/ and exit")
     mode.add_argument("--stub", metavar="EXERCISE",
                       help="create an empty solution file and exit")
     mode.add_argument("--check", action="store_true",
@@ -459,6 +500,9 @@ def main(argv=None):
             return 2
         rng = random.Random(args.seed)
         return 0 if grade_exercise(name, rng, cfg) else 1
+
+    if args.grade_all:
+        return 0 if grade_all(cfg) else 1
 
     os.makedirs(cfg.rendu, exist_ok=True)
 

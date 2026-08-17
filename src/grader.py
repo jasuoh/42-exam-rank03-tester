@@ -35,6 +35,59 @@ class BankError(Exception):
     """The exercise bank itself is inconsistent (an oracle blew up)."""
 
 
+def _free_globals(func, allow=()):
+    """Module-level names `func` depends on, other than the names in `allow`.
+
+    A function with free globals cannot be lifted out of this module and
+    spliced into the standalone sandbox runner (or an oracle-only file) — it
+    would silently break the moment it runs somewhere without that global.
+    """
+    try:
+        names = set(inspect.getclosurevars(func).globals)
+    except (TypeError, ValueError):                        # pragma: no cover
+        return []
+    return sorted(names - set(allow))
+
+
+# ══════════════════════════════════════════════════════════════
+#  SANDBOX RUNNER HELPERS  (real functions here, unit-testable — the exact
+#  same source text is spliced into the subprocess runner below, so there
+#  is only ever one implementation of the comparison logic.)
+# ══════════════════════════════════════════════════════════════
+def deep_eq(a, b):
+    """Type-strict, recursive equality: True is not 1, (1,) is not [1]."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(deep_eq(x, y) for x, y in zip(a, b))
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(deep_eq(a[k], b[k]) for k in a)
+    if isinstance(a, float) or isinstance(b, float):
+        return isinstance(a, (int, float)) and isinstance(b, (int, float)) and a == b
+    if type(a) is not type(b):
+        return False
+    return a == b
+
+
+def short_repr(value, limit=150):
+    """A repr() capped at `limit` characters. Never raises."""
+    try:
+        text = repr(value)
+    except Exception:
+        text = "<unrepresentable object>"
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+for _helper in (deep_eq, short_repr):
+    _extra = _free_globals(_helper, allow=(_helper.__name__,))
+    if _extra:                                             # pragma: no cover
+        raise AssertionError("grader.%s must be self-contained, found: %s"
+                             % (_helper.__name__, _extra))
+_RUNNER_HELPERS_SRC = "\n\n".join(
+    inspect.getsource(h) for h in (deep_eq, short_repr))
+del _helper, _extra
+
+
 # ══════════════════════════════════════════════════════════════
 #  RESULT TYPES
 # ══════════════════════════════════════════════════════════════
@@ -144,7 +197,7 @@ def find_imports(path):
 # ══════════════════════════════════════════════════════════════
 #  SANDBOX RUNNER  (executed in the subprocess)
 # ══════════════════════════════════════════════════════════════
-RUNNER_SRC = r'''
+RUNNER_TEMPLATE = r'''
 import contextlib, copy, importlib.util, inspect, io, json, signal, sys, time
 
 sub_path, func_name, cases_path, out_path = sys.argv[1:5]
@@ -178,27 +231,7 @@ def finish(payload):
     sys.exit(0)
 
 
-def deep_eq(a, b):
-    """Type-strict, recursive equality: True is not 1, (1,) is not [1]."""
-    if isinstance(a, bool) or isinstance(b, bool):
-        return a is b
-    if isinstance(a, list) and isinstance(b, list):
-        return len(a) == len(b) and all(deep_eq(x, y) for x, y in zip(a, b))
-    if isinstance(a, dict) and isinstance(b, dict):
-        return a.keys() == b.keys() and all(deep_eq(a[k], b[k]) for k in a)
-    if isinstance(a, float) or isinstance(b, float):
-        return isinstance(a, (int, float)) and isinstance(b, (int, float)) and a == b
-    if type(a) is not type(b):
-        return False
-    return a == b
-
-
-def short(value, limit=150):
-    try:
-        text = repr(value)
-    except Exception:
-        text = "<unrepresentable object>"
-    return text if len(text) <= limit else text[:limit] + "…"
+{{HELPERS}}
 
 
 # ── import the submission (the import itself is timed too) ────────────
@@ -276,12 +309,14 @@ for args, expected in cases:
     ok = deep_eq(got, expected)
     if not ok and got is None and noise.getvalue().strip():
         results.append({"ok": False, "got": "None  (printed %s instead)"
-                                            % short(noise.getvalue().strip(), 40)})
+                                            % short_repr(noise.getvalue().strip(), 40)})
         continue
-    results.append({"ok": ok, "got": short(got)})
+    results.append({"ok": ok, "got": short_repr(got)})
 
 finish({"results": results, "printed": printed, "mutated": mutated})
 '''
+
+RUNNER_SRC = RUNNER_TEMPLATE.replace("{{HELPERS}}", _RUNNER_HELPERS_SRC)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -398,10 +433,7 @@ def oracle_source(ex):
 def oracle_free_globals(ex):
     """Module-level names an oracle depends on — it must depend on none, or
     it cannot be extracted into a standalone file for the self-test."""
-    try:
-        return sorted(inspect.getclosurevars(ex["oracle"]).globals)
-    except (TypeError, ValueError):                        # pragma: no cover
-        return []
+    return _free_globals(ex["oracle"])
 
 
 def selftest(exercises, levels, n_levels, rng, timeout=DEFAULT_TIMEOUT,

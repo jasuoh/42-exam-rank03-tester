@@ -17,7 +17,8 @@ PY = $(shell [ -x $(VENV_PYTHON) ] && echo $(VENV_PYTHON) || echo $(PYTHON))
 
 SRC_PKG     := src
 SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
-               $(SRC_PKG)/grader.py $(SRC_PKG)/ui.py $(SRC_PKG)/exam_bank.py
+               $(SRC_PKG)/grader.py $(SRC_PKG)/ui.py $(SRC_PKG)/exam_bank.py \
+               $(wildcard tests/*.py)
 RENDU       ?= rendu
 
 # Optional flags forwarded to the tester, e.g. `make exam SEED=42 FLAGS=--strict-imports`
@@ -33,8 +34,8 @@ DIM   := \033[90m
 OFF   := \033[0m
 
 .DEFAULT_GOAL := help
-.PHONY: help run exam practice list stub grade check test lint format \
-        install venv deps clean fclean re rendu-clean status
+.PHONY: help run exam practice list stub grade grade-all check unit test \
+        lint format install venv deps clean fclean re rendu-clean status
 
 # ── help ──────────────────────────────────────────────────────
 help:
@@ -45,9 +46,12 @@ help:
 	@printf "  $(GREEN)make practice$(OFF)     drill exercises            $(DIM)[EX=py_inter]$(OFF)\n"
 	@printf "  $(GREEN)make list$(OFF)         print the exercise pool\n"
 	@printf "  $(GREEN)make stub$(OFF)         create an empty solution   $(DIM)EX=py_inter$(OFF)\n"
-	@printf "  $(GREEN)make grade$(OFF)        grade one solution         $(DIM)EX=py_inter$(OFF)\n\n"
+	@printf "  $(GREEN)make grade$(OFF)        grade one solution         $(DIM)EX=py_inter$(OFF)\n"
+	@printf "  $(GREEN)make grade-all$(OFF)    grade every solution in $(RENDU)/, one overview\n\n"
 	@printf "$(BOLD)Develop$(OFF)\n"
-	@printf "  $(GREEN)make check$(OFF)        self-test the exercise bank (alias: test)\n"
+	@printf "  $(GREEN)make unit$(OFF)         fast unit tests for grader/ui/examshell logic\n"
+	@printf "  $(GREEN)make check$(OFF)        self-test the exercise bank (content, not code)\n"
+	@printf "  $(GREEN)make test$(OFF)         unit + check\n"
 	@printf "  $(GREEN)make lint$(OFF)         compile-check + ruff/pyflakes if installed\n"
 	@printf "  $(GREEN)make format$(OFF)       run ruff format if installed\n"
 	@printf "  $(GREEN)make status$(OFF)       which solutions exist in $(RENDU)/\n\n"
@@ -81,11 +85,17 @@ grade:
 	@[ -n "$(EX)" ] || { printf "usage: make grade EX=py_inter\n" >&2; exit 2; }
 	@$(PY) -m $(SRC_PKG) --grade $(EX) $(ARGS)
 
+grade-all:
+	@$(PY) -m $(SRC_PKG) --grade-all $(ARGS)
+
 # ── develop ───────────────────────────────────────────────────
+unit:
+	@$(PY) -m unittest discover -s tests -t .
+
 check:
 	@$(PY) -m $(SRC_PKG) --check $(if $(SEED),--seed $(SEED),)
 
-test: check
+test: unit check
 
 # ast.parse rather than compileall: same syntax check, no __pycache__ litter.
 lint:

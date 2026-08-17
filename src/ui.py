@@ -348,14 +348,41 @@ def exercise_table(entries, numbered=False):
                       _esc(name), _esc(func + "()"))
         _console.print(t)
         return
+    width = max((len(name) for _, _, name, _ in entries), default=0) + 2
     last = None
     for idx, lvl, name, func in entries:
         if lvl != last:
             print("  " + c("Level %d:" % lvl, "YELLOW"))
             last = lvl
         prefix = ("[%d] " % idx) if numbered else ""
-        print("    " + c(prefix, "GRAY") + c(name.ljust(32), "WHITE")
+        print("    " + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
               + c(func + "()", "GRAY"))
+
+
+def overview_table(rows):
+    """rows: [(level, name, status, tests_label), …]
+
+    status is "ok" / "ko" / "missing".
+    """
+    glyph = {"ok": ("✔", "green"), "ko": ("✖", "red"), "missing": ("·", "dim")}
+    if _rich:
+        t = Table(title="[bold]Grading overview[/bold]",
+                  box=box.SIMPLE_HEAVY, header_style="bold cyan")
+        t.add_column("Level", justify="center", style="yellow")
+        t.add_column("Exercise", style="white")
+        t.add_column("", justify="center")
+        t.add_column("Tests", justify="right", style="dim")
+        for lvl, name, status, tests_label in rows:
+            mark, style = glyph[status]
+            t.add_row(str(lvl), _esc(name), "[%s]%s[/%s]" % (style, mark, style),
+                      _esc(tests_label))
+        _console.print(t)
+        return
+    width = max((len(name) for _, name, _, _ in rows), default=0) + 2
+    for lvl, name, status, tests_label in rows:
+        mark, style = glyph[status]
+        print("  " + c(str(lvl), "YELLOW") + "  " + c(mark, style.upper())
+              + "  " + c(name.ljust(width), "WHITE") + c(tests_label, "GRAY"))
 
 
 # ══════════════════════════════════════════════════════════════

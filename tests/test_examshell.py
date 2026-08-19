@@ -13,6 +13,7 @@ from unittest import mock
 
 from src import examshell
 from src.exam_bank import EXERCISES, N_LEVELS
+from src.training_bank import DIFFICULTIES, TRAINING_EXERCISES
 
 
 def _cfg(rendu, **overrides):
@@ -42,13 +43,19 @@ class ResolveExerciseTests(unittest.TestCase):
         self.assertEqual(examshell.resolve_exercise("inter"), "py_inter")
         self.assertEqual(examshell.resolve_exercise("cipher"), "py_whisper_cipher")
 
+    def test_finds_a_training_exercise_too(self):
+        self.assertEqual(examshell.resolve_exercise("fizzbuzz_list"),
+                         "py_fizzbuzz_list")
+        self.assertEqual(examshell.resolve_exercise("py_kth_largest"),
+                         "py_kth_largest")
+
     def test_unknown_returns_none(self):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertIsNone(examshell.resolve_exercise("not_a_real_exercise"))
 
     def test_ambiguous_suffix_returns_none(self):
         fake = {"py_alpha_demo": {}, "py_beta_demo": {}}
-        with mock.patch.object(examshell, "EXERCISES", fake), \
+        with mock.patch.object(examshell, "ALL_EXERCISES", fake), \
              contextlib.redirect_stdout(io.StringIO()):
             self.assertIsNone(examshell.resolve_exercise("demo"))
 
@@ -70,6 +77,29 @@ class ExerciseEntriesTests(unittest.TestCase):
     def test_indexes_are_sequential_from_one(self):
         entries = examshell.exercise_entries()
         self.assertEqual([idx for idx, *_ in entries], list(range(1, len(entries) + 1)))
+
+
+class TrainingEntriesTests(unittest.TestCase):
+    def test_covers_every_training_exercise_exactly_once(self):
+        entries = examshell.training_entries()
+        self.assertEqual(len(entries), len(TRAINING_EXERCISES))
+        self.assertEqual({name for _, _, name, _ in entries}, set(TRAINING_EXERCISES))
+
+    def test_ordered_by_difficulty_then_name(self):
+        entries = examshell.training_entries()
+        order = {d: i for i, d in enumerate(DIFFICULTIES)}
+        ranks = [order[d] for _, d, _, _ in entries]
+        self.assertEqual(ranks, sorted(ranks))
+        for difficulty in DIFFICULTIES:
+            names = [name for _, d, name, _ in entries if d == difficulty]
+            self.assertEqual(names, sorted(names))
+
+    def test_indexes_are_sequential_from_one(self):
+        entries = examshell.training_entries()
+        self.assertEqual([idx for idx, *_ in entries], list(range(1, len(entries) + 1)))
+
+    def test_never_overlaps_the_exam_pool(self):
+        self.assertEqual(set(TRAINING_EXERCISES) & set(EXERCISES), set())
 
 
 class DrawTests(unittest.TestCase):
@@ -97,6 +127,32 @@ class MakeStubTests(unittest.TestCase):
             with open(tmp + "/py_inter.py", encoding="utf-8") as fh:
                 content = fh.read()
             self.assertIn("def inter(", content)
+
+    def test_embeds_a_runnable_self_check_from_the_oracle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = _cfg(tmp)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(examshell.make_stub("py_inter", cfg))
+            with open(tmp + "/py_inter.py", encoding="utf-8") as fh:
+                content = fh.read()
+            self.assertIn('if __name__ == "__main__"', content)
+            # py_inter's first curated case is ["hello", "world"] -> "lo";
+            # this locks in that the sample comes from the oracle, not a guess.
+            self.assertIn("(['hello', 'world'], 'lo')", content)
+            # must be valid, importable Python (the __main__ guard keeps the
+            # self-check from running here, same as during real grading)
+            namespace = {"__name__": "not_main"}
+            exec(compile(content, "py_inter.py", "exec"), namespace)
+
+    def test_works_for_a_training_exercise_too(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = _cfg(tmp)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(examshell.make_stub("py_fizzbuzz_list", cfg))
+            with open(tmp + "/py_fizzbuzz_list.py", encoding="utf-8") as fh:
+                content = fh.read()
+            self.assertIn("def fizzbuzz_list(", content)
+            self.assertIn('if __name__ == "__main__"', content)
 
     def test_never_overwrites_an_existing_file(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -102,6 +102,10 @@ FATAL_TITLES = {
     "GLOBAL_TIMEOUT":  "Global timeout (infinite loop?)",
     "NO_RESULT":       "The sandbox produced no result",
     "BAD_RESULT":      "The sandbox result was unreadable",
+    # shared with c_exam/grader.py — its Report/fatal codes reuse this dict
+    "COMPILE_ERROR":   "Your file does not compile",
+    "FORBIDDEN_MAIN":  "You defined main() — only the required function is allowed",
+    "TIMEOUT":         "Timed out (infinite loop?)",
 }
 
 
@@ -436,9 +440,15 @@ def oracle_free_globals(ex):
     return _free_globals(ex["oracle"])
 
 
-def selftest(exercises, levels, n_levels, rng, timeout=DEFAULT_TIMEOUT,
+def selftest(exercises, groups, rng, timeout=DEFAULT_TIMEOUT,
              fuzz=DEFAULT_FUZZ, log=print):
-    """Validate the whole bank. Returns the number of problems found."""
+    """Validate a whole bank (exercises grouped by level or difficulty).
+
+    `groups` maps each group key (a level number, a difficulty name, …) to
+    the list of exercise names in it — bank modules build and validate this
+    at import time, so an out-of-range or empty group already raised there;
+    this only re-checks it defensively. Returns the number of problems found.
+    """
     problems = 0
 
     def bad(msg):
@@ -446,9 +456,9 @@ def selftest(exercises, levels, n_levels, rng, timeout=DEFAULT_TIMEOUT,
         problems += 1
         log("  FAIL  " + msg)
 
-    for level in range(1, n_levels + 1):
-        if not levels.get(level):
-            bad("level %d has no exercise — the exam would crash there" % level)
+    for group, pool in groups.items():
+        if not pool:
+            bad("group %r has no exercise" % (group,))
 
     workdir = tempfile.mkdtemp(prefix="examshell-check-")
     try:
@@ -456,8 +466,6 @@ def selftest(exercises, levels, n_levels, rng, timeout=DEFAULT_TIMEOUT,
             ex = exercises[name]
             function = ex["function"]
 
-            if not 1 <= ex["level"] <= n_levels:
-                bad("%s: level %r out of range" % (name, ex["level"]))
             free = oracle_free_globals(ex)
             if free:
                 bad("%s: oracle is not self-contained, it needs %s"

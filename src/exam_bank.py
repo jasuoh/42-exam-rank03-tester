@@ -19,7 +19,9 @@ Each exercise provides:
 """
 
 import string
-import textwrap
+
+from .bank_common import sub as _sub
+from .bank_common import signature_of as _signature_of
 
 N_LEVELS = 6
 
@@ -521,16 +523,6 @@ def _fuzz_even_odd_counter(rng):
 
 def _fuzz_sum_of_squares(rng):
     return [_rand_intlist(rng, 0, 10, vmin=-10, vmax=10)]
-
-# ══════════════════════════════════════════════════════════════
-#  SUBJECT BUILDER
-# ══════════════════════════════════════════════════════════════
-def _sub(name, body):
-    head = (f"Assignment name  : {name}\n"
-            f"Expected files   : {name}.py\n"
-            f"Allowed functions: None\n"
-            + "-" * 80 + "\n\n")
-    return head + textwrap.dedent(body).strip("\n") + "\n"
 
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE BANK
@@ -1468,8 +1460,4 @@ for _lvl, _pool in LEVELS.items():
 
 def signature_of(name):
     """The `def …:` line of an exercise, as shown in its subject."""
-    for line in EXERCISES[name]["subject"].splitlines():
-        stripped = line.strip()
-        if stripped.startswith("def ") and stripped.endswith(":"):
-            return stripped
-    return None
+    return _signature_of(EXERCISES[name]["subject"])

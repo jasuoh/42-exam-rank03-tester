@@ -219,3 +219,8 @@ __marimo__/
 
 # ExamShell — your own solutions stay local (delete this line to commit them)
 rendu/
+c_rendu/
+
+# stray C build artefacts from manually compiling a solution
+*.o
+a.out

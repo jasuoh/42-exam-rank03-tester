@@ -39,6 +39,17 @@ class Abort(Exception):
     """Raised by ask() when the student hits Ctrl-C / Ctrl-D."""
 
 
+# Indentation scheme used throughout the ANSI fallback: IND0 for lines that
+# sit directly under a banner/heading (menus, commands, status, verdicts),
+# IND1 for a line nested one level under an IND0 line (table rows under a
+# level/difficulty header, …).
+IND0 = "  "
+IND1 = "    "
+
+# rich style name -> ANSI attribute name, keyed by exercise difficulty.
+DIFFICULTY_STYLE = {"easy": "green", "medium": "yellow", "hard": "red"}
+
+
 # ══════════════════════════════════════════════════════════════
 #  BACKEND STATE
 # ══════════════════════════════════════════════════════════════
@@ -86,6 +97,17 @@ def c(text, *styles):
     if not _color or not styles:
         return text
     return "".join(getattr(C, s) for s in styles) + text + C.RESET
+
+
+def _bar(done, total, width=16):
+    """A compact block-character progress bar: '██████░░░░░░░░░░'.
+
+    Pure block characters (single terminal cell each), so it's safe to use
+    in both the rich and the ANSI path without any display-width pitfalls
+    (unlike e.g. emoji, whose rendered width doesn't match len()).
+    """
+    filled = round(width * done / total) if total > 0 else 0
+    return "█" * filled + "░" * (width - filled)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -141,9 +163,9 @@ def success(msg):
 
 def _line(msg, rich_style, *ansi):
     if _rich:
-        _console.print("  [%s]%s[/%s]" % (rich_style, _esc(msg), rich_style))
+        _console.print(IND0 + "[%s]%s[/%s]" % (rich_style, _esc(msg), rich_style))
     else:
-        print("  " + c(msg, *ansi))
+        print(IND0 + c(msg, *ansi))
 
 
 def _esc(text):
@@ -167,28 +189,28 @@ def box_message(title, detail="", style="red"):
                              padding=(0, 2)))
     else:
         colour = {"red": "RED", "green": "GREEN", "yellow": "YELLOW"}.get(style, "CYAN")
-        print("  " + c("[KO] " + title, colour, "BOLD"))
+        print(IND0 + c("[KO] " + title, colour, "BOLD"))
         if detail:
-            print("       " + c(detail, "GRAY"))
+            print(IND0 + " " * len("[KO] ") + c(detail, "GRAY"))
 
 
 # ══════════════════════════════════════════════════════════════
 #  SCREENS
 # ══════════════════════════════════════════════════════════════
-def banner():
+def banner(subtitle="Exam Rank 03  ·  Common Core", edition="42 School  ·  Python Edition"):
     if _rich:
         title = Text()
         title.append("EXAMSHELL", style="bold white")
-        title.append("  ·  Exam Rank 03  ·  Common Core", style="cyan")
-        sub = Text("42 School  ·  Python Edition", style="dim")
+        title.append("  ·  " + subtitle, style="cyan")
+        sub = Text(edition, style="dim")
         _console.print(Panel(Align.center(Text.assemble(title, "\n", sub)),
                              box=box.DOUBLE, border_style="cyan", padding=(0, 2)))
         return
     w = width()
     inner = w - 2
     print(c("╔" + "═" * inner + "╗", "CYAN"))
-    for text, styles in (("EXAMSHELL · Exam Rank 03 · Common Core", ("BOLD", "WHITE")),
-                         ("42 School · Python Edition", ("GRAY",))):
+    for text, styles in (("EXAMSHELL · " + subtitle, ("BOLD", "WHITE")),
+                         (edition, ("GRAY",))):
         pad = inner - len(text)
         left = pad // 2
         print(c("║", "CYAN") + " " * left + c(text, *styles)
@@ -207,7 +229,8 @@ def status_bar(s, n_levels):
             Text.assemble(("LOGIN ", "cyan"), (s.login, "bold white")),
             Text.assemble(("LEVEL ", "cyan"), ("%d/%d" % (level, n_levels), "bold yellow")),
             Text.assemble(("TIME ", "cyan"), (s.elapsed(), "white")),
-            Text.assemble(("SCORE ", "cyan"), ("%d/100" % s.score(), "bold green")),
+            Text.assemble(("SCORE ", "cyan"), ("%d/100 " % s.score(), "bold green"),
+                         (_bar(s.score(), 100, 10), "green")),
         )
         dots = Text()
         for lvl in range(1, n_levels + 1):
@@ -222,15 +245,25 @@ def status_bar(s, n_levels):
         return
     bar = "═" * width()
     print(c(bar, "CYAN"))
-    print("  " + c("LOGIN: ", "CYAN") + c(s.login.ljust(12), "BOLD", "WHITE")
+    print(IND0 + c("LOGIN: ", "CYAN") + c(s.login.ljust(12), "BOLD", "WHITE")
           + c("LEVEL: ", "CYAN") + c(("%d/%d" % (level, n_levels)).ljust(6), "YELLOW")
           + c("TIME: ", "CYAN") + c(s.elapsed(), "WHITE"))
-    print("  " + c("SCORE: ", "CYAN") + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
-          + c("PASSED: ", "CYAN") + c("%d/%d" % (len(s.passed), n_levels), "GREEN"))
+    print(IND0 + c("SCORE: ", "CYAN") + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
+          + c("PASSED: ", "CYAN") + c("%d/%d  " % (len(s.passed), n_levels), "GREEN")
+          + c(_bar(s.score(), 100, 10), "GREEN"))
     dots = " ".join("●" if l < s.level else "◆" if l == s.level else "○"
                     for l in range(1, n_levels + 1))
-    print("  " + c(dots, "YELLOW"))
+    print(IND0 + c(dots, "YELLOW"))
     print(c(bar, "CYAN"))
+
+
+def _looks_like_c_prototype(line):
+    """A C exercise's `<type> name(...);` line — the C bank's equivalent of
+    a Python `def ...:` signature. Comment lines never end in `;`, and a
+    prose sentence ending in a raw `);` doesn't happen in this project's
+    subject style, so this is safe without a real C parser."""
+    return (line.endswith(";") and "(" in line and ")" in line
+            and not line.startswith(("//", "/*", "*")))
 
 
 def _split_subject(subject):
@@ -244,6 +277,8 @@ def _split_subject(subject):
             continue
         elif line.strip().startswith("def "):
             signature = line.strip()
+        elif signature is None and _looks_like_c_prototype(line.strip()):
+            signature = line.strip()
         elif line.strip().lower().startswith("example"):
             in_examples = True
         elif in_examples or "->" in line:
@@ -254,83 +289,107 @@ def _split_subject(subject):
         "\n".join(examples).strip("\n")
 
 
+def _group_label(ex):
+    """'Level N' for an exam exercise, 'Easy'/'Medium'/'Hard' for a training
+    one — the two banks tag exercises differently, this renders either."""
+    if "level" in ex:
+        return "Level %d" % ex["level"]
+    return ex["difficulty"].title()
+
+
+def _file_ext(ex):
+    """.c for the C bank's exercises (they carry a 'prototype'), .py otherwise."""
+    return ".c" if "prototype" in ex else ".py"
+
+
 def subject(ex_name, ex, rendu_dir):
     header, prose, signature, examples = _split_subject(ex["subject"])
+    group = _group_label(ex)
+    ext = _file_ext(ex)
+    lexer = "c" if ext == ".c" else "python"
     if _rich:
         meta = Table.grid(padding=(0, 1))
         meta.add_column(style="cyan", justify="right")
         meta.add_column(style="white")
         for row in header:
             key, _, value = row.partition(":")
-            meta.add_row(key.strip(), value.strip())
+            key, value = key.strip(), value.strip()
+            if key == "Allowed functions" and value == "None":
+                value = Text(value, style="bold yellow")
+            meta.add_row(key, value)
         blocks = [meta, Rule(style="grey37")]
         prose = "\n".join(l for l in prose.splitlines() if l.strip())
         if prose:
             blocks.append(Text(prose, style="white"))
         if signature:
-            blocks.append(Syntax(signature, "python", theme="monokai",
+            blocks.append(Syntax(signature, lexer, theme="monokai",
                                  background_color="default"))
         if examples.strip():
-            blocks.append(Syntax(examples, "python", theme="monokai",
+            blocks.append(Syntax(examples, "text", theme="monokai",
                                  background_color="default", word_wrap=True))
         _console.print(Panel(
             Group(*blocks),
             title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
-            subtitle="[dim]Level %d  ·  file: %s[/dim]" % (
-                ex["level"], _esc(os.path.join(rendu_dir, ex_name + ".py"))),
+            subtitle="[dim]%s  ·  file: %s[/dim]" % (
+                group, _esc(os.path.join(rendu_dir, ex_name + ext))),
             border_style="yellow", box=box.ROUNDED, padding=(1, 2)))
         print()
         return
 
     print()
-    print("  " + c("📄 " + ex_name, "BOLD", "YELLOW")
-          + c("   (Level %d)" % ex["level"], "GRAY"))
-    print("  " + c("─" * (width() - 2), "GRAY"))
+    print(IND0 + c("📄 " + ex_name, "BOLD", "YELLOW")
+          + c("   (%s)" % group, "GRAY"))
+    print(IND0 + c("─" * (width() - 2), "GRAY"))
     for line in ex["subject"].splitlines():
-        if line.startswith(("Assignment", "Expected", "Allowed")):
-            print("  " + c(line, "CYAN"))
+        if line.startswith("Allowed") and line.rstrip().endswith("None"):
+            print(IND0 + c(line, "YELLOW", "BOLD"))
+        elif line.startswith(("Assignment", "Expected", "Allowed")):
+            print(IND0 + c(line, "CYAN"))
         elif line and set(line) == {"-"}:
-            print("  " + c("─" * (width() - 4), "GRAY"))
+            print(IND0 + c("─" * (width() - 4), "GRAY"))
         elif "->" in line:
             head, _, tail = line.partition("->")
-            print("  " + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW"))
-        elif line.strip().startswith("def "):
-            print("  " + c(line, "MAGENTA"))
+            print(IND0 + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW"))
+        elif line.strip().startswith("def ") or _looks_like_c_prototype(line.strip()):
+            print(IND0 + c(line, "MAGENTA"))
         else:
-            print("  " + line)
-    print("  " + c("─" * (width() - 2), "GRAY"))
-    print("  " + c("Create file:  %s/%s.py" % (rendu_dir, ex_name), "GRAY"))
+            print(IND0 + line)
+    print(IND0 + c("─" * (width() - 2), "GRAY"))
+    print(IND0 + c("Create file:  %s/%s%s" % (rendu_dir, ex_name, ext), "GRAY"))
     print()
 
 
 def commands(rows):
     """rows: [(command, description), …]"""
     if _rich:
-        t = Table(box=box.MINIMAL, show_header=False, pad_edge=False)
+        t = Table(box=None, show_header=False, pad_edge=False)
         t.add_column(style="bold cyan", no_wrap=True)
         t.add_column(style="dim")
         for cmd, desc in rows:
             t.add_row(_esc(cmd), _esc(desc))
-        _console.print(t)
+        _console.print(Panel(t, title="[dim]commands[/dim]", title_align="left",
+                             border_style="grey37", box=box.ROUNDED,
+                             padding=(0, 1)))
         return
-    print("  " + c("Commands:", "CYAN"))
+    print(IND0 + c("Commands:", "CYAN"))
     for cmd, desc in rows:
-        print("    " + c(cmd.ljust(9), "BOLD", "CYAN") + c("- " + desc, "GRAY"))
+        print(IND1 + c(cmd.ljust(9), "BOLD", "CYAN") + c("- " + desc, "GRAY"))
 
 
 def menu(rows):
     """rows: [(key, label, hint), …]"""
     if _rich:
-        t = Table(box=box.MINIMAL, show_header=False, pad_edge=False)
+        t = Table(box=None, show_header=False, pad_edge=False)
         t.add_column(style="bold white", no_wrap=True)
         t.add_column()
         for key, label, hint in rows:
             t.add_row(_esc("[%s]" % key),
                       "%s  [dim]%s[/dim]" % (_esc(label), _esc(hint)))
-        _console.print(t)
+        _console.print(Panel(t, border_style="grey37", box=box.ROUNDED,
+                             padding=(0, 1)))
         return
     for key, label, hint in rows:
-        print("  " + c("[%s] " % key, "WHITE", "BOLD") + label.ljust(20)
+        print(IND0 + c("[%s] " % key, "WHITE", "BOLD") + label.ljust(20)
               + c(hint, "GRAY"))
 
 
@@ -338,7 +397,8 @@ def exercise_table(entries, numbered=False):
     """entries: [(index, level, name, function), …]"""
     if _rich:
         t = Table(title="[bold]Exercise pool[/bold]  (one per level in the exam)",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan")
+                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
+                  row_styles=["", "dim"])
         t.add_column("#", justify="right", style="dim")
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
@@ -352,10 +412,40 @@ def exercise_table(entries, numbered=False):
     last = None
     for idx, lvl, name, func in entries:
         if lvl != last:
-            print("  " + c("Level %d:" % lvl, "YELLOW"))
+            print(IND0 + c("Level %d:" % lvl, "YELLOW"))
             last = lvl
         prefix = ("[%d] " % idx) if numbered else ""
-        print("    " + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
+        print(IND1 + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
+              + c(func + "()", "GRAY"))
+
+
+def training_table(entries, numbered=False):
+    """entries: [(index, difficulty, name, function), …]"""
+    if _rich:
+        t = Table(title="[bold]Training pool[/bold]  "
+                        "(LeetCode-style · practice only, not exam material)",
+                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
+                  row_styles=["", "dim"])
+        t.add_column("#", justify="right", style="dim")
+        t.add_column("Difficulty", justify="center")
+        t.add_column("Exercise", style="white")
+        t.add_column("Function", style="green")
+        for idx, diff, name, func in entries:
+            style = DIFFICULTY_STYLE.get(diff, "white")
+            t.add_row(str(idx) if numbered else "",
+                      "[%s]%s[/%s]" % (style, diff.title(), style),
+                      _esc(name), _esc(func + "()"))
+        _console.print(t)
+        return
+    width = max((len(name) for _, _, name, _ in entries), default=0) + 2
+    last = None
+    for idx, diff, name, func in entries:
+        if diff != last:
+            style = DIFFICULTY_STYLE.get(diff, "white").upper()
+            print(IND0 + c(diff.title() + ":", style))
+            last = diff
+        prefix = ("[%d] " % idx) if numbered else ""
+        print(IND1 + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
               + c(func + "()", "GRAY"))
 
 
@@ -367,7 +457,8 @@ def overview_table(rows):
     glyph = {"ok": ("✔", "green"), "ko": ("✖", "red"), "missing": ("·", "dim")}
     if _rich:
         t = Table(title="[bold]Grading overview[/bold]",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan")
+                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
+                  row_styles=["", "dim"])
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("", justify="center")
@@ -381,7 +472,7 @@ def overview_table(rows):
     width = max((len(name) for _, name, _, _ in rows), default=0) + 2
     for lvl, name, status, tests_label in rows:
         mark, style = glyph[status]
-        print("  " + c(str(lvl), "YELLOW") + "  " + c(mark, style.upper())
+        print(IND0 + c(str(lvl), "YELLOW") + "  " + c(mark, style.upper())
               + "  " + c(name.ljust(width), "WHITE") + c(tests_label, "GRAY"))
 
 
@@ -412,10 +503,11 @@ def _failures(rep, show_fails):
             t.add_row(_esc(f.call(rep.function)), _esc(repr(f.expected)), _esc(f.got))
         _console.print(t)
     else:
+        hang = IND0 + " " * len("[KO] ")     # aligns under the text, like box_message
         for f in shown:
-            print("    " + c("[KO] " + f.call(rep.function)[:90], "RED"))
-            print("          " + c("expected : " + repr(f.expected)[:70], "GRAY"))
-            print("          " + c("got      : " + str(f.got)[:70], "GRAY"))
+            print(IND0 + c("[KO] " + f.call(rep.function)[:90], "RED"))
+            print(hang + c("expected : " + repr(f.expected)[:70], "GRAY"))
+            print(hang + c("got      : " + str(f.got)[:70], "GRAY"))
     rest = len(rep.failures) - len(shown)
     if rest > 0:
         note("… and %d more failing test%s" % (rest, "s" if rest > 1 else ""))
@@ -423,16 +515,18 @@ def _failures(rep, show_fails):
 
 def _verdict(rep):
     ratio = "%d/%d" % (rep.passed, rep.total)
+    pct = int(rep.passed / rep.total * 100) if rep.total else 0
+    bar = _bar(rep.passed, rep.total)
     ok = rep.ok
-    label = "OK   %s tests passed" % ratio if ok else "KO   %s tests passed" % ratio
+    mark = "✔" if ok else "✖"
+    label = "%s  %s  %s tests passed  %3d%%" % (mark, bar, ratio, pct)
     if _rich:
         _console.print(Panel(Align.center(Text(label, style="bold white")),
                              style="on green" if ok else "on red",
                              box=box.HEAVY, padding=(0, 2)))
         return
     print()
-    print(c("  %s  %s tests passed  " % ("OK" if ok else "KO", ratio),
-            "BG_GREEN" if ok else "BG_RED", "WHITE", "BOLD"))
+    print(c("  %s  " % label, "BG_GREEN" if ok else "BG_RED", "WHITE", "BOLD"))
 
 
 def level_cleared(level):
@@ -442,7 +536,7 @@ def level_cleared(level):
             border_style="green", box=box.ROUNDED))
     else:
         print()
-        print("  " + c("✔ Level %d cleared!" % level, "GREEN", "BOLD"))
+        print(IND0 + c("✔ Level %d cleared!" % level, "GREEN", "BOLD"))
 
 
 def summary(title, rows, passed=True):
@@ -463,7 +557,7 @@ def summary(title, rows, passed=True):
     print(c("  " + title + "  ", "BG_GREEN" if passed else "BG_RED", "WHITE", "BOLD"))
     print()
     for label, value in rows:
-        print("  " + c(label.rjust(12) + " : ", "CYAN") + str(value))
+        print(IND0 + c(label.rjust(12) + " : ", "CYAN") + str(value))
     print()
 
 

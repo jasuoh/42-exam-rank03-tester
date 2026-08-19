@@ -2,55 +2,50 @@
 # -*- coding: utf-8 -*-
 """
 ╔══════════════════════════════════════════════════════════════╗
-║   EXAMSHELL  ·  42 Common Core  ·  Exam Rank 03 (Python)     ║
+║   C EXAM SHELL  ·  42 Common Core  ·  Exam Rank 02 (C)        ║
 ╚══════════════════════════════════════════════════════════════╝
 
-A practice tester in the style of the real examshell / moulinette.
+A practice tester for 42's C Exam Rank 02, in the style of the Python
+Exam Rank 03 tester this repo already has (`src/`). Same shape, different
+grading mechanism: your file is compiled — together with a generated
+main() — and run, and its output is compared against the same harness
+compiled with a reference implementation. See c_exam/grader.py.
 
-  · 6 levels, in the exact order of the real exam (1 -> 6)
-  · one random exercise per level, drawn from that level's pool
-  · every exercise graded against many curated cases + fuzz tests
-  · you only move up at 100%
-  · graded in a subprocess sandbox with a per-call timeout
+    python3 -m c_exam            # interactive menu
+    python3 -m c_exam --help     # every flag
 
-    python3 -m src            # interactive menu
-    python3 -m src --help     # every flag
-
-Put your solution in `rendu/<exercise_name>.py` and define the required
-function. The folder is created for you.
+Put your solution in `c_rendu/<exercise_name>.c` and define the required
+function (and ONLY that function — no main()). The folder is created for
+you.
 """
 
 import argparse
-import copy
 import os
 import random
+import shlex
 import time
 
-from . import grader, ui
-from .bank_common import signature_of as _signature_of
-from .exam_bank import EXERCISES, LEVELS, N_LEVELS
-from .training_bank import DIFFICULTIES, TRAINING_BY_DIFFICULTY, TRAINING_EXERCISES
+from src import ui
 
-RENDU_DIR = "rendu"
-STUB_SAMPLE_CASES = 3    # curated cases embedded as a quick self-check in a stub
+from . import grader
+from .bank import EXERCISES, LEVELS, N_LEVELS
 
-# Every exercise from both pools, keyed by name — used wherever the code only
-# needs "the exercise dict for this name" and doesn't care which pool it is
-# from (resolving, grading, showing the subject, creating a stub). Exam-only
-# concerns (level draws, the 6-level progression) keep using EXERCISES/LEVELS
-# directly so the training pool can never be drawn into an exam run.
-ALL_EXERCISES = dict(EXERCISES)
-ALL_EXERCISES.update(TRAINING_EXERCISES)
+RENDU_DIR = "c_rendu"
+
+
+def banner():
+    """ui.banner() with this tool's own title — it defaults to the Python
+    tool's "Exam Rank 03 · Python Edition" otherwise."""
+    ui.banner(subtitle="Exam Rank 02  ·  Common Core",
+             edition="42 School  ·  C Edition")
 
 
 class Config(object):
-    """Everything the flags can change, in one place."""
-
     def __init__(self, args):
         self.rendu = args.rendu
         self.timeout = args.timeout
-        self.fuzz = args.fuzz
-        self.strict_imports = args.strict_imports
+        self.cc = args.cc
+        self.strict_norm = args.strict_norm
         self.show_fails = args.show_fails
         self.seed = args.seed
 
@@ -66,7 +61,7 @@ class Session(object):
         self.current_ex = None
         self.passed = []
         self.attempts = 0
-        self.history = []          # [(level, exercise, attempts, seconds)]
+        self.history = []
 
     def start(self):
         self.start_time = time.time()
@@ -88,47 +83,25 @@ def fmt_duration(seconds):
 # ══════════════════════════════════════════════════════════════
 #  GRADING FRONT-END
 # ══════════════════════════════════════════════════════════════
-def grade_exercise(ex_name, rng, cfg):
-    """Grade one exercise, render the report, return True when it is 100%."""
-    ex = ALL_EXERCISES[ex_name]
-    try:
-        tests = grader.build_tests(ex_name, ex, rng, cfg.fuzz)
-    except grader.BankError as exc:
-        ui.error("exercise bank is broken: %s" % exc)
-        return False
-
-    ui.note("Grading %s … (%d tests)" % (ex_name, len(tests)))
-    report = grader.grade(ex_name, ex, cfg.rendu, timeout=cfg.timeout,
-                          strict_imports=cfg.strict_imports, tests=tests)
+def grade_exercise(ex_name, cfg):
+    ex = EXERCISES[ex_name]
+    ui.note("Compiling & grading %s … (%d tests)" % (ex_name, len(ex["cases"])))
+    report = grader.grade(ex_name, ex, cfg.rendu, cc=cfg.cc, timeout=cfg.timeout,
+                          strict_norm=cfg.strict_norm)
     ui.report(report, cfg.show_fails)
     return report.ok
 
 
 def grade_all(cfg):
-    """Grade every exercise that has a solution in cfg.rendu.
-
-    Each exercise is graded with a fresh `random.Random(cfg.seed)`, so this
-    matches `--grade EXERCISE --seed N` run one at a time. Returns True iff
-    every solution that was found passed all of its tests.
-    """
     rows, found, all_ok = [], 0, True
     for _, level, name, _func in exercise_entries():
-        path = os.path.join(cfg.rendu, name + ".py")
+        path = os.path.join(cfg.rendu, name + ".c")
         if not os.path.isfile(path):
             rows.append((level, name, "missing", "—"))
             continue
         found += 1
-        ex = EXERCISES[name]
-        rng = random.Random(cfg.seed)
-        try:
-            tests = grader.build_tests(name, ex, rng, cfg.fuzz)
-        except grader.BankError as exc:
-            ui.error("exercise bank is broken: %s" % exc)
-            all_ok = False
-            rows.append((level, name, "ko", "bank error"))
-            continue
-        report = grader.grade(name, ex, cfg.rendu, timeout=cfg.timeout,
-                              strict_imports=cfg.strict_imports, tests=tests)
+        report = grader.grade(name, EXERCISES[name], cfg.rendu, cc=cfg.cc,
+                              timeout=cfg.timeout, strict_norm=cfg.strict_norm)
         all_ok = all_ok and report.ok
         label = ("%d/%d" % (report.passed, report.total) if not report.fatal
                  else report.fatal_title)
@@ -153,40 +126,24 @@ def exercise_entries():
     return entries
 
 
-def training_entries():
-    """[(index, difficulty, name, function), …] ordered by difficulty, then name.
-
-    A separate listing from exercise_entries() on purpose: the training pool
-    is never part of an exam draw, so it never shares a table with it.
-    """
-    entries, index = [], 0
-    for difficulty in DIFFICULTIES:
-        for name in sorted(TRAINING_BY_DIFFICULTY[difficulty]):
-            index += 1
-            entries.append((index, difficulty, name,
-                            TRAINING_EXERCISES[name]["function"]))
-    return entries
-
-
 def draw(rng, pool, avoid=None):
-    """Pick an exercise from the pool, avoiding `avoid` when possible."""
     choices = [name for name in pool if name != avoid] or list(pool)
     return rng.choice(choices)
 
 
 def show_subject(ex_name, cfg, session=None):
     ui.clear()
-    ui.banner()
+    banner()
     if session is not None:
         ui.status_bar(session, N_LEVELS)
-    ui.subject(ex_name, ALL_EXERCISES[ex_name], cfg.rendu)
+    ui.subject(ex_name, EXERCISES[ex_name], cfg.rendu)
 
 
 # ══════════════════════════════════════════════════════════════
 #  EXAM MODE
 # ══════════════════════════════════════════════════════════════
 EXAM_COMMANDS = [
-    ("grademe", "test your solution (you advance only at 100%)"),
+    ("grademe", "compile & test your solution (you advance only at 100%)"),
     ("subject", "show the assignment again"),
     ("status", "show your current progress"),
     ("new", "draw a different exercise for this level"),
@@ -199,7 +156,7 @@ def exam_mode(cfg):
     rng = random.Random(cfg.seed)
     session = Session()
     ui.clear()
-    ui.banner()
+    banner()
     print()
     try:
         login = ui.ask("  Login (Enter = %s): " % session.login)
@@ -219,14 +176,15 @@ def exam_mode(cfg):
 
         while True:
             try:
-                cmd = ui.ask("\n  [%s@exam · lvl%d]$ " % (session.login, session.level)).lower()
+                cmd = ui.ask("\n  [%s@c-exam · lvl%d]$ "
+                            % (session.login, session.level)).lower()
             except ui.Abort:
                 cmd = "quit"
 
             if cmd in ("grademe", "g"):
                 session.attempts += 1
                 level_attempts += 1
-                if grade_exercise(session.current_ex, rng, cfg):
+                if grade_exercise(session.current_ex, cfg):
                     session.passed.append(session.current_ex)
                     session.history.append((session.level, session.current_ex,
                                             level_attempts, time.time() - level_started))
@@ -265,7 +223,7 @@ def exam_mode(cfg):
 
 def exam_summary(session, passed):
     ui.clear()
-    ui.banner()
+    banner()
     ui.status_bar(session, N_LEVELS)
     rows = [("Total time", session.elapsed()),
             ("Attempts", session.attempts),
@@ -283,23 +241,23 @@ def exam_summary(session, passed):
 #  PRACTICE MODE
 # ══════════════════════════════════════════════════════════════
 PRACTICE_COMMANDS = [
-    ("grademe", "test your solution"),
+    ("grademe", "compile & test your solution"),
     ("subject", "show the assignment again"),
     ("stub", "create an empty solution file for this exercise"),
     ("back", "return to the menu"),
 ]
 
 
-def practice_one(ex_name, cfg, rng):
+def practice_one(ex_name, cfg):
     show_subject(ex_name, cfg)
     ui.commands(PRACTICE_COMMANDS)
     while True:
         try:
-            cmd = ui.ask("\n  [practice · %s]$ " % ex_name).lower()
+            cmd = ui.ask("\n  [c-practice · %s]$ " % ex_name).lower()
         except ui.Abort:
             return
         if cmd in ("grademe", "g"):
-            grade_exercise(ex_name, rng, cfg)
+            grade_exercise(ex_name, cfg)
         elif cmd in ("subject", "s"):
             show_subject(ex_name, cfg)
             ui.commands(PRACTICE_COMMANDS)
@@ -315,14 +273,13 @@ def practice_one(ex_name, cfg, rng):
 
 
 def practice_mode(cfg, ex_name=None):
-    rng = random.Random()
     if ex_name:
-        practice_one(ex_name, cfg, rng)
+        practice_one(ex_name, cfg)
         return
     entries = exercise_entries()
     while True:
         ui.clear()
-        ui.banner()
+        banner()
         print()
         ui.exercise_table(entries, numbered=True)
         try:
@@ -335,46 +292,7 @@ def practice_mode(cfg, ex_name=None):
             ui.warn("pick a number between 1 and %d" % len(entries))
             time.sleep(0.8)
             continue
-        practice_one(entries[int(choice) - 1][2], cfg, rng)
-
-
-# ══════════════════════════════════════════════════════════════
-#  TRAINING MODE  ·  LeetCode-style, by difficulty — never in the exam
-# ══════════════════════════════════════════════════════════════
-_DIFFICULTY_KEYS = {"e": "easy", "m": "medium", "h": "hard", "a": None}
-
-
-def training_mode(cfg, ex_name=None, difficulty=None):
-    """Drill the training pool. Reuses practice_one() — grading, `stub` and
-    `subject` don't care which pool an exercise came from."""
-    rng = random.Random()
-    if ex_name:
-        practice_one(ex_name, cfg, rng)
-        return
-    while True:
-        entries = training_entries()
-        if difficulty:
-            entries = [e for e in entries if e[1] == difficulty]
-        ui.clear()
-        ui.banner()
-        print()
-        ui.training_table(entries, numbered=True)
-        label = ("all" if not difficulty else difficulty)
-        try:
-            choice = ui.ask("\n  [%s] Selection (number · e/m/h to filter · "
-                            "b to go back): " % label).lower()
-        except ui.Abort:
-            return
-        if choice in ("b", "back", "q", "quit", ""):
-            return
-        if choice in _DIFFICULTY_KEYS:
-            difficulty = _DIFFICULTY_KEYS[choice]
-            continue
-        if not choice.isdigit() or not 1 <= int(choice) <= len(entries):
-            ui.warn("pick a number, e/m/h to filter, or b to go back")
-            time.sleep(0.8)
-            continue
-        practice_one(entries[int(choice) - 1][2], cfg, rng)
+        practice_one(entries[int(choice) - 1][2], cfg)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -383,7 +301,7 @@ def training_mode(cfg, ex_name=None, difficulty=None):
 def list_mode(interactive=True):
     if interactive:
         ui.clear()
-        ui.banner()
+        banner()
         print()
     entries = exercise_entries()
     ui.exercise_table(entries)
@@ -396,94 +314,99 @@ def list_mode(interactive=True):
             return
 
 
-def training_list_mode(interactive=True):
-    if interactive:
-        ui.clear()
-        ui.banner()
-        print()
-    entries = training_entries()
-    ui.training_table(entries)
-    ui.info("%d training exercises · %d difficulties · practice only, "
-            "never drawn into the exam" % (len(entries), len(DIFFICULTIES)))
-    if interactive:
-        try:
-            ui.pause("\n  Press Enter to go back…")
-        except ui.Abort:
-            return
+FUNCTION_STUB_TEMPLATE = """\
+/* {name} — 42 Exam Rank 02 */
+/* {assignment} */
+{includes}
+{definition}
+{{
+    /* your code here */
+}}
+
+#ifdef SELF_TEST
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+{helpers}
+int main(void)
+{{
+    /* try it yourself:
+         cc -DSELF_TEST {path} -o /tmp/t && /tmp/t
+       then compare the printed output against the Examples above by eye —
+       this does NOT check pass/fail like the Python tool's stub does.
+       The real check is `grademe` / `make c-grade EX={short}`. */
+{examples}
+    return 0;
+}}
+#endif
+"""
+
+PROGRAM_STUB_TEMPLATE = """\
+/* {name} — 42 Exam Rank 02 */
+/* {assignment} */
+/* this is a PROGRAM — write your own main(), argc/argv and all. */
+
+#include <stdio.h>
+#include <unistd.h>
+
+int main(int argc, char **argv)
+{{
+    /* your code here — try it yourself:
+         cc {path} -o /tmp/t && /tmp/t{example_args}
+       then compare the output against the Examples above by eye.
+       The real check is `grademe` / `make c-grade EX={short}`. */
+    (void)argc;
+    (void)argv;
+    return (0);
+}}
+"""
 
 
-STUB_TEMPLATE = '''\
-# {name} — 42 Exam Rank 03
-# {assignment}
-
-{signature}
-    pass
-
-
-if __name__ == "__main__":
-    # Quick self-check — run this file directly for instant feedback.
-    # NOT the real grader: `grademe` / `make grade EX={short}` also cover
-    # dozens of edge cases and randomised inputs these examples don't.
-    _tests = [
-{cases_block}
-    ]
-    _ok = 0
-    for _args, _expected in _tests:
-        try:
-            _got = {function}(*_args)
-        except Exception as exc:
-            print("FAIL", _args, "-> raised", type(exc).__name__ + ":", exc)
-            continue
-        if _got == _expected:
-            _ok += 1
-            print("ok  ", _args, "->", _got)
-        else:
-            print("FAIL", _args, "-> got", _got, "expected", _expected)
-    print("%d/%d quick checks passed" % (_ok, len(_tests)))
-'''
-
-
-def _sample_cases(ex, n=STUB_SAMPLE_CASES):
-    """Up to `n` curated (args, expected) pairs, expected from the oracle.
-
-    deepcopy matters: some oracles receive mutable lists/matrices, and this
-    runs in the same process as later grading — an oracle that mutated its
-    input in place would otherwise corrupt exam_bank's own `cases` data.
-    """
-    samples = []
-    for args in ex["cases"][:n]:
-        try:
-            samples.append((args, ex["oracle"](*copy.deepcopy(args))))
-        except Exception:
-            continue
-    return samples
+def _definition_header(prototype):
+    """'void ft_putstr(char *str);' -> 'void ft_putstr(char *str)' (no ';')."""
+    return prototype.rstrip(";").rstrip()
 
 
 def make_stub(ex_name, cfg):
-    """Create rendu/<ex>.py with the required signature. Never overwrites."""
-    ex = ALL_EXERCISES[ex_name]
-    path = os.path.join(cfg.rendu, ex_name + ".py")
+    """Create c_rendu/<ex>.c (and list.h, if the exercise needs one). Never
+    overwrites an existing file."""
+    ex = EXERCISES[ex_name]
+    path = os.path.join(cfg.rendu, ex_name + ".c")
     if os.path.exists(path):
         ui.warn("%s already exists — not touching it" % path)
         return False
-    signature = _signature_of(ex["subject"]) or "def %s():" % ex["function"]
-    samples = _sample_cases(ex)
-    cases_block = "\n".join(
-        "        (%r, %r)," % (args, expected) for args, expected in samples
-    ) or "        # (no sample cases available)"
     try:
         os.makedirs(cfg.rendu, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(STUB_TEMPLATE.format(
+        if ex.get("kind") == "program":
+            first_case = next((c for c in ex["cases"] if c), [])
+            example_args = "".join(" " + shlex.quote(a) for a in first_case)
+            content = PROGRAM_STUB_TEMPLATE.format(
                 name=ex_name, assignment=ex["subject"].splitlines()[0],
-                signature=signature, function=ex["function"],
-                short=ex_name[3:] if ex_name.startswith("py_") else ex_name,
-                cases_block=cases_block))
+                path=path, short=ex_name, example_args=example_args)
+        else:
+            header = grader.header_filename(ex)
+            includes = "\n#include \"%s\"\n" % header if header else ""
+            examples = "\n".join(grader.render_call(ex, args)
+                                 for args in ex["cases"][:2])
+            content = FUNCTION_STUB_TEMPLATE.format(
+                name=ex_name, assignment=ex["subject"].splitlines()[0],
+                includes=includes, definition=_definition_header(ex["prototype"]),
+                path=path, short=ex_name, helpers=grader.needed_helpers_c(ex),
+                examples=examples)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        header = grader.header_filename(ex)
+        if header:
+            header_path = os.path.join(cfg.rendu, header)
+            if not os.path.exists(header_path):
+                with open(header_path, "w", encoding="utf-8") as fh:
+                    fh.write(grader.header_content(header))
     except OSError as exc:
         ui.error("cannot create %s: %s" % (path, exc))
         return False
-    ui.success("created %s  (%d quick self-check case%s included)"
-              % (path, len(samples), "" if len(samples) == 1 else "s"))
+    ui.success("created %s" % path)
     return True
 
 
@@ -492,9 +415,8 @@ def make_stub(ex_name, cfg):
 # ══════════════════════════════════════════════════════════════
 MENU = [
     ("1", "Start exam", "(%d levels, real exam flow)" % N_LEVELS),
-    ("2", "Practice mode", "(drill a single exam exercise)"),
+    ("2", "Practice mode", "(drill a single exercise)"),
     ("3", "List all exercises", ""),
-    ("4", "Training mode", "(LeetCode-style, by difficulty — not exam material)"),
     ("q", "Quit", ""),
 ]
 
@@ -502,7 +424,7 @@ MENU = [
 def main_menu(cfg):
     while True:
         ui.clear()
-        ui.banner()
+        banner()
         print()
         ui.menu(MENU)
         try:
@@ -519,8 +441,6 @@ def main_menu(cfg):
             practice_mode(cfg)
         elif choice == "3":
             list_mode()
-        elif choice == "4":
-            training_mode(cfg)
         elif choice in ("q", "quit", "exit"):
             ui.info("Good luck on the real exam! 🍀")
             print()
@@ -532,17 +452,16 @@ def main_menu(cfg):
 # ══════════════════════════════════════════════════════════════
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="python3 -m src",
-        description="42 Exam Rank 03 (Python) practice tester.",
+        prog="python3 -m c_exam",
+        description="42 Exam Rank 02 (C) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="examples:\n"
-               "  python3 -m src                       interactive menu\n"
-               "  python3 -m src --exam --seed 42      reproducible exam\n"
-               "  python3 -m src --practice py_inter   drill one exercise\n"
-               "  python3 -m src --train easy          drill an easy training exercise\n"
-               "  python3 -m src --grade py_inter      grade once, no UI\n"
-               "  python3 -m src --grade-all           grade every rendu/ solution\n"
-               "  python3 -m src --check               validate the banks\n")
+               "  python3 -m c_exam                       interactive menu\n"
+               "  python3 -m c_exam --exam --seed 42      reproducible exam\n"
+               "  python3 -m c_exam --practice ft_atoi    drill one exercise\n"
+               "  python3 -m c_exam --grade ft_atoi       grade once, no UI\n"
+               "  python3 -m c_exam --grade-all           grade every c_rendu/ solution\n"
+               "  python3 -m c_exam --check                validate the bank\n")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--exam", action="store_true",
                       help="start the exam directly, skipping the menu")
@@ -550,15 +469,10 @@ def build_parser():
                       help="practice mode, optionally on one exercise")
     mode.add_argument("--list", action="store_true",
                       help="print the exercise pool and exit")
-    mode.add_argument("--train", nargs="?", const="", metavar="EXERCISE_OR_DIFFICULTY",
-                      help="training mode (LeetCode-style, by difficulty; "
-                           "never part of the exam)")
-    mode.add_argument("--list-training", action="store_true",
-                      help="print the training pool (by difficulty) and exit")
     mode.add_argument("--grade", metavar="EXERCISE",
                       help="grade one exercise and exit (0 = OK, 1 = KO)")
     mode.add_argument("--grade-all", action="store_true",
-                      help="grade every solution found in rendu/ and exit")
+                      help="grade every solution found in c_rendu/ and exit")
     mode.add_argument("--stub", metavar="EXERCISE",
                       help="create an empty solution file and exit")
     mode.add_argument("--check", action="store_true",
@@ -568,13 +482,13 @@ def build_parser():
                    help="seed the RNG so a run is reproducible")
     p.add_argument("--rendu", default=RENDU_DIR, metavar="DIR",
                    help="where your solutions live (default: %(default)s)")
+    p.add_argument("--cc", default=grader.DEFAULT_CC, metavar="COMPILER",
+                   help="C compiler to use (default: %(default)s)")
     p.add_argument("--timeout", type=int, default=grader.DEFAULT_TIMEOUT,
                    metavar="SEC",
-                   help="seconds allowed per call (default: %(default)s)")
-    p.add_argument("--fuzz", type=int, default=grader.DEFAULT_FUZZ, metavar="N",
-                   help="random extra tests per exercise (default: %(default)s)")
-    p.add_argument("--strict-imports", action="store_true",
-                   help="fail grading on any import, like the real moulinette")
+                   help="seconds allowed per harness run (default: %(default)s)")
+    p.add_argument("--strict-norm", action="store_true",
+                   help="fail grading on any compiler warning (-Werror)")
     p.add_argument("--show-fails", type=int, default=4, metavar="N",
                    help="failing tests to display (default: %(default)s)")
     p.add_argument("--no-color", action="store_true",
@@ -585,16 +499,15 @@ def build_parser():
 
 
 def resolve_exercise(name):
-    """Accept the exact name, or a unique suffix like 'inter'. Searches both
-    the exam pool and the training pool."""
-    if name in ALL_EXERCISES:
+    """Accept the exact name, or a unique suffix like 'strlen'."""
+    if name in EXERCISES:
         return name
-    matches = [n for n in ALL_EXERCISES if n == "py_" + name or n.endswith(name)]
+    matches = [n for n in EXERCISES if n == "ft_" + name or n.endswith(name)]
     if len(matches) == 1:
         return matches[0]
     if not matches:
         ui.error("unknown exercise: %s" % name)
-        ui.note("run `python3 -m src --list` to see them all")
+        ui.note("run `python3 -m c_exam --list` to see them all")
     else:
         ui.error("ambiguous exercise %r — did you mean %s?"
                  % (name, ", ".join(sorted(matches))))
@@ -606,35 +519,23 @@ def main(argv=None):
     ui.configure(rich=not args.no_rich, color=False if args.no_color else None)
     cfg = Config(args)
 
-    if args.timeout < 1 or args.fuzz < 0:
-        ui.error("--timeout must be >= 1 and --fuzz must be >= 0")
+    if args.timeout < 1:
+        ui.error("--timeout must be >= 1")
         return 2
 
     if args.check:
-        rng = random.Random(args.seed if args.seed is not None else 0)
-        ui.info("checking the exam bank …")
-        problems = grader.selftest(EXERCISES, LEVELS, rng,
-                                   timeout=cfg.timeout, fuzz=cfg.fuzz)
-        print()
-        ui.info("checking the training bank …")
-        problems += grader.selftest(TRAINING_EXERCISES, TRAINING_BY_DIFFICULTY, rng,
-                                    timeout=cfg.timeout, fuzz=cfg.fuzz)
+        ui.info("checking the C exercise bank …")
+        problems = grader.selftest(EXERCISES, LEVELS, cc=cfg.cc, timeout=cfg.timeout)
         print()
         if problems:
-            ui.error("%d problem(s) found in the bank(s)" % problems)
+            ui.error("%d problem(s) found in the bank" % problems)
             return 1
-        ui.success("banks are consistent — %d exam exercises (%d levels), "
-                   "%d training exercises (%d difficulties)"
-                   % (len(EXERCISES), N_LEVELS, len(TRAINING_EXERCISES),
-                      len(DIFFICULTIES)))
+        ui.success("bank is consistent — %d exercises, %d levels"
+                   % (len(EXERCISES), N_LEVELS))
         return 0
 
     if args.list:
         list_mode(interactive=False)
-        return 0
-
-    if args.list_training:
-        training_list_mode(interactive=False)
         return 0
 
     if args.stub:
@@ -645,8 +546,7 @@ def main(argv=None):
         name = resolve_exercise(args.grade)
         if not name:
             return 2
-        rng = random.Random(args.seed)
-        return 0 if grade_exercise(name, rng, cfg) else 1
+        return 0 if grade_exercise(name, cfg) else 1
 
     if args.grade_all:
         return 0 if grade_all(cfg) else 1
@@ -661,18 +561,6 @@ def main(argv=None):
         if args.practice and not name:
             return 2
         practice_mode(cfg, name)
-        return 0
-    if args.train is not None:
-        value = args.train.lower()
-        if value in DIFFICULTIES:
-            training_mode(cfg, difficulty=value)
-        elif value:
-            name = resolve_exercise(args.train)
-            if not name:
-                return 2
-            training_mode(cfg, ex_name=name)
-        else:
-            training_mode(cfg)
         return 0
 
     main_menu(cfg)

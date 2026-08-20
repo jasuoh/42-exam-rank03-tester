@@ -73,10 +73,11 @@ Commands during the exam:
 | `stub` | create the solution file for you |
 | `quit` | abort (you still get a summary) |
 
-Modes from the main menu: **Start exam** (the full run above), **Practice
-mode** (drill any single exam exercise, no progression), **List all
-exercises**, **Training mode** (LeetCode-style exercises by difficulty —
-see below, never part of the exam).
+Modes from the main menu: **Start exam** (the full run above — draws only
+from the Standard 14, one per level), **Practice mode** (drill *any* of
+the 40, Standard or Extra, no progression), **List all exercises**,
+**Training mode** (LeetCode-style exercises by difficulty — see below,
+never part of the exam).
 
 Every generated stub (`stub` / `make stub`) also embeds a small
 **self-check block**: a handful of the exercise's own curated cases with
@@ -90,38 +91,36 @@ of edge cases and fuzz inputs these don't.
 
 ## 📚 Exercise pool
 
-40 exercises, one drawn at random per level per run — **all 40 are in play
-during a real run of `make exam`**, but they are not all the same kind of
-exercise:
+40 exercises, but they are not all the same kind of exercise, and —
+important — **`make exam` only ever draws from the Standard 14**:
 
 * **Standard (14)** — the original pool, based on the publicly documented
   Rank-03 exercises. These are the ones that can plausibly show up on the
-  *real* 42 exam. Marked in **bold** below.
-* **Extra (26)** — added later for broader practice: more variety, a wider
+  *real* 42 exam, and the only ones a real `make exam` run can draw.
+  Marked in **bold** below and with ★ in `--list`.
+* **Extra (26)** — added for broader practice: more variety, a wider
   difficulty range, a couple of deliberately easy warm-ups in levels 1–2.
-  Good drilling, but not verified against any real exam sheet — don't treat
-  them as "this is what 42 asks."
+  Good drilling, but not verified against any real exam sheet, and
+  **never drawn into a real exam run** — reach them through **Practice
+  mode** instead (marked with ○ in `--list`).
 
-| Level | Standard | Extra |
+| Level | Standard (drawn by `make exam`) | Extra (practice mode only) |
 |------:|----------|-------|
-| 1 | **`py_cryptic_sorter`** · **`py_inter`** | `py_vowel_counter` · `py_capitalizer` · `py_leet_speak` · `py_char_frequency` · `py_string_reverser` · `py_char_counter` |
+| 1 | **`py_cryptic_sorter`** · **`py_inter`** · **`py_bracket_validator`** | `py_vowel_counter` · `py_capitalizer` · `py_leet_speak` · `py_char_frequency` · `py_string_reverser` · `py_char_counter` |
 | 2 | **`py_echo_validator`** · **`py_mirror_matrix`** | `py_digit_extractor` · `py_case_counter` · `py_run_length_encoder` · `py_second_largest` · `py_even_odd_counter` · `py_sum_of_squares` |
 | 3 | **`py_number_base_converter`** · **`py_pattern_tracker`** · **`py_hidenp`** | `py_word_reverser` · `py_run_length_decoder` · `py_binary_gap` |
 | 4 | **`py_anagram`** · **`py_shadow_merge`** · **`py_string_permutation_checker`** | `py_unique_elements` · `py_pangram_checker` · `py_max_subarray_sum` |
 | 5 | **`py_string_sculptor`** · **`py_twist_sequence`** | `py_matrix_transposer` · `py_longest_word` · `py_zigzag_flatten` · `py_pascals_triangle_row` |
-| 6 | **`py_bracket_validator`** · **`py_whisper_cipher`** | `py_matrix_rotator` · `py_prime_finder` · `py_longest_palindromic_substring` · `py_two_sum_indices` |
+| 6 | **`py_whisper_cipher`** | `py_matrix_rotator` · `py_prime_finder` · `py_longest_palindromic_substring` · `py_two_sum_indices` |
 
 Within the extra pool, `py_string_reverser` and `py_char_counter` (level 1),
 plus `py_even_odd_counter` and `py_sum_of_squares` (level 2), are the
 deliberately easy ones — a good place to start if you're new to the exam
 format.
 
-There is currently no flag to restrict a run to only the standard 14 —
-`make exam` always draws from the full pool for a given level.
-
 `python3 -m src --list` prints this pool with the exact function name for
-each exercise; the full signature and subject show up once you draw or
-practice it.
+each exercise, ★/○ marking which pool each belongs to; the full signature
+and subject show up once you draw or practice it.
 
 ## 🧠 Training pool (LeetCode-style)
 

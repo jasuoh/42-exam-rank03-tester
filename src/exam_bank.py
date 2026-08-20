@@ -530,7 +530,7 @@ def _fuzz_sum_of_squares(rng):
 EXERCISES = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "py_cryptic_sorter": {
-        "level": 1, "function": "cryptic_sorter",
+        "level": 1, "function": "cryptic_sorter", "standard": True,
         "oracle": _ref_cryptic_sorter, "fuzz": _fuzz_cryptic_sorter,
         "subject": _sub("py_cryptic_sorter", """
         Write a function that sorts a list of strings by multiple criteria:
@@ -558,7 +558,7 @@ EXERCISES = {
         ],
     },
     "py_inter": {
-        "level": 1, "function": "inter",
+        "level": 1, "function": "inter", "standard": True,
         "oracle": _ref_inter, "fuzz": _fuzz_inter,
         "subject": _sub("py_inter", """
         Write a function that returns a string with the characters that appear
@@ -712,7 +712,7 @@ EXERCISES = {
 
     # ── LEVEL 2 ────────────────────────────────────────────────
     "py_echo_validator": {
-        "level": 2, "function": "echo_validator",
+        "level": 2, "function": "echo_validator", "standard": True,
         "oracle": _ref_echo_validator, "fuzz": _fuzz_echo_validator,
         "subject": _sub("py_echo_validator", """
         Write a function that checks whether a string is a palindrome.
@@ -739,7 +739,7 @@ EXERCISES = {
         ],
     },
     "py_mirror_matrix": {
-        "level": 2, "function": "mirror_matrix",
+        "level": 2, "function": "mirror_matrix", "standard": True,
         "oracle": _ref_mirror_matrix, "fuzz": _fuzz_mirror_matrix,
         "subject": _sub("py_mirror_matrix", """
         Given a 2D matrix (list of lists), return a NEW matrix where each row
@@ -889,7 +889,7 @@ EXERCISES = {
 
     # ── LEVEL 3 ────────────────────────────────────────────────
     "py_number_base_converter": {
-        "level": 3, "function": "number_base_converter",
+        "level": 3, "function": "number_base_converter", "standard": True,
         "oracle": _ref_number_base_converter, "fuzz": _fuzz_number_base_converter,
         "subject": _sub("py_number_base_converter", """
         Write a function that converts a number from one base to another.
@@ -924,7 +924,7 @@ EXERCISES = {
         ],
     },
     "py_pattern_tracker": {
-        "level": 3, "function": "pattern_tracker",
+        "level": 3, "function": "pattern_tracker", "standard": True,
         "oracle": _ref_pattern_tracker, "fuzz": _fuzz_pattern_tracker,
         "subject": _sub("py_pattern_tracker", """
         Write a function that counts valid consecutive digit pairs in a string.
@@ -946,7 +946,7 @@ EXERCISES = {
         ],
     },
     "py_hidenp": {
-        "level": 3, "function": "hidenp",
+        "level": 3, "function": "hidenp", "standard": True,
         "oracle": _ref_hidenp, "fuzz": _fuzz_hidenp,
         "subject": _sub("py_hidenp", """
         Write a function that checks whether 'small' is a subsequence of 'big'.
@@ -1037,7 +1037,7 @@ EXERCISES = {
 
     # ── LEVEL 4 ────────────────────────────────────────────────
     "py_anagram": {
-        "level": 4, "function": "anagram",
+        "level": 4, "function": "anagram", "standard": True,
         "oracle": _ref_anagram, "fuzz": _fuzz_anagram,
         "subject": _sub("py_anagram", """
         Write a function that checks whether two strings are anagrams.
@@ -1061,7 +1061,7 @@ EXERCISES = {
         ],
     },
     "py_shadow_merge": {
-        "level": 4, "function": "shadow_merge",
+        "level": 4, "function": "shadow_merge", "standard": True,
         "oracle": _ref_shadow_merge, "fuzz": _fuzz_shadow_merge,
         "subject": _sub("py_shadow_merge", """
         Write a function that merges two already-sorted lists into one sorted
@@ -1081,7 +1081,7 @@ EXERCISES = {
         ],
     },
     "py_string_permutation_checker": {
-        "level": 4, "function": "string_permutation_checker",
+        "level": 4, "function": "string_permutation_checker", "standard": True,
         "oracle": _ref_string_permutation_checker,
         "fuzz": _fuzz_string_permutation_checker,
         "subject": _sub("py_string_permutation_checker", """
@@ -1175,7 +1175,7 @@ EXERCISES = {
 
     # ── LEVEL 5 ────────────────────────────────────────────────
     "py_string_sculptor": {
-        "level": 5, "function": "string_sculptor",
+        "level": 5, "function": "string_sculptor", "standard": True,
         "oracle": _ref_string_sculptor, "fuzz": _fuzz_string_sculptor,
         "subject": _sub("py_string_sculptor", """
         Write a function that alternates the case of ALPHABETIC characters
@@ -1198,7 +1198,7 @@ EXERCISES = {
         ],
     },
     "py_twist_sequence": {
-        "level": 5, "function": "twist_sequence",
+        "level": 5, "function": "twist_sequence", "standard": True,
         "oracle": _ref_twist_sequence, "fuzz": _fuzz_twist_sequence,
         "subject": _sub("py_twist_sequence", """
         Write a function that rotates an array to the RIGHT by k positions.
@@ -1309,7 +1309,7 @@ EXERCISES = {
 
     # ── LEVEL 6 ────────────────────────────────────────────────
     "py_bracket_validator": {
-        "level": 6, "function": "bracket_validator",
+        "level": 1, "function": "bracket_validator", "standard": True,
         "oracle": _ref_bracket_validator, "fuzz": _fuzz_bracket_validator,
         "subject": _sub("py_bracket_validator", """
         Write a function that checks whether the brackets in a string are
@@ -1332,7 +1332,7 @@ EXERCISES = {
         ],
     },
     "py_whisper_cipher": {
-        "level": 6, "function": "whisper_cipher",
+        "level": 6, "function": "whisper_cipher", "standard": True,
         "oracle": _ref_whisper_cipher, "fuzz": _fuzz_whisper_cipher,
         "subject": _sub("py_whisper_cipher", """
         Write a function that creates a Caesar cipher by shifting letters by a
@@ -1452,10 +1452,23 @@ for _name, _ex in EXERCISES.items():
         raise ValueError("exam_bank: %s has level %r, expected 1..%d"
                          % (_name, _lvl, N_LEVELS))
     LEVELS[_lvl].append(_name)
+    _ex.setdefault("standard", False)
 
 for _lvl, _pool in LEVELS.items():
     if not _pool:
         raise ValueError("exam_bank: level %d has no exercise" % _lvl)
+
+# The 14 exercises verified against publicly documented Rank-03 subjects
+# (see README) — `make exam` draws only from this pool, so a real exam run
+# only ever contains exercises confirmed to plausibly appear on the actual
+# 42 exam. The other 26 ("Extra") stay reachable through practice/training
+# mode for open-ended drilling, just never during a real exam emulation.
+STANDARD_LEVELS = {lvl: [name for name in pool if EXERCISES[name]["standard"]]
+                   for lvl, pool in LEVELS.items()}
+
+for _lvl, _pool in STANDARD_LEVELS.items():
+    if not _pool:
+        raise ValueError("exam_bank: level %d has no standard exercise" % _lvl)
 
 
 def signature_of(name):

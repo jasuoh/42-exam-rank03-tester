@@ -28,7 +28,7 @@ import time
 
 from . import grader, ui
 from .bank_common import signature_of as _signature_of
-from .exam_bank import EXERCISES, LEVELS, N_LEVELS
+from .exam_bank import EXERCISES, LEVELS, N_LEVELS, STANDARD_LEVELS
 from .training_bank import DIFFICULTIES, TRAINING_BY_DIFFICULTY, TRAINING_EXERCISES
 
 RENDU_DIR = "rendu"
@@ -112,7 +112,7 @@ def grade_all(cfg):
     every solution that was found passed all of its tests.
     """
     rows, found, all_ok = [], 0, True
-    for _, level, name, _func in exercise_entries():
+    for _, level, name, _func, _standard in exercise_entries():
         path = os.path.join(cfg.rendu, name + ".py")
         if not os.path.isfile(path):
             rows.append((level, name, "missing", "—"))
@@ -144,12 +144,15 @@ def grade_all(cfg):
 
 
 def exercise_entries():
-    """[(index, level, name, function), …] ordered by level, then name."""
+    """[(index, level, name, function, standard), …] ordered by level, then
+    name. `standard` marks the 14 exercises `make exam` actually draws
+    from — the rest ("Extra") only ever show up in practice mode."""
     entries, index = [], 0
     for level in range(1, N_LEVELS + 1):
         for name in sorted(LEVELS[level]):
             index += 1
-            entries.append((index, level, name, EXERCISES[name]["function"]))
+            entries.append((index, level, name, EXERCISES[name]["function"],
+                            EXERCISES[name]["standard"]))
     return entries
 
 
@@ -212,7 +215,7 @@ def exam_mode(cfg):
         ui.note("seed %d — this exam is reproducible" % cfg.seed)
 
     while session.level <= N_LEVELS:
-        session.current_ex = draw(rng, LEVELS[session.level])
+        session.current_ex = draw(rng, STANDARD_LEVELS[session.level])
         level_started, level_attempts = time.time(), 0
         show_subject(session.current_ex, cfg, session)
         ui.commands(EXAM_COMMANDS)
@@ -245,7 +248,8 @@ def exam_mode(cfg):
                 print()
                 ui.status_bar(session, N_LEVELS)
             elif cmd == "new":
-                session.current_ex = draw(rng, LEVELS[session.level], session.current_ex)
+                session.current_ex = draw(rng, STANDARD_LEVELS[session.level],
+                                          session.current_ex)
                 show_subject(session.current_ex, cfg, session)
                 ui.commands(EXAM_COMMANDS)
                 ui.info("New exercise drawn for level %d." % session.level)

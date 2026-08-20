@@ -64,15 +64,21 @@ class ExerciseEntriesTests(unittest.TestCase):
     def test_covers_every_exercise_exactly_once(self):
         entries = examshell.exercise_entries()
         self.assertEqual(len(entries), len(EXERCISES))
-        self.assertEqual({name for _, _, name, _ in entries}, set(EXERCISES))
+        self.assertEqual({name for _, _, name, _, _ in entries}, set(EXERCISES))
 
     def test_ordered_by_level_then_name(self):
         entries = examshell.exercise_entries()
-        levels = [lvl for _, lvl, _, _ in entries]
+        levels = [lvl for _, lvl, _, _, _ in entries]
         self.assertEqual(levels, sorted(levels))
         for level in range(1, N_LEVELS + 1):
-            names = [name for _, lvl, name, _ in entries if lvl == level]
+            names = [name for _, lvl, name, _, _ in entries if lvl == level]
             self.assertEqual(names, sorted(names))
+
+    def test_standard_flag_matches_the_bank(self):
+        entries = examshell.exercise_entries()
+        flagged = {name for _, _, name, _, standard in entries if standard}
+        self.assertEqual(flagged, {n for n in EXERCISES if EXERCISES[n]["standard"]})
+        self.assertEqual(len(flagged), 14)
 
     def test_indexes_are_sequential_from_one(self):
         entries = examshell.exercise_entries()

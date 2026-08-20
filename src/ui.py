@@ -394,29 +394,35 @@ def menu(rows):
 
 
 def exercise_table(entries, numbered=False):
-    """entries: [(index, level, name, function), …]"""
+    """entries: [(index, level, name, function, standard), …]. `standard`
+    marks the 14 exercises a real `make exam` run can actually draw —
+    everything else is practice-only, shown with a dim ○ instead of ★."""
     if _rich:
-        t = Table(title="[bold]Exercise pool[/bold]  (one per level in the exam)",
+        t = Table(title="[bold]Exercise pool[/bold]  "
+                        "(★ = can appear in a real exam run)",
                   box=box.SIMPLE_HEAVY, header_style="bold cyan",
                   row_styles=["", "dim"])
         t.add_column("#", justify="right", style="dim")
+        t.add_column("", justify="center", width=1)
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("Function", style="green")
-        for idx, lvl, name, func in entries:
-            t.add_row(str(idx) if numbered else "", str(lvl),
+        for idx, lvl, name, func, standard in entries:
+            mark = "[bold yellow]★[/bold yellow]" if standard else "[dim]○[/dim]"
+            t.add_row(str(idx) if numbered else "", mark, str(lvl),
                       _esc(name), _esc(func + "()"))
         _console.print(t)
         return
-    width = max((len(name) for _, _, name, _ in entries), default=0) + 2
+    width = max((len(name) for _, _, name, _, _ in entries), default=0) + 2
     last = None
-    for idx, lvl, name, func in entries:
+    for idx, lvl, name, func, standard in entries:
         if lvl != last:
             print(IND0 + c("Level %d:" % lvl, "YELLOW"))
             last = lvl
         prefix = ("[%d] " % idx) if numbered else ""
-        print(IND1 + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
-              + c(func + "()", "GRAY"))
+        mark = c("★", "YELLOW", "BOLD") if standard else c("○", "GRAY")
+        print(IND1 + c(prefix, "GRAY") + mark + " "
+              + c(name.ljust(width), "WHITE") + c(func + "()", "GRAY"))
 
 
 def training_table(entries, numbered=False):

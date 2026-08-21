@@ -55,15 +55,19 @@ class ExerciseEntriesTests(unittest.TestCase):
     def test_covers_every_exercise_exactly_once(self):
         entries = examshell.exercise_entries()
         self.assertEqual(len(entries), len(EXERCISES))
-        self.assertEqual({name for _, _, name, _ in entries}, set(EXERCISES))
+        self.assertEqual({name for _, _, name, _, _ in entries}, set(EXERCISES))
 
     def test_ordered_by_level_then_name(self):
         entries = examshell.exercise_entries()
-        levels = [lvl for _, lvl, _, _ in entries]
+        levels = [lvl for _, lvl, _, _, _ in entries]
         self.assertEqual(levels, sorted(levels))
         for level in range(1, N_LEVELS + 1):
-            names = [name for _, lvl, name, _ in entries if lvl == level]
+            names = [name for _, lvl, name, _, _ in entries if lvl == level]
             self.assertEqual(names, sorted(names))
+
+    def test_all_entries_are_standard(self):
+        entries = examshell.exercise_entries()
+        self.assertTrue(all(standard for *_, standard in entries))
 
     def test_indexes_are_sequential_from_one(self):
         entries = examshell.exercise_entries()

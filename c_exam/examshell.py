@@ -94,7 +94,7 @@ def grade_exercise(ex_name, cfg):
 
 def grade_all(cfg):
     rows, found, all_ok = [], 0, True
-    for _, level, name, _func in exercise_entries():
+    for _, level, name, _func, _standard in exercise_entries():
         path = os.path.join(cfg.rendu, name + ".c")
         if not os.path.isfile(path):
             rows.append((level, name, "missing", "—"))
@@ -117,12 +117,14 @@ def grade_all(cfg):
 
 
 def exercise_entries():
-    """[(index, level, name, function), …] ordered by level, then name."""
+    """[(index, level, name, function, standard), …] ordered by level, then
+    name. Every exercise in the C bank can be drawn by a real exam run, so
+    `standard` is always True here (unlike the Python bank's Extra pool)."""
     entries, index = [], 0
     for level in range(1, N_LEVELS + 1):
         for name in sorted(LEVELS[level]):
             index += 1
-            entries.append((index, level, name, EXERCISES[name]["function"]))
+            entries.append((index, level, name, EXERCISES[name]["function"], True))
     return entries
 
 

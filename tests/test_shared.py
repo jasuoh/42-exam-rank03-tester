@@ -18,6 +18,20 @@ from src.examshell import Session
 from src.grader import Failure, Report
 
 
+def unwritable_dir(testcase):
+    """A directory path that os.makedirs() can never create, even as root:
+    it sits *under a regular file*, so every attempt fails with
+    NotADirectoryError. A made-up absolute path like /this/does/not/exist
+    would simply get created when the tests run as root (Docker, CI
+    containers) — failing the test and littering the filesystem."""
+    tmp = tempfile.TemporaryDirectory()
+    testcase.addCleanup(tmp.cleanup)
+    blocker = os.path.join(tmp.name, "a-file")
+    with open(blocker, "w", encoding="utf-8"):
+        pass
+    return os.path.join(blocker, "sub")
+
+
 class SettingsTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -59,9 +73,10 @@ class SettingsTests(unittest.TestCase):
 
     def test_save_config_survives_unwritable_dir(self):
         # DATA_DIR unset/unwritable: os.makedirs should fail -> best-effort False
-        with patch.object(settings, "DATA_DIR", "/this/does/not/exist/at/all"), \
+        bad_dir = unwritable_dir(self)
+        with patch.object(settings, "DATA_DIR", bad_dir), \
              patch.object(settings, "CONFIG_PATH",
-                          "/this/does/not/exist/at/all/config.json"):
+                          os.path.join(bad_dir, "config.json")):
             self.assertFalse(settings.save_config({"theme": "dark"}))
 
     def test_merged_prefers_explicit_cli_flag(self):
@@ -518,7 +533,7 @@ class ReportExportTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(path))
 
     def test_write_report_survives_unwritable_dir(self):
-        with patch.object(report_export, "REPORTS_DIR", "/this/does/not/exist/at/all"):
+        with patch.object(report_export, "REPORTS_DIR", unwritable_dir(self)):
             session = self._session()
             path = report_export.write_exam_report("py", session, 6, True)
         self.assertIsNone(path)

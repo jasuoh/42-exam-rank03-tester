@@ -349,7 +349,7 @@ class NewCommandResetsLevelTimingTests(unittest.TestCase):
     fix, same regression, both examshell.py's exam_mode()."""
 
     def test_attempts_after_new_do_not_include_the_abandoned_exercise(self):
-        cfg = _cfg("unused-rendu", fuzz=0, seed=None)
+        cfg = _cfg("unused-rendu", fuzz=0, seed=None, relaxed=True)
         ask_calls = ["  ", "grademe", "new", "grademe"]
         captured = {}
 
@@ -463,6 +463,79 @@ class SeededExamIsReproducibleTests(unittest.TestCase):
         with_retries = self._drawn(fails_per_level=3)
         self.assertEqual(len(first_try), N_LEVELS)
         self.assertEqual(first_try, with_retries)
+
+
+
+STRICT_FLAGS = ("strict_norm", "strict_forbidden")
+class RealisticExamModeTests(unittest.TestCase):
+    """By default the exam grades as strictly as the real one and has no
+    `new`; --relaxed restores the lenient behaviour. --time-limit ends it."""
+
+    def test_exam_config_is_strict_by_default(self):
+        cfg = examshell.exam_config(_cfg("x"))
+        for flag in STRICT_FLAGS:
+            self.assertTrue(getattr(cfg, flag), flag)
+
+    def test_exam_config_leaves_the_original_config_alone(self):
+        base = _cfg("x")
+        examshell.exam_config(base)
+        for flag in STRICT_FLAGS:
+            self.assertFalse(getattr(base, flag), flag)
+
+    def test_relaxed_keeps_lenient_grading(self):
+        cfg = examshell.exam_config(_cfg("x", relaxed=True))
+        for flag in STRICT_FLAGS:
+            self.assertFalse(getattr(cfg, flag), flag)
+
+    def test_new_is_hidden_unless_relaxed(self):
+        names = [n for n, _ in examshell.exam_commands(_cfg("x"))]
+        self.assertNotIn("new", names)
+        names = [n for n, _ in examshell.exam_commands(_cfg("x", relaxed=True))]
+        self.assertIn("new", names)
+
+    def _run(self, cfg, asks, **patches):
+        captured = {}
+
+        def fake_summary(session, passed, timed_out=False):
+            captured.update(session=session, passed=passed, timed_out=timed_out)
+
+        with mock.patch.object(examshell, "grade_exercise", return_value=False), \
+             mock.patch.object(examshell, "exam_summary", side_effect=fake_summary), \
+             mock.patch.object(examshell.session_store, "load", return_value=None), \
+             mock.patch.object(examshell.session_store, "save"), \
+             mock.patch.object(examshell.session_store, "clear"), \
+             mock.patch.object(examshell.ui, "ask", side_effect=asks), \
+             mock.patch.object(examshell.ui, "warn") as warn, \
+             mock.patch.object(examshell.ui, "clear"), \
+             mock.patch.object(examshell.ui, "banner"), \
+             mock.patch.object(examshell.ui, "status_bar"), \
+             mock.patch.object(examshell.ui, "subject"), \
+             mock.patch.object(examshell.ui, "commands"), \
+             mock.patch.object(examshell.ui, "info"), \
+             mock.patch.object(examshell.ui, "note"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.exam_mode(cfg)
+        return captured, warn
+
+    def test_new_is_refused_in_realistic_mode(self):
+        cfg = _cfg("unused-rendu")
+        captured, warn = self._run(cfg, ["  ", "new", "quit"])
+        self.assertTrue(any("--relaxed" in c.args[0] for c in warn.call_args_list))
+        self.assertFalse(captured["timed_out"])
+
+    def test_time_limit_ends_the_exam(self):
+        cfg = _cfg("unused-rendu", time_limit=1)
+        with mock.patch.object(examshell.time, "time",
+                               side_effect=[1000.0] + [1000.0 + 61] * 50):
+            captured, _warn = self._run(cfg, ["  ", "grademe"])
+        self.assertTrue(captured["timed_out"])
+        self.assertFalse(captured["passed"])
+
+    def test_countdown_only_with_a_time_limit(self):
+        session = examshell.Session()
+        session.start_time = examshell.time.time()
+        self.assertEqual(examshell.countdown(session, _cfg("x")), "")
+        self.assertIn("left", examshell.countdown(session, _cfg("x", time_limit=90)))
 
 
 if __name__ == "__main__":

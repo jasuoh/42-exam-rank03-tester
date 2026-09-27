@@ -20,6 +20,7 @@ you.
 """
 
 import argparse
+import copy
 import os
 import random
 import shlex
@@ -68,6 +69,9 @@ class Config(object):
         self.valgrind = args.valgrind or args.strict
         self.strict_valgrind = args.strict_valgrind or args.strict
         self.strict_forbidden = args.strict_forbidden or args.strict
+        # Exam-only realism, see exam_config() / exam_commands().
+        self.relaxed = getattr(args, "relaxed", False)
+        self.time_limit = getattr(args, "time_limit", None)   # minutes
 
 
 # ══════════════════════════════════════════════════════════════
@@ -220,6 +224,33 @@ EXAM_COMMANDS = [
 ]
 
 
+def exam_config(cfg):
+    """The config the exam actually grades with. Unless --relaxed, it is as
+    strict as the real exam: any compiler warning fails grading (the real exam compiles with
+    -Wall -Wextra -Werror) and so does a forbidden call. Practice and training keep the lenient
+    warn-only feedback — that is where mistakes are supposed to be cheap."""
+    if cfg.relaxed:
+        return cfg
+    strict = copy.copy(cfg)
+    strict.strict_norm = True
+    strict.strict_forbidden = True
+    return strict
+
+
+def exam_commands(cfg):
+    """EXAM_COMMANDS minus `new` unless --relaxed: the real exam never lets
+    you redraw an exercise you don't like."""
+    return [row for row in EXAM_COMMANDS if cfg.relaxed or row[0] != "new"]
+
+
+def time_left(session, cfg):
+    """Seconds left under --time-limit (negative once it ran out), or None
+    when the exam has no limit."""
+    if not cfg.time_limit or session.start_time is None:
+        return None
+    return cfg.time_limit * 60 - (time.time() - session.start_time)
+
+
 def exam_grade_rng(seed):
     """The exam's grading RNG — independent of the exercise-draw RNG, but
     still deterministic under --seed (string seeds are hashed stably)."""
@@ -232,6 +263,7 @@ def exam_mode(cfg):
     # would make every later exercise draw depend on how many times the
     # student typed `grademe`, so `--seed N` would not reproduce the exam.
     grade_rng = exam_grade_rng(cfg.seed)
+    cfg = exam_config(cfg)
     session = Session()
     ui.clear()
     banner()
@@ -269,6 +301,11 @@ def exam_mode(cfg):
         session.start()
         if cfg.seed is not None:
             ui.note("seed %d — this exam is reproducible" % cfg.seed)
+    if not cfg.relaxed:
+        ui.note("realistic mode — graded as strictly as the real exam, no "
+                "'new' (start with --relaxed for lenient grading)")
+    if cfg.time_limit:
+        ui.note("time limit: %d minutes" % cfg.time_limit)
 
     if resumed:
         level_attempts = saved.get("level_attempts", 0)
@@ -287,14 +324,17 @@ def exam_mode(cfg):
             level_started, level_attempts = time.time(), 0
         resumed = False
         show_subject(session.current_ex, cfg, session)
-        ui.commands(EXAM_COMMANDS)
+        ui.commands(exam_commands(cfg))
 
         while True:
             try:
-                cmd = ui.ask("\n  [%s@c-exam · lvl%d]$ "
-                            % (session.login, session.level)).lower()
+                cmd = ui.ask("\n  [%s@c-exam · lvl%d%s]$ "
+                             % (session.login, session.level,
+                                countdown(session, cfg))).lower()
             except ui.Abort:
                 cmd = "quit"
+            if _times_up(session, cfg):
+                return
 
             if cmd in ("grademe", "g"):
                 session.attempts += 1
@@ -323,10 +363,13 @@ def exam_mode(cfg):
                 ui.info("Fix your solution and type 'grademe' again.")
             elif cmd in ("subject", "s"):
                 show_subject(session.current_ex, cfg, session)
-                ui.commands(EXAM_COMMANDS)
+                ui.commands(exam_commands(cfg))
             elif cmd == "status":
                 print()
                 ui.status_bar(session, N_LEVELS)
+            elif cmd == "new" and not cfg.relaxed:
+                ui.warn("the real exam has no 'new' — solve this one "
+                        "(or start with --relaxed to allow redraws)")
             elif cmd == "new":
                 session.current_ex = draw(rng, STANDARD_LEVELS[session.level],
                                           session.current_ex)
@@ -336,7 +379,7 @@ def exam_mode(cfg):
                 # would misreport the abandoned exercise's time/attempts.
                 level_started, level_attempts = time.time(), 0
                 show_subject(session.current_ex, cfg, session)
-                ui.commands(EXAM_COMMANDS)
+                ui.commands(exam_commands(cfg))
                 ui.info("New exercise drawn for level %d." % session.level)
             elif cmd == "stub":
                 make_stub(session.current_ex, cfg)
@@ -349,13 +392,31 @@ def exam_mode(cfg):
                 continue
             else:
                 ui.warn("unknown command — " +
-                        " · ".join(name for name, _ in EXAM_COMMANDS))
+                        " · ".join(name for name, _ in exam_commands(cfg)))
 
     session_store.clear(TOOL)
     exam_summary(session, passed=True)
 
 
-def exam_summary(session, passed):
+def countdown(session, cfg):
+    """' · 1:23:45 left' for the exam prompt, or '' without a time limit."""
+    left = time_left(session, cfg)
+    if left is None:
+        return ""
+    return " · %s left" % fmt_duration(max(0, left))
+
+
+def _times_up(session, cfg):
+    """End the exam when --time-limit ran out. True when it did."""
+    left = time_left(session, cfg)
+    if left is None or left > 0:
+        return False
+    session_store.clear(TOOL)
+    exam_summary(session, passed=False, timed_out=True)
+    return True
+
+
+def exam_summary(session, passed, timed_out=False):
     ui.clear()
     banner()
     ui.status_bar(session, N_LEVELS)
@@ -384,7 +445,9 @@ def exam_summary(session, passed):
         rows.append(("Badges", ", ".join(badge_lines) if badge_lines else "—"))
 
     title = ("🎉  EXAM PASSED — all %d levels cleared!" % N_LEVELS if passed
-             else "EXAM ABORTED — %d/%d levels cleared" % (len(session.passed), N_LEVELS))
+             else "%s — %d/%d levels cleared"
+             % ("⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
+                len(session.passed), N_LEVELS))
     ui.summary(title, rows, passed)
 
     report_path = report_export.write_exam_report(TOOL, session, N_LEVELS, passed, badge_lines)
@@ -837,6 +900,13 @@ def build_parser():
                         "next time, then exit")
     p.add_argument("--no-color", action="store_true",
                    help="disable colours (also honours NO_COLOR)")
+    p.add_argument("--relaxed", action="store_true",
+                   help="exam mode only: grade leniently (compiler warnings and forbidden calls only warn) "
+                        "and allow 'new' to redraw an exercise — by default "
+                        "the exam is as strict as the real one")
+    p.add_argument("--time-limit", type=int, default=None, metavar="MIN",
+                   help="exam mode only: end the exam after MIN minutes, "
+                        "with a countdown in the prompt (default: no limit)")
     p.add_argument("--version", action="version",
                    version="%(prog)s " + __version__)
     p.add_argument("--no-rich", action="store_true",
@@ -890,6 +960,10 @@ def main(argv=None):
         else:
             ui.error("could not write %s" % settings.CONFIG_PATH)
         return 0 if ok else 1
+
+    if args.time_limit is not None and args.time_limit < 1:
+        ui.error("--time-limit must be >= 1 (minutes)")
+        return 2
 
     if args.timeout < 1 or args.fuzz < 0:
         ui.error("--timeout must be >= 1 and --fuzz must be >= 0")

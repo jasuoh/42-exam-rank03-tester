@@ -864,6 +864,27 @@ def report(rep, show_fails=4, diff=False, filepath=None):
 _DIFF_CLIP = 400
 
 
+def _failure_texts(f):
+    """(expected, got) as shown in a report. A Python Failure's got is
+    already the sandbox's repr text. A CFailure's values are both RAW
+    stdout, so repr() both sides — an invisible tab or trailing space then
+    shows up, and --diff's pointer indexes the same text on both lines.
+    The grader's own bracketed markers ("[TIMEOUT]", "[no output …]")
+    stay as they are."""
+    exp_text, got_text = repr(f.expected), str(f.got)
+    if hasattr(f, "index") and not (got_text.startswith("[") and got_text.endswith("]")):
+        got_text = repr(got_text)
+    return exp_text, got_text
+
+
+def _call_text(f, function):
+    """The failing call, plus the edge case its input represents (see
+    src/case_labels.py) when there is one worth naming."""
+    from . import case_labels
+    label = case_labels.describe(f)
+    return f.call(function), label
+
+
 def _failures(rep, show_fails, diff=False, filepath=None):
     shown = rep.failures[:show_fails]
     if diff and shown and filepath:
@@ -877,7 +898,9 @@ def _failures(rep, show_fails, diff=False, filepath=None):
         t.add_column("expected", style="green", max_width=26, overflow="fold")
         t.add_column("got", style="red", max_width=26, overflow="fold")
         for f in shown:
-            exp_text, got_text = repr(f.expected), str(f.got)
+            exp_text, got_text = _failure_texts(f)
+            call, label = _call_text(f, rep.function)
+            call_cell = _esc(call) + ("\n[yellow]⟨%s⟩[/yellow]" % _esc(label) if label else "")
             if diff:
                 block = _diff_block(f, exp_text, got_text)
                 if block:
@@ -888,19 +911,22 @@ def _failures(rep, show_fails, diff=False, filepath=None):
                         "\n… +%d more" % exp_more if exp_more else "")
                     got_shown = "\n".join(got_lines) + (
                         "\n… +%d more" % got_more if got_more else "")
-                    t.add_row(_esc(f.call(rep.function)), _esc(exp_shown), _esc(got_shown))
+                    t.add_row(call_cell, _esc(exp_shown), _esc(got_shown))
                 else:
                     idx = first_diff_index(exp_text, got_text)
-                    t.add_row(_esc(f.call(rep.function)),
+                    t.add_row(call_cell,
                               _diff_markup(exp_text, idx), _diff_markup(got_text, idx))
             else:
-                t.add_row(_esc(f.call(rep.function)), _esc(exp_text), _esc(got_text))
+                t.add_row(call_cell, _esc(exp_text), _esc(got_text))
         _console.print(t)
     else:
         hang = IND0 + " " * len("[KO] ")     # aligns under the text, like box_message
         for f in shown:
-            print(IND0 + c("[KO] " + f.call(rep.function)[:90], "RED"))
-            exp_text, got_text = repr(f.expected), str(f.got)
+            call, label = _call_text(f, rep.function)
+            print(IND0 + c("[KO] " + call[:90], "RED"))
+            if label:
+                print(hang + c("edge case: " + label, "YELLOW"))
+            exp_text, got_text = _failure_texts(f)
             if diff:
                 block = _diff_block(f, exp_text, got_text)
                 if block:

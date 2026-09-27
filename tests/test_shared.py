@@ -731,5 +731,47 @@ class VersionTests(unittest.TestCase):
                             for h in headings), headings)
 
 
+class CaseLabelTests(unittest.TestCase):
+    """case_labels.describe(): names the edge-case traits of a failing input."""
+
+    class _F(object):
+        def __init__(self, args, program=False):
+            self.args, self.program = args, program
+
+    def _d(self, args, program=False):
+        from src import case_labels
+        return case_labels.describe(self._F(args, program))
+
+    def test_strings(self):
+        self.assertEqual(self._d([""]), "empty string")
+        self.assertEqual(self._d(["   "]), "only whitespace")
+        self.assertEqual(self._d(["a\tb"]), "tabs")
+        self.assertEqual(self._d([" a"]), "leading/trailing whitespace")
+        self.assertEqual(self._d(["a  b"]), "repeated spaces")
+        self.assertEqual(self._d(["plain"]), "")
+
+    def test_numbers(self):
+        self.assertEqual(self._d([0]), "zero")
+        self.assertEqual(self._d([-4]), "negative number")
+        self.assertEqual(self._d([-2 ** 31]), "INT_MIN/INT_MAX")
+        self.assertEqual(self._d([True]), "")
+
+    def test_lists(self):
+        self.assertEqual(self._d([[]]), "empty list")
+        self.assertEqual(self._d([[1]]), "single element")
+
+    def test_argv(self):
+        self.assertEqual(self._d([], program=True), "no arguments")
+        self.assertEqual(self._d(["-3"], program=True), "negative number")
+        self.assertEqual(self._d(["0"], program=True), "zero")
+
+    def test_at_most_two_labels_without_duplicates(self):
+        self.assertEqual(self._d([" \ta  b ", "", 0]), "tabs · leading/trailing whitespace")
+
+    def test_no_inputs_known(self):
+        from src import case_labels
+        self.assertEqual(case_labels.describe(object()), "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,20 @@ Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
 version's section below as a GitHub Release (see
 `.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
+## Unreleased
+
+### Changed
+- **One shared flow for both testers** (`src/shell_common.py`). The exam,
+  practice, training, readiness, drill and menu logic used to exist twice
+  (~900 identical lines in `src/examshell.py` and `c_exam/examshell.py`);
+  each tester now only supplies what really differs — its banks, how one
+  exercise is graded, stubs, its CLI. No behaviour change.
+- **Engine separated from the display**, as groundwork for the full-screen
+  TUI (see PLAN.md): `ExamRun` holds one exam as pure state and rules
+  (levels, draws, attempts, clocks, save/resume, time limit), `grade()`
+  grades and records an attempt and returns report, new badges and hint as
+  data. The existing line-based UI now drives both.
+
 ## 0.2.0 — 2026-09-27
 
 ### Changed

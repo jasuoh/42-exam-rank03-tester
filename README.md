@@ -653,7 +653,8 @@ things:
 | File | |
 |---|---|
 | `src/__main__.py` | entry point for `python3 -m src` |
-| `src/examshell.py` | CLI, menu, exam and practice flow |
+| `src/examshell.py` | the Python tester: its CLI, rank switching, stubs, and the hooks the shared flow needs |
+| `src/shell_common.py` | the exam / practice / training / readiness / drill flow **both** testers run — an I/O-free engine (`ExamRun`, `grade()`) plus the line-based UI on top of it |
 | `src/grader.py` | test building, the sandbox, the self-test |
 | `src/ui.py` | all rendering — `rich` when available, ANSI otherwise |
 | `src/bank_common.py` | tiny helpers shared by both exercise banks |
@@ -953,13 +954,15 @@ Python tester — see
 | File | |
 |---|---|
 | `c_exam/__main__.py` | entry point for `python3 -m c_exam` |
-| `c_exam/examshell.py` | CLI, menu, exam and practice flow |
+| `c_exam/examshell.py` | the C tester: its CLI, stubs, and the hooks the shared flow needs (see `src/shell_common.py`) |
 | `c_exam/grader.py` | harness codegen, the compile/run/diff sandbox, fuzzing, the self-test |
 | `c_exam/bank.py` | the exam exercise bank ⚠ **contains the answers** |
 | `c_exam/training_bank.py` | the LeetCode-style training bank ⚠ **contains the answers** |
 | `c_rendu/` | your solutions (git-ignored) |
 
-Rendering is **shared** with the Python tool — `c_exam/examshell.py` uses
+The whole exam/practice/training flow is **shared** with the Python tool
+(`src/shell_common.py`) — `c_exam/examshell.py` only supplies what is
+C-specific. Rendering is shared too — `c_exam/examshell.py` uses
 `src/ui.py` directly, unchanged in behavior, including `exercise_table`/
 `training_table`. `src/grader.py`'s `Report` is reused too; only the
 grading mechanism itself (`c_exam/grader.py`) is new. Themes, saved

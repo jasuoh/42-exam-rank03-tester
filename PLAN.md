@@ -1,136 +1,93 @@
-# PLAN — Bug-Check & Lernhilfen
+# PLAN — ExamShell 1.0: Vollbild-Terminal-App (TUI)
 
-Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27
+Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27 · Vorgänger: 0.2.0 (#4)
 
-> **Status: vollständig umgesetzt in Version 0.2.0** (Phase 1 + H1–H6, dazu
-> Versionierung/Releases und Update-Hinweis). Entscheidungen zu den offenen
-> Fragen: realistischer Modus ist **Default** im Exam (`--relaxed` als
-> Ausweg), Zeitlimit **nur per `--time-limit`**. Details: CHANGELOG.md.
+Ziel: aus dem zeilenbasierten Tester eine **Vollbild-Terminal-App** machen —
+Aufgabe und Ergebnisse nebeneinander, Live-Grading beim Speichern,
+Exam-Fortschritt und Countdown immer sichtbar, Readiness als Heatmap,
+Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
-Ziel: (1) den Tester auf Bugs prüfen und sie beheben, (2) danach Hilfsmittel
-einbauen, die Leuten konkret helfen, die echten Exams zu bestehen.
+```
+┌─ ExamShell · Rank 02 · alice ──────────────── Level 2/4 ── ⏱ 02:41:07 ─┐
+│ ● ● ◐ ○   first_word ✔ · inter …                                        │
+├─ Subject: inter ─────────────────────┬─ grademe (watching inter.c) ────┤
+│ Assignment name : inter              │ ✔ padinton / paqefwt…    padinto│
+│ Expected files  : inter.c            │ ✖ ./inter "aaa" "a"             │
+│ Allowed functions: write             │   edge case: repeated chars     │
+│ Write a program that takes two …     │ ████████████░░░░  7/10   70%    │
+├──────────────────────────────────────┴─────────────────────────────────┤
+│ [g] grademe  [s] subject  [h] hint  [r] readiness  [q] quit            │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
----
+## Rahmenbedingungen
 
-## 0. Ausgangslage (Audit-Ergebnis)
-
-| Check | Ergebnis |
-|---|---|
-| `make test` (Python-Tester, 344 Unit-Tests + Bank-Selbsttest) | **2 Fehlschläge** (siehe B1), Banken selbst ✔ |
-| `make c-test` (C-Tester, Unit-Tests + Bank-Selbsttest) | ✔ |
-| `python3 -m c_exam --check --valgrind` | ✔ alle Referenzlösungen leak-frei |
-| `make lint` (ruff) | ✔ |
-
-Gelesen/geprüft: `src/grader.py`, `src/examshell.py`, `src/stats.py`,
-`src/session_store.py`, `src/settings.py`, `src/report_export.py`,
-`src/hints.py`, `src/achievements.py`, `c_exam/grader.py`,
-`c_exam/examshell.py` (Exam-Flow) + gezielte Verhaltens-Tests.
-
-Grundsätzlich ist der Code in gutem Zustand — die Funde unten sind echte, aber
-überschaubare Probleme.
-
----
-
-## Phase 1 — Bugs beheben
-
-### B1 · Zwei Tests schlagen fehl, wenn als root ausgeführt (Docker/CI-Container)
-- `tests/test_shared.py` → `test_save_config_survives_unwritable_dir`,
-  `test_write_report_survives_unwritable_dir`
-- Die Tests nehmen an, `/this/does/not/exist/at/all` sei nicht beschreibbar.
-  Als root wird das Verzeichnis **tatsächlich angelegt** → Test schlägt fehl
-  **und** hinterlässt Müll im Dateisystem (`/this/...`).
-- **Fix:** Pfad verwenden, der für *jeden* User unbeschreibbar ist — z. B. ein
-  Unterpfad unter einer existierenden *Datei* (`<tmpfile>/sub`), dort schlägt
-  `os.makedirs` immer mit `NotADirectoryError` fehl.
-
-### B2 · `--seed` macht das Exam nicht wirklich reproduzierbar
-- Das Exam druckt „seed N — this exam is reproducible“, aber `grademe`
-  verbraucht Zufallszahlen aus **demselben** RNG (Fuzz-Tests). Dadurch hängt
-  die Aufgabe in Level 2+ davon ab, wie oft man in Level 1 `grademe` getippt hat.
-- Nachgewiesen: bei 19 von 50 Seeds ändert schon **ein** `grademe` die
-  Level-2-Aufgabe.
-- Betrifft `src/examshell.py` und `c_exam/examshell.py`.
-- **Fix:** zwei getrennte RNGs — einer fürs Ziehen der Aufgaben, einer fürs
-  Grading. Session-Save/Resume entsprechend anpassen (abwärtskompatibel mit
-  alten Save-Files).
-
-### B3 · C-Programm-Aufgaben: Endlosschleife blockiert den Grader ~30–65 s
-- Bei `kind: "program"` läuft jeder Fall bis zum Timeout (5 s), ohne Abbruch —
-  z. B. `rotone` mit `while(1);` → 30 s, `is_palindrome_str` (13 Fälle) → 65 s.
-- Der Python-Grader bricht bereits nach 3 Timeouts in Folge ab
-  (`MAX_TIMEOUTS`); der C-Grader nicht.
-- **Fix:** gleiche Logik im C-Grader (`_grade_program`): nach 3 Timeouts in
-  Folge restliche Fälle als „skipped after N timeouts“ markieren.
-
-### B4 · Kleinkram
-- `resolve_exercise()` (beide Tester): exakter Treffer `py_<name>` sollte
-  Vorrang vor Suffix-Treffern haben (aktuell nur latent, noch keine Kollision
-  in den Banken).
-- Training-Modus: Warnmeldung bei ungültiger Eingabe erwähnt `w` (weak) nicht.
-
-Jeder Fix bekommt einen Regressionstest. Danach `make test`, `make c-test`,
-`make lint` grün.
+- **TUI-Bibliothek: Textual** (baut auf `rich` auf, das schon optional genutzt
+  wird). Aktuelle Textual-Version (8.x) braucht **Python ≥ 3.9**.
+- **Der Kern bleibt Python 3.8 + null Abhängigkeiten.** Die TUI ist ein
+  optionaler Aufsatz: ist Textual nicht installiert (oder Python 3.8), startet
+  automatisch die heutige Oberfläche. Kein Feature geht verloren.
+- Jede Phase ist ein eigener, lauffähiger PR/Release.
 
 ---
 
-## Phase 2 — Hilfsmittel, damit mehr Leute bestehen
+## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
 
-Priorisiert nach erwartetem Nutzen. **Bitte auswählen/streichen**, bevor ich
-anfange.
+Heute: `src/examshell.py` und `c_exam/examshell.py` enthalten **je** den
+kompletten Ablauf (Exam, Practice, Training, Readiness, Drill, Menü) —
+~900 identische Zeilen, und Logik und `print`/`input` sind verwoben. Eine
+TUI kann darauf nicht aufsetzen.
 
-### H1 · „Realistischer Exam-Modus“ (hoher Nutzen) ⭐
-Aktuell ist das Exam **gnädiger als das echte**: Compiler-Warnungen und
-verbotene Funktionen geben nur eine Warnung, man kann mit `new` beliebig neu
-ziehen, und es gibt kein Zeitlimit. Wer hier besteht, fällt im echten Exam
-evtl. trotzdem durch (z. B. 100 % trotz `unused variable`-Warnung — echtes
-Exam kompiliert mit `-Werror`).
-- Im Exam-Modus standardmäßig: `--strict-norm` + `--strict-forbidden` (C),
-  `--strict-imports` (Python).
-- `new` im Exam-Modus deaktivieren (oder nur mit Opt-in-Flag).
-- Optionales Zeitlimit mit Countdown in der Statuszeile (`--time-limit 3h`).
-- Opt-out-Flag `--relaxed` für Anfänger.
+1. **`src/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
+   Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf, Stubs,
+   CLI-Flags, Menüpunkte) als „Hooks“.
+2. **`ExamRun`** — das Exam als reiner Zustand (Level, Aufgabe, Versuche,
+   Uhr, RNGs, Speichern/Fortsetzen, Zeitlimit) ohne jede Ein-/Ausgabe. Die
+   heutige Oberfläche und später die TUI steuern beide dasselbe `ExamRun`.
+3. **`grade()` ohne Anzeige** — bewertet, zeichnet Stats auf und liefert
+   Report, neue Badges und Hinweis als Daten zurück; die Anzeige macht der
+   Aufrufer.
 
-### H2 · Fehlende Standard-Aufgabe `inter` (C, Level 2)
-`inter` ist ein klassisches Rank-02-Level-2-Exercise und fehlt in der C-Bank
-(`union`/`wdmatch` sind da). Hinzufügen inkl. Subject, Referenzlösung, Cases,
-Hint.
+Verhalten bleibt identisch — alle bestehenden Tests müssen unverändert grün
+bleiben (plus neue Tests für `ExamRun`/`grade()`).
 
-### H3 · Edge-Case-Fuzzing für C-Programm-Aufgaben (hoher Nutzen)
-Die 31 `program`-Aufgaben (rotone, epur_str, rostring, …) werden nur mit ~6
-festen Fällen getestet, **ohne Fuzzing** — genau hier fallen Leute im echten
-Exam durch (mehrere Leerzeichen/Tabs, leerer String, falsche Argumentanzahl).
-- Pro Aufgabe (oder pro Aufgaben-Typ „ein String-Argument“, „zwei
-  Argumente“, …) einen argv-Generator mit typischen Fallen.
-- Aktivierung wie bei Function-Aufgaben über `--fuzz`.
+**~−600 / +700 Zeilen · ~1,5 Tage**
 
-### H4 · Fall-Beschriftungen: *warum* ist ein Test fehlgeschlagen
-Bei Fehlschlag anzeigen, welche Kategorie von Edge-Case betroffen ist
-(„leerer String“, „nur Leerzeichen“, „INT_MIN“, „keine Argumente“ …) statt
-nur `case 4`. Optionale Labels an kuratierten Fällen in den Banken.
+## Phase B — App-Gerüst (0.4.0)
 
-### H5 · Readiness-Übersicht pro Level
-`--readiness` / Menüpunkt: pro Level alle **Standard**-Aufgaben mit Status
-(✔ bestanden / ✖ gescheitert / · nie versucht) + Prozent „exam-ready“.
-Zeigt sofort, wo die Lücken sind, bevor man ins echte Exam geht.
+`make tui` / `python3 -m src --tui` (später Default, wenn Textual da ist):
+Screens für Menü, Practice-Liste mit Suche, Training, Readiness, Stats;
+Tastaturkürzel, die drei Themes, Fallback-Erkennung.
 
-### H6 · Tägliches Drill-Programm
-`--drill`: stellt eine kurze Session (z. B. 5 Aufgaben) aus schwachen,
-nie-versuchten und lange-nicht-geübten Standard-Aufgaben zusammen
-(Spaced-Repetition-light, nutzt vorhandene `stats.jsonl`).
+**~1.200 Zeilen · ~2 Tage**
+
+## Phase C — Exam-Screen (0.5.0)
+
+Split-View Aufgabe | Ergebnisse, Ergebnisse laufen live ein, **Watch-Modus**
+(grademe beim Speichern, im Practice), Level-Stepper, Countdown, Blind-Grading
+im Exam, Level-geschafft-/Badge-Animationen.
+
+**~800 Zeilen · ~1,5 Tage**
+
+## Phase D — Feinschliff → 1.0.0
+
+Readiness-Heatmap, Stats-Verlaufsdiagramme, Exam-Historie, TUI-Tests
+(Textual „Pilot“), animierte GIFs fürs README (aufgenommen mit `vhs`),
+Doku.
+
+**~600 Zeilen · ~1 Tag**
 
 ---
 
-## Ablauf
+## Danach (1.1)
 
-1. Diesen Plan reviewen → Punkte in Phase 2 bestätigen/streichen.
-2. Phase 1 umsetzen, pro Bug ein Commit mit Test.
-3. Bestätigte Phase-2-Punkte umsetzen, je Feature ein Commit, README/TUTORIAL
-   + CHANGELOG aktualisieren.
-4. Alle Checks grün → PR von `claude/dreamy-bohr-q3sw4d` erstellen.
+- **Lokales Web-Dashboard** (`make dashboard` → `localhost:4242`): Heatmap,
+  Diagramme, Exam-Historie im Browser.
+- `pipx install`-bar (Paket `src` umbenennen).
 
-## Offene Fragen
+## Risiken
 
-- H1: Realistischer Modus als **Default** im Exam (mit `--relaxed` als
-  Ausweg) oder nur per Flag?
-- H1: Welches Zeitlimit als Default (keins / 3 h)?
-- Phase 2: alle Punkte oder nur eine Auswahl?
+- Textual auf Schulrechnern nicht installierbar → Fallback ist Pflicht und
+  wird in CI mit *und* ohne Textual getestet.
+- Textual-API ändert sich zwischen Major-Versionen → Version in
+  `requirements` nach oben begrenzen.

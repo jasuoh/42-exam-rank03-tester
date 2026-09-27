@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from src import shell_common
+
 from c_exam import examshell
 from c_exam.bank import EXERCISES, N_LEVELS
 from c_exam.training_bank import DIFFICULTIES, TRAINING_EXERCISES
@@ -525,7 +527,7 @@ class RealisticExamModeTests(unittest.TestCase):
 
     def test_time_limit_ends_the_exam(self):
         cfg = _cfg("unused-rendu", time_limit=1)
-        with mock.patch.object(examshell.time, "time",
+        with mock.patch.object(shell_common.time, "time",
                                side_effect=[1000.0] + [1000.0 + 61] * 50):
             captured, _warn = self._run(cfg, ["  ", "grademe"])
         self.assertTrue(captured["timed_out"])
@@ -533,7 +535,7 @@ class RealisticExamModeTests(unittest.TestCase):
 
     def test_countdown_only_with_a_time_limit(self):
         session = examshell.Session()
-        session.start_time = examshell.time.time()
+        session.start_time = shell_common.time.time()
         self.assertEqual(examshell.countdown(session, _cfg("x")), "")
         self.assertIn("left", examshell.countdown(session, _cfg("x", time_limit=90)))
 

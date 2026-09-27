@@ -649,5 +649,35 @@ class ValgrindProgramKindEndToEndTests(unittest.TestCase):
             self.assertEqual(report.warnings, [])
 
 
+@skip_without_cc
+class ProgramTimeoutBailOutTests(unittest.TestCase):
+    """A "program"-kind infinite loop stops being run after MAX_TIMEOUTS
+    consecutive timeouts — the remaining cases are marked skipped instead
+    of each burning the full per-case timeout."""
+
+    EX = {
+        "kind": "program", "function": "echo_arg",
+        "oracle_c": "#include <unistd.h>\n#include <string.h>\n"
+                    "int main(int ac, char **av)\n{\n"
+                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                    "    write(1, \"\\n\", 1);\n    return 0;\n}\n",
+        "cases": [["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"], ["h"]],
+    }
+
+    def test_infinite_loop_skips_cases_after_max_timeouts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
+                fh.write("int main(void)\n{\n    while (1)\n        ;\n}\n")
+            started = time.time()
+            report = grader.grade("echo_arg", self.EX, tmp, timeout=1)
+            elapsed = time.time() - started
+        self.assertEqual(report.passed, 0)
+        self.assertEqual(len(report.failures), len(self.EX["cases"]))
+        skipped = [f for f in report.failures if "skipped" in f.got]
+        self.assertEqual(len(skipped), len(self.EX["cases"]) - grader.MAX_TIMEOUTS)
+        # 3 real timeouts at 1s each, not 8
+        self.assertLess(elapsed, len(self.EX["cases"]) - 1)
+
+
 if __name__ == "__main__":
     unittest.main()

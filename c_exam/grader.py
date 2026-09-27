@@ -42,7 +42,7 @@ import subprocess
 import tempfile
 import time
 
-from src.grader import Report
+from src.grader import MAX_TIMEOUTS, Report
 
 DEFAULT_TIMEOUT = 5        # seconds per case (program mode) / per whole run (function mode)
 DEFAULT_CC = "cc"
@@ -1125,12 +1125,21 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         vg_issues = []
         cases = ex["cases"]
         report.total = len(cases)
+        streak = 0
         for i, argv in enumerate(cases):
             ref_out, ref_crash = run_bin(ref_bin, timeout, argv=argv)
             if ref_crash:
                 return report.fail("BANK_ERROR", "%s: reference program %s on case %d"
                                    % (ex_name, ref_crash, i))
+            # Same bail-out as the Python sandbox (src/grader.py's
+            # MAX_TIMEOUTS): an infinite loop would otherwise cost the full
+            # timeout on EVERY remaining case — 30s+ of staring at a spinner.
+            if streak >= MAX_TIMEOUTS:
+                report.failures.append(CFailure(i, ref_out.rstrip("\n"),
+                                                "[skipped after %d timeouts]" % streak))
+                continue
             stu_out, stu_crash = run_bin(student_bin, timeout, argv=argv)
+            streak = streak + 1 if stu_crash == "TIMEOUT" else 0
             if stu_crash:
                 note = stu_crash.split(":", 1)[-1]
                 report.warnings.append("case %d %s: %s"

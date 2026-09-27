@@ -68,6 +68,11 @@ class ResolveExerciseTests(unittest.TestCase):
         self.assertEqual(examshell.resolve_exercise("py_kth_largest"),
                          "py_kth_largest")
 
+    def test_prefixed_name_wins_over_other_suffix_matches(self):
+        fake = {"py_inter": {}, "py_union_inter": {}}
+        with mock.patch.object(examshell, "ALL_EXERCISES", fake):
+            self.assertEqual(examshell.resolve_exercise("inter"), "py_inter")
+
     def test_unknown_returns_none(self):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertIsNone(examshell.resolve_exercise("not_a_real_exercise"))
@@ -432,6 +437,51 @@ class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
         clear.assert_not_called()
         summary.assert_called_once()
         self.assertIn("ABORTED", summary.call_args[0][0])
+
+
+class SeededExamIsReproducibleTests(unittest.TestCase):
+    """--seed N must reproduce the same exam no matter how often the
+    student types `grademe`: grading (fuzz cases) draws from its own RNG,
+    never from the one that picks each level's exercise."""
+
+    def _drawn(self, fails_per_level):
+        cfg = _cfg("unused-rendu", fuzz=0, seed=1234)
+        drawn = []
+        outcomes = ([False] * fails_per_level + [True]) * N_LEVELS
+
+        def fake_grade(ex_name, rng, cfg, mode="practice"):
+            for _ in range(50):            # what a fuzzed grading run does
+                rng.random()
+            return outcomes.pop(0)
+
+        def fake_subject(ex_name, cfg, session=None):
+            if not drawn or drawn[-1] != ex_name:
+                drawn.append(ex_name)
+
+        asks = ["  "] + ["grademe"] * len(outcomes)
+        with mock.patch.object(examshell, "grade_exercise", side_effect=fake_grade), \
+             mock.patch.object(examshell, "show_subject", side_effect=fake_subject), \
+             mock.patch.object(examshell, "exam_summary"), \
+             mock.patch.object(examshell.session_store, "load", return_value=None), \
+             mock.patch.object(examshell.session_store, "save"), \
+             mock.patch.object(examshell.session_store, "clear"), \
+             mock.patch.object(examshell.ui, "ask", side_effect=asks), \
+             mock.patch.object(examshell.ui, "pause"), \
+             mock.patch.object(examshell.ui, "clear"), \
+             mock.patch.object(examshell.ui, "banner"), \
+             mock.patch.object(examshell.ui, "commands"), \
+             mock.patch.object(examshell.ui, "level_cleared"), \
+             mock.patch.object(examshell.ui, "info"), \
+             mock.patch.object(examshell.ui, "note"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.exam_mode(cfg)
+        return drawn
+
+    def test_retries_do_not_change_later_draws(self):
+        first_try = self._drawn(fails_per_level=0)
+        with_retries = self._drawn(fails_per_level=3)
+        self.assertEqual(len(first_try), N_LEVELS)
+        self.assertEqual(first_try, with_retries)
 
 
 if __name__ == "__main__":

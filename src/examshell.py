@@ -245,8 +245,18 @@ EXAM_COMMANDS = [
 ]
 
 
+def exam_grade_rng(seed):
+    """The exam's grading RNG — independent of the exercise-draw RNG, but
+    still deterministic under --seed (string seeds are hashed stably)."""
+    return random.Random(None if seed is None else "grade-%d" % seed)
+
+
 def exam_mode(cfg):
     rng = random.Random(cfg.seed)
+    # Grading draws its fuzz cases from its OWN generator: sharing `rng`
+    # would make every later exercise draw depend on how many times the
+    # student typed `grademe`, so `--seed N` would not reproduce the exam.
+    grade_rng = exam_grade_rng(cfg.seed)
     session = Session()
     ui.clear()
     banner()
@@ -313,7 +323,7 @@ def exam_mode(cfg):
             if cmd in ("grademe", "g"):
                 session.attempts += 1
                 level_attempts += 1
-                if grade_exercise(session.current_ex, rng, cfg, mode="exam"):
+                if grade_exercise(session.current_ex, grade_rng, cfg, mode="exam"):
                     session.passed.append(session.current_ex)
                     session.history.append((session.level, session.current_ex,
                                             level_attempts, time.time() - level_started))
@@ -555,7 +565,8 @@ def training_mode(cfg, ex_name=None, difficulty=None):
             difficulty = _DIFFICULTY_KEYS[choice]
             continue
         if not choice.isdigit() or not 1 <= int(choice) <= len(shown):
-            ui.warn("pick a number, e/m/h to filter, /text to search, or b to go back")
+            ui.warn("pick a number, e/m/h/w/a to filter, /text to search, "
+                    "or b to go back")
             time.sleep(0.8)
             continue
         practice_one(shown[int(choice) - 1][2], cfg, rng, mode="train")
@@ -964,7 +975,11 @@ def resolve_exercise(name):
     the exam pool and the training pool."""
     if name in ALL_EXERCISES:
         return name
-    matches = [n for n in ALL_EXERCISES if n == "py_" + name or n.endswith(name)]
+    # "<prefix><name>" is an exact match in all but spelling — it wins over
+    # a mere suffix match (e.g. "range" is ft_range, not also ft_rrange).
+    if "py_" + name in ALL_EXERCISES:
+        return "py_" + name
+    matches = [n for n in ALL_EXERCISES if n.endswith(name)]
     if len(matches) == 1:
         return matches[0]
     if not matches:

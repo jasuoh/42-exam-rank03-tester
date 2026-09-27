@@ -421,33 +421,61 @@ def _file_ext(ex):
     return ".c" if "oracle_c" in ex else ".py"
 
 
-def subject(ex_name, ex, rendu_dir):
+def _reflow(prose):
+    """Join the subject's hard-wrapped lines back into paragraphs so the
+    text wraps to whatever width it is shown at. Blank lines separate
+    paragraphs; an indented or bulleted line keeps its own line."""
+    paragraphs, current = [], []
+    for line in prose.splitlines():
+        if not line.strip():
+            if current:
+                paragraphs.append(current)
+                current = []
+            continue
+        starts_block = line[:1].isspace() or line.lstrip()[:2] in ("- ", "* ")
+        if current and not starts_block:
+            current[-1] += " " + line.strip()
+        else:
+            current.append(line.rstrip())
+    if current:
+        paragraphs.append(current)
+    return "\n\n".join("\n".join(p) for p in paragraphs)
+
+
+def subject_blocks(ex, lexer_theme="monokai", code_background="default"):
+    """The subject as a rich Group (metadata table, prose, signature,
+    examples) — needs rich. Shared by subject() below and the full-screen
+    TUI (src/tui/), which frames it itself."""
     header, prose, signature, examples = _split_subject(ex["subject"])
+    lexer = "c" if _file_ext(ex) == ".c" else "python"
+    meta = Table.grid(padding=(0, 1))
+    meta.add_column(style="cyan", justify="right")
+    meta.add_column(style="white")
+    for row in header:
+        key, _, value = row.partition(":")
+        key, value = key.strip(), value.strip()
+        if key == "Allowed functions" and value == "None":
+            value = Text(value, style="bold yellow")
+        meta.add_row(key, value)
+    blocks = [meta, Rule(style="grey37")]
+    prose = _reflow(prose)
+    if prose:
+        blocks.append(Text(prose))
+    if signature:
+        blocks.append(Syntax(signature, lexer, theme=lexer_theme,
+                             background_color=code_background))
+    if examples.strip():
+        blocks.append(Syntax(examples, "text", theme=lexer_theme,
+                             background_color=code_background, word_wrap=True))
+    return Group(*blocks)
+
+
+def subject(ex_name, ex, rendu_dir):
     group = _group_label(ex)
     ext = _file_ext(ex)
-    lexer = "c" if ext == ".c" else "python"
     if _rich:
-        meta = Table.grid(padding=(0, 1))
-        meta.add_column(style="cyan", justify="right")
-        meta.add_column(style="white")
-        for row in header:
-            key, _, value = row.partition(":")
-            key, value = key.strip(), value.strip()
-            if key == "Allowed functions" and value == "None":
-                value = Text(value, style="bold yellow")
-            meta.add_row(key, value)
-        blocks = [meta, Rule(style="grey37")]
-        prose = "\n".join(l for l in prose.splitlines() if l.strip())
-        if prose:
-            blocks.append(Text(prose, style="white"))
-        if signature:
-            blocks.append(Syntax(signature, lexer, theme="monokai",
-                                 background_color="default"))
-        if examples.strip():
-            blocks.append(Syntax(examples, "text", theme="monokai",
-                                 background_color="default", word_wrap=True))
         _console.print(Panel(
-            Group(*blocks),
+            subject_blocks(ex),
             title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
             subtitle="[dim]%s  ·  file: %s[/dim]" % (
                 group, _esc(os.path.join(rendu_dir, ex_name + ext))),

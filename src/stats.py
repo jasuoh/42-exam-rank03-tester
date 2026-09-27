@@ -13,6 +13,7 @@ Best-effort like settings.py: recording a stat must never be the reason a
 grading run fails, so every write swallows OSError.
 """
 
+import datetime
 import json
 import os
 import time
@@ -218,3 +219,41 @@ def drill_queue(tool, candidate_names, n=5):
         if name not in queue:
             queue.append(name)
     return queue[:n]
+
+
+def daily_activity(tool, days=28, now=None):
+    """[(attempts, passes)] for each of the last `days` days, oldest first
+    (today last) — the stats screen's activity chart."""
+    now = time.time() if now is None else now
+    today = datetime.date.fromtimestamp(now).toordinal()     # local calendar day
+    counts = [[0, 0] for _ in range(days)]
+    for e in load_all(tool):
+        if not e.get("exercise"):
+            continue
+        age = today - datetime.date.fromtimestamp(e.get("ts", 0)).toordinal()
+        if 0 <= age < days:
+            counts[days - 1 - age][0] += 1
+            counts[days - 1 - age][1] += 1 if e.get("ok") else 0
+    return [tuple(c) for c in counts]
+
+
+def practice_streak(tool, now=None):
+    """Consecutive days (ending today or yesterday) with at least one
+    graded attempt."""
+    activity = daily_activity(tool, days=366, now=now)
+    days = [attempts > 0 for attempts, _ in activity]
+    if not days[-1]:
+        days = days[:-1]            # nothing yet today doesn't break a streak
+    streak = 0
+    for active in reversed(days):
+        if not active:
+            break
+        streak += 1
+    return streak
+
+
+def exam_history(tool, n=5):
+    """The last `n` full-exam completions, newest first."""
+    done = [e for e in load_all(tool) if e.get("mode") == "exam-complete"]
+    done.sort(key=lambda e: e.get("ts", 0), reverse=True)
+    return done[:n]

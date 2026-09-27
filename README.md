@@ -55,7 +55,7 @@ runs on a bare exam machine with nothing preinstalled.
 | | 🐍 Python · Exam Ranks 03 · 04 · 05 | 🔧 C · Exam Rank 02 |
 |---|:---:|:---:|
 | **Levels** | 6 (R03) · 4 (R04) · 3 (R05) | 4 |
-| **Exercises** | 44 (14 standard + 30 extra) · 7 (R04) · 7 (R05) | 59 (56 standard + 3 extra) |
+| **Exercises** | 44 (14 standard + 30 extra) · 7 (R04) · 7 (R05) | 60 (57 standard + 3 extra) |
 | **Training pool** | 20 exercises, 3 difficulties | 9 exercises, 3 difficulties |
 | **Grading engine** | in-process sandbox, type-strict `deep_eq` | compile → run → diff stdout, real `cc` |
 | **Solutions live in** | `rendu/` | `c_rendu/` |
@@ -688,10 +688,10 @@ the file directly: `cc c_rendu/rotone.c -o /tmp/t && /tmp/t abc`.
 
 ## 📚 Exercise pool
 
-**59 exercises, across 4 levels**, split the same way as the Python
+**60 exercises, across 4 levels**, split the same way as the Python
 bank — Standard vs Extra:
 
-* **Standard (56)** — the complete pool of a real Exam Rank 02 practice
+* **Standard (57)** — the complete pool of a real Exam Rank 02 practice
   repository, its own per-level folder structure used directly (not
   blended across sources with different level splits). Names, prototypes,
   behaviour and level placement are all real. Exact level placement still
@@ -704,13 +704,13 @@ bank — Standard vs Extra:
   through **Practice mode** instead (marked with ○ in `--list`).
 
 <details>
-<summary><b>📖 Show the full C exercise pool (59 exercises)</b></summary>
+<summary><b>📖 Show the full C exercise pool (60 exercises)</b></summary>
 <br>
 
 | Level | Standard (drawn by `make c-exam`) | Extra (practice mode only) |
 |------:|----------|-------|
 | 1 (12) | **`first_word`** 🖥️ · **`fizzbuzz`** 🖥️ · **`ft_putstr`** · **`ft_strcpy`** · **`ft_strlen`** · **`ft_swap`** · **`repeat_alpha`** 🖥️ · **`rev_print`** 🖥️ · **`rot_13`** 🖥️ · **`rotone`** 🖥️ · **`search_and_replace`** 🖥️ · **`ulstr`** 🖥️ | `count_vowels` 🖥️ |
-| 2 (19) | **`alpha_mirror`** 🖥️ · **`camel_to_snake`** 🖥️ · **`do_op`** 🖥️ · **`ft_atoi`** · **`ft_strcmp`** · **`ft_strcspn`** · **`ft_strdup`** · **`ft_strpbrk`** · **`ft_strrev`** · **`ft_strspn`** · **`is_power_of_2`** · **`last_word`** 🖥️ · **`max`** · **`print_bits`** · **`reverse_bits`** · **`snake_to_camel`** 🖥️ · **`swap_bits`** · **`union`** 🖥️ · **`wdmatch`** 🖥️ | `is_palindrome_str` 🖥️ |
+| 2 (20) | **`alpha_mirror`** 🖥️ · **`camel_to_snake`** 🖥️ · **`do_op`** 🖥️ · **`ft_atoi`** · **`ft_strcmp`** · **`ft_strcspn`** · **`ft_strdup`** · **`ft_strpbrk`** · **`ft_strrev`** · **`ft_strspn`** · **`inter`** 🖥️ · **`is_power_of_2`** · **`last_word`** 🖥️ · **`max`** · **`print_bits`** · **`reverse_bits`** · **`snake_to_camel`** 🖥️ · **`swap_bits`** · **`union`** 🖥️ · **`wdmatch`** 🖥️ | `is_palindrome_str` 🖥️ |
 | 3 (15) | **`add_prime_sum`** 🖥️ · **`epur_str`** 🖥️ · **`expand_str`** 🖥️ · **`ft_atoi_base`** · **`ft_list_size`** 🔗 · **`ft_range`** · **`ft_rrange`** · **`hidenp`** 🖥️ · **`lcm`** · **`paramsum`** 🖥️ · **`pgcd`** 🖥️ · **`print_hex`** 🖥️ · **`rstr_capitalizer`** 🖥️ · **`str_capitalizer`** 🖥️ · **`tab_mult`** 🖥️ | `longest_word_str` 🖥️ |
 | 4 (10) | **`flood_fill`** 🧩 · **`fprime`** 🖥️ · **`ft_itoa`** · **`ft_list_foreach`** 🔗 · **`ft_list_remove_if`** 🔗 · **`ft_split`** · **`rev_wstr`** 🖥️ · **`rostring`** 🖥️ · **`sort_int_tab`** · **`sort_list`** 🔗 | — |
 

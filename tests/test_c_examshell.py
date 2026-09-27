@@ -114,7 +114,7 @@ class ExerciseEntriesTests(unittest.TestCase):
         entries = examshell.exercise_entries()
         flagged = {name for _, _, name, _, standard in entries if standard}
         self.assertEqual(flagged, {n for n in EXERCISES if EXERCISES[n]["standard"]})
-        self.assertEqual(len(flagged), 56)
+        self.assertEqual(len(flagged), 57)
 
     def test_new_exercises_default_to_extra_not_standard(self):
         # Same opt-IN convention as src/exam_bank.py's own bank — every

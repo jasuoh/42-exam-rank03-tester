@@ -1318,6 +1318,70 @@ EXERCISES = {
         """),
         "cases": [[65], [0], [255], [15], [240], [18]],
     },
+    "inter": {
+        "level": 2, "function": "inter", "kind": "program",
+        "standard": True,
+        "hint": ("Two conditions per character of the FIRST string: it must "
+                "appear somewhere in the second string, and it must not have "
+                "appeared earlier in the first string (that's the 'no "
+                "doubles' part — check positions before the current one, "
+                "not what you've printed from the second string)."),
+        "subject": _sub_c("inter", "int main(int argc, char **argv);",
+                         "write", """
+        Write a PROGRAM that takes two strings and displays, without
+        doubles, the characters that appear in BOTH strings, in the order
+        they appear in the first one, followed by a newline. If argc != 3,
+        just a newline.
+
+        Examples:
+            ./inter "padinton" "paqefwtdjetyiytjneytjoeyjnejeyj" -> padinto
+            ./inter "ddf6vewg64f" "gtwthgdwthdwfteewhrtag6h4ffdhsd" -> df6ewg4
+            ./inter "rien" "cette phrase ne cache rien" -> rien
+        """),
+        "oracle_c": textwrap.dedent("""
+        #include <unistd.h>
+
+        static int in_str(char *s, char c, int limit)
+        {
+            int i;
+
+            i = 0;
+            while (s[i] && (limit < 0 || i < limit))
+            {
+                if (s[i] == c)
+                    return (1);
+                i++;
+            }
+            return (0);
+        }
+
+        int main(int argc, char **argv)
+        {
+            int i;
+
+            if (argc == 3)
+            {
+                i = 0;
+                while (argv[1][i])
+                {
+                    if (!in_str(argv[1], argv[1][i], i)
+                        && in_str(argv[2], argv[1][i], -1))
+                        write(1, &argv[1][i], 1);
+                    i++;
+                }
+            }
+            write(1, "\\n", 1);
+            return (0);
+        }
+        """),
+        "cases": [
+            ["padinton", "paqefwtdjetyiytjneytjoeyjnejeyj"],
+            ["ddf6vewg64f", "gtwthgdwthdwfteewhrtag6h4ffdhsd"],
+            ["rien", "cette phrase ne cache rien"],
+            ["abc", "xyz"], ["aaa", "a"], ["", "abc"], ["abc", ""],
+            [], ["only one"], ["a", "b", "c"],
+        ],
+    },
     "union": {
         "level": 2, "function": "union", "kind": "program",
         "standard": True,

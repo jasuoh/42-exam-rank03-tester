@@ -1,128 +1,93 @@
-# PLAN — Release 0.3.0
+# PLAN — ExamShell 1.0: Vollbild-Terminal-App (TUI)
 
 Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27 · Vorgänger: 0.2.0 (#4)
 
-Ziel von 0.3.0: **schneller üben** (weniger Tippen zwischen Versuchen),
-**ehrlicher prüfen** (Exam wie das echte, auch beim Feedback) und den Code so
-aufräumen, dass jedes weitere Feature nur noch **einmal** statt zweimal
-gebaut werden muss.
+Ziel: aus dem zeilenbasierten Tester eine **Vollbild-Terminal-App** machen —
+Aufgabe und Ergebnisse nebeneinander, Live-Grading beim Speichern,
+Exam-Fortschritt und Countdown immer sichtbar, Readiness als Heatmap,
+Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
-Aufwand: Code = geänderte Zeilen inkl. Tests · Zeit = bis getestet & PR-reif.
+```
+┌─ ExamShell · Rank 02 · alice ──────────────── Level 2/4 ── ⏱ 02:41:07 ─┐
+│ ● ● ◐ ○   first_word ✔ · inter …                                        │
+├─ Subject: inter ─────────────────────┬─ grademe (watching inter.c) ────┤
+│ Assignment name : inter              │ ✔ padinton / paqefwt…    padinto│
+│ Expected files  : inter.c            │ ✖ ./inter "aaa" "a"             │
+│ Allowed functions: write             │   edge case: repeated chars     │
+│ Write a program that takes two …     │ ████████████░░░░  7/10   70%    │
+├──────────────────────────────────────┴─────────────────────────────────┤
+│ [g] grademe  [s] subject  [h] hint  [r] readiness  [q] quit            │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
----
+## Rahmenbedingungen
 
-## 0. Vorab (kein Code)
-
-- **Release 0.2.0 veröffentlichen:** `git tag v0.2.0 && git push origin v0.2.0`
-  → Release-Workflow erstellt das GitHub-Release. Erst danach funktioniert
-  der Update-Hinweis im Menü für alle, die 0.2.0 nutzen.
-
----
-
-## Priorität 1 — Übe-Erlebnis (großer Nutzen, kleiner Aufwand)
-
-### F1 · Watch-Modus: automatisch neu bewerten beim Speichern ⭐
-`make watch EX=first_word` / `grademe --watch` im Practice-Modus: der Tester
-beobachtet `rendu/<ex>.py` bzw. `c_rendu/<ex>.c` und grademe't bei jeder
-Änderung von selbst. Kein Hin- und Herwechseln zwischen Editor und Terminal —
-das ist beim Üben der größte Zeitfresser.
-- Polling der Datei-mtime (keine Abhängigkeit), Ctrl-C beendet.
-- Nur Practice/Training, **nie im Exam**.
-- **Code ~120 Zeilen · Zeit ~1,5 h**
-
-### F2 · `make doctor`: Umgebung prüfen
-Ein Befehl, der sagt, ob alles passt: Python-Version, `cc`/`gcc` vorhanden
-und funktionsfähig (kompiliert ein Mini-Programm), `valgrind`, `rich`,
-`~/.examshell` beschreibbar, `rendu/`-Ordner, Version + ob Update verfügbar.
-Spart Supportfragen („warum geht grademe nicht?“).
-- **Code ~100 Zeilen · Zeit ~1 h**
-
-### F3 · Fortschritt über Zeit in `--stats`
-Aktuell nur Summen. Neu: Übungstage-Streak („5 Tage in Folge“), Versuche
-und Bestehensquote pro Woche als kleine Sparkline, letzte 5 Exam-Durchläufe
-(Score, Zeit) — macht Fortschritt sichtbar und motiviert.
-- **Code ~150 Zeilen · Zeit ~2 h**
+- **TUI-Bibliothek: Textual** (baut auf `rich` auf, das schon optional genutzt
+  wird). Aktuelle Textual-Version (8.x) braucht **Python ≥ 3.9**.
+- **Der Kern bleibt Python 3.8 + null Abhängigkeiten.** Die TUI ist ein
+  optionaler Aufsatz: ist Textual nicht installiert (oder Python 3.8), startet
+  automatisch die heutige Oberfläche. Kein Feature geht verloren.
+- Jede Phase ist ein eigener, lauffähiger PR/Release.
 
 ---
 
-## Priorität 2 — Exam noch näher am echten
+## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
 
-### F4 · Blind-Grading im Exam ⭐
-Im echten Exam sieht man bei einem Fehlschlag **nicht**, welcher Test mit
-welcher Eingabe fehlschlug. Hier zeigt das Exam aktuell alle fehlgeschlagenen
-Fälle inkl. Eingabe — damit trainiert man, sich auf den Tester zu verlassen,
-statt selbst zu testen.
-- Neues `--blind` (bzw. Teil des realistischen Modus): im Exam nur
-  „✔ bestanden“ / „✖ nicht bestanden (x/y)“ ohne Fälle.
-- Nach dem Exam: Zusammenfassung zeigt die Fälle, an denen man gescheitert ist
-  (Lernen danach, nicht währenddessen).
-- **Offene Frage:** Default im realistischen Modus oder nur per Flag?
-- **Code ~80 Zeilen · Zeit ~1,5 h**
+Heute: `src/examshell.py` und `c_exam/examshell.py` enthalten **je** den
+kompletten Ablauf (Exam, Practice, Training, Readiness, Drill, Menü) —
+~900 identische Zeilen, und Logik und `print`/`input` sind verwoben. Eine
+TUI kann darauf nicht aufsetzen.
 
-### F5 · Fuzzing für die letzten 3 C-Funktionsaufgaben
-`flood_fill`, `ft_list_foreach`, `ft_list_remove_if` werden noch nur mit
-kuratierten Fällen getestet. Eigene Generatoren: zufällige Grids (inkl.
-Start auf Rand/Ecke, 1×1, ganze Fläche gleich), zufällige Listen (leer,
-alle gleich, Treffer am Anfang/Ende — klassische `remove_if`-Bugs).
-- **Code ~150 Zeilen · Zeit ~2 h**
+1. **`src/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
+   Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf, Stubs,
+   CLI-Flags, Menüpunkte) als „Hooks“.
+2. **`ExamRun`** — das Exam als reiner Zustand (Level, Aufgabe, Versuche,
+   Uhr, RNGs, Speichern/Fortsetzen, Zeitlimit) ohne jede Ein-/Ausgabe. Die
+   heutige Oberfläche und später die TUI steuern beide dasselbe `ExamRun`.
+3. **`grade()` ohne Anzeige** — bewertet, zeichnet Stats auf und liefert
+   Report, neue Badges und Hinweis als Daten zurück; die Anzeige macht der
+   Aufrufer.
 
----
+Verhalten bleibt identisch — alle bestehenden Tests müssen unverändert grün
+bleiben (plus neue Tests für `ExamRun`/`grade()`).
 
-## Priorität 3 — Lernhilfen vertiefen
+**~−600 / +700 Zeilen · ~1,5 Tage**
 
-### F6 · Gestufte Hinweise + Lösung nach dem Bestehen
-- Stufe 1 (nach 3 Fehlschlägen, wie jetzt): allgemeiner Hinweis.
-- Stufe 2 (nach 6 Fehlschlägen): konkreter Hinweis — generisch aus dem
-  Randfall-Label abgeleitet („dein Code scheitert immer bei *tabs*“).
-- **Nach dem Bestehen** (nur Practice): `solution`-Befehl zeigt die
-  Referenzlösung zum Vergleichen — lernen, wie es eleganter geht.
-  Vor dem Bestehen nur mit ausdrücklicher Bestätigung.
-- **Code ~150 Zeilen · Zeit ~2 h**
+## Phase B — App-Gerüst (0.4.0)
 
----
+`make tui` / `python3 -m src --tui` (später Default, wenn Textual da ist):
+Screens für Menü, Practice-Liste mit Suche, Training, Readiness, Stats;
+Tastaturkürzel, die drei Themes, Fallback-Erkennung.
 
-## Priorität 4 — Code-Gesundheit (macht alles Weitere billiger)
+**~1.200 Zeilen · ~2 Tage**
 
-### F7 · Gemeinsame Shell-Logik zusammenführen
-`src/examshell.py` (1264 Z.) und `c_exam/examshell.py` (1144 Z.) haben
-**~900 identische Zeilen** — Exam-Ablauf, Practice, Training, Readiness,
-Drill, Menü. Jedes Feature in 0.2.0 musste doppelt gebaut werden (und B2 war
-in beiden kopiert). Neues `src/shell_common.py` mit dem gemeinsamen Ablauf;
-die beiden Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf,
-Stub-Erzeugung, CLI-Flags).
-- Verhalten bleibt identisch — die 397 bestehenden Tests sind das Netz.
-- **Code ~−600 Zeilen netto (viel Umbau) · Zeit ~4 h**
-- **Empfehlung:** als **erstes** umsetzen, dann sind F1, F3, F4, F6 jeweils
-  nur noch halb so viel Arbeit.
+## Phase C — Exam-Screen (0.5.0)
+
+Split-View Aufgabe | Ergebnisse, Ergebnisse laufen live ein, **Watch-Modus**
+(grademe beim Speichern, im Practice), Level-Stepper, Countdown, Blind-Grading
+im Exam, Level-geschafft-/Badge-Animationen.
+
+**~800 Zeilen · ~1,5 Tage**
+
+## Phase D — Feinschliff → 1.0.0
+
+Readiness-Heatmap, Stats-Verlaufsdiagramme, Exam-Historie, TUI-Tests
+(Textual „Pilot“), animierte GIFs fürs README (aufgenommen mit `vhs`),
+Doku.
+
+**~600 Zeilen · ~1 Tag**
 
 ---
 
-## Nicht in 0.3.0 (bewusst verschoben)
+## Danach (1.1)
 
-- **Installierbar per `pipx install`** (`examshell`-Befehl statt
-  `python3 -m src`): braucht eine Umbenennung des Pakets `src` → sinnvoll
-  *nach* F7. Eigenes Release.
-- **Mehrsprachige Oberfläche (DE/FR)**: hoher Aufwand (alle Texte), später.
+- **Lokales Web-Dashboard** (`make dashboard` → `localhost:4242`): Heatmap,
+  Diagramme, Exam-Historie im Browser.
+- `pipx install`-bar (Paket `src` umbenennen).
 
----
+## Risiken
 
-## Vorschlag Reihenfolge
-
-| Schritt | Inhalt | Zeit |
-|---|---|---|
-| 0 | Tag `v0.2.0` pushen (du) | 1 min |
-| 1 | F7 Refactor | ~4 h |
-| 2 | F1 Watch · F2 Doctor | ~2,5 h |
-| 3 | F4 Blind-Grading · F5 C-Fuzzing | ~3,5 h |
-| 4 | F3 Stats-Verlauf · F6 Hinweise/Lösung | ~4 h |
-| 5 | Doku, CHANGELOG 0.3.0, Version bump, PR | ~1 h |
-
-**Gesamt ~15 h**, ein PR mit einem Commit pro Feature.
-
-## Offene Fragen
-
-1. Alles umsetzen oder Auswahl?
-2. F4: Blind-Grading als **Default** im Exam (`--relaxed` schaltet es mit ab)
-   oder nur per `--blind`?
-3. F6: Referenzlösung **vor** dem Bestehen überhaupt anbieten (mit
-   Bestätigung) oder strikt erst danach?
+- Textual auf Schulrechnern nicht installierbar → Fallback ist Pflicht und
+  wird in CI mit *und* ohne Textual getestet.
+- Textual-API ändert sich zwischen Major-Versionen → Version in
+  `requirements` nach oben begrenzen.

@@ -773,5 +773,99 @@ class CaseLabelTests(unittest.TestCase):
         self.assertEqual(case_labels.describe(object()), "")
 
 
+class ReadinessAndDrillTests(unittest.TestCase):
+    """stats.exercise_status() / readiness() / drill_queue()."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = patch.object(stats, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.clock = 1000.0
+
+    def _grade(self, name, ok, mode="practice"):
+        self.clock += 10
+        with patch.object(stats.time, "time", return_value=self.clock):
+            stats.record("py", name, 1, ok, 1 if ok else 0, 1, mode)
+
+    def test_exercise_status(self):
+        self._grade("a", False)
+        self._grade("a", True)
+        self._grade("b", False)
+        status = stats.exercise_status("py", ["a", "b", "c"])
+        self.assertEqual(status["a"]["status"], "passed")
+        self.assertEqual((status["a"]["passes"], status["a"]["attempts"]), (1, 2))
+        self.assertEqual(status["b"]["status"], "failed")
+        self.assertEqual(status["c"]["status"], "untried")
+
+    def test_exam_passes_count_for_readiness(self):
+        self._grade("a", True, mode="exam")
+        levels = stats.readiness("py", {1: ["a", "b"], 2: ["c"]})
+        self.assertEqual([(lv, passed, total) for lv, passed, total, _ in levels],
+                         [(1, 1, 2), (2, 0, 1)])
+
+    def test_drill_order_weak_then_untried_then_stale(self):
+        self._grade("old_pass", True)
+        self._grade("new_pass", True)
+        self._grade("weak", False)
+        queue = stats.drill_queue("py", ["new_pass", "old_pass", "weak", "fresh"], n=4)
+        self.assertEqual(queue, ["weak", "fresh", "old_pass", "new_pass"])
+
+    def test_drill_caps_weak_spots_at_half_the_session(self):
+        for name in ("w1", "w2", "w3", "w4"):
+            self._grade(name, False)
+        queue = stats.drill_queue("py", ["w1", "w2", "w3", "w4", "u1", "u2"], n=4)
+        self.assertEqual(len(queue), 4)
+        self.assertEqual(sorted(queue[2:]), ["u1", "u2"])
+
+    def test_drill_is_short_when_there_are_few_candidates(self):
+        self.assertEqual(stats.drill_queue("py", ["x"], n=5), ["x"])
+
+
+class UpdateCheckTests(unittest.TestCase):
+    def setUp(self):
+        from src import update_check
+        self.uc = update_check
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("CACHE_PATH", os.path.join(self.tmpdir.name, "u.json")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = patch.object(update_check, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_version_comparison(self):
+        self.assertTrue(self.uc.is_newer("v0.10.0", "0.9.9"))
+        self.assertFalse(self.uc.is_newer("v0.2.0", "0.2.0"))
+        self.assertFalse(self.uc.is_newer("garbage", "0.2.0"))
+
+    def test_notice_only_for_a_newer_version(self):
+        self.assertIsNone(self.uc.notice_text(None))
+        self.assertIsNone(self.uc.notice_text("v0.0.1"))
+        self.assertIn("99.0.0", self.uc.notice_text("v99.0.0"))
+
+    def test_result_is_cached_for_a_day_even_when_the_fetch_failed(self):
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return None
+
+        self.assertIsNone(self.uc.latest_version(now=time.time(), fetch=fetch))
+        self.uc.latest_version(now=time.time() + 60, fetch=fetch)
+        self.assertEqual(len(calls), 1)
+        self.uc.latest_version(now=time.time() + self.uc.CHECK_EVERY + 1, fetch=fetch)
+        self.assertEqual(len(calls), 2)
+
+    def test_opt_out(self):
+        self.assertFalse(self.uc.enabled(opt_out_flag=True))
+        with patch.dict(os.environ, {self.uc.ENV_OPT_OUT: "1"}):
+            self.assertFalse(self.uc.enabled())
+            self.assertEqual(self.uc.start_background_check(), {"notice": None})
+
+
 if __name__ == "__main__":
     unittest.main()

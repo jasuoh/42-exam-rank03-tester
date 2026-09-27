@@ -27,6 +27,7 @@ import shlex
 import time
 
 from src import achievements, hints, report_export, session_store, settings, stats, ui
+from src import update_check
 from src.version import __version__
 
 from . import grader
@@ -72,6 +73,7 @@ class Config(object):
         # Exam-only realism, see exam_config() / exam_commands().
         self.relaxed = getattr(args, "relaxed", False)
         self.time_limit = getattr(args, "time_limit", None)   # minutes
+        self.no_update_check = getattr(args, "no_update_check", False)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -771,6 +773,73 @@ def show_stats():
 
 
 # ══════════════════════════════════════════════════════════════
+#  READINESS  ·  DRILL
+# ══════════════════════════════════════════════════════════════
+DRILL_SIZE = 5
+_READY_GLYPH = {"passed": "ok", "failed": "ko", "untried": "missing"}
+
+
+def _percent(part, whole):
+    return int(round(100.0 * part / whole)) if whole else 0
+
+
+def readiness_mode(interactive=True):
+    """How ready you are for the real exam: every exercise the exam can
+    draw, level by level — passed at least once, tried but never passed,
+    or never tried (see stats.readiness())."""
+    if interactive:
+        ui.clear()
+        banner()
+        print()
+    levels = stats.readiness(TOOL, STANDARD_LEVELS)
+    rows = []
+    for level, _passed, _total, entries in levels:
+        for name, row in entries:
+            label = ("%d/%d passed" % (row["passes"], row["attempts"])
+                     if row["attempts"] else "never tried")
+            rows.append((level, name, _READY_GLYPH[row["status"]], label))
+    ui.overview_table(rows, title="Exam readiness — every exercise the exam can draw")
+    done = sum(passed for _, passed, _, _ in levels)
+    total = sum(count for _, _, count, _ in levels)
+    summary_rows = [("Level %d" % level, "%d/%d passed  (%d%%)"
+                     % (passed, count, _percent(passed, count)))
+                    for level, passed, count, _ in levels]
+    summary_rows.append(("Overall", "%d/%d  (%d%%)" % (done, total, _percent(done, total))))
+    ui.summary("Exam readiness", summary_rows, passed=done == total)
+    if done < total:
+        weakest = min(levels, key=lambda lv: _percent(lv[1], lv[2]))
+        ui.info("level %d is your biggest gap — `--drill` builds a short "
+                "session from your gaps" % weakest[0])
+    if interactive:
+        try:
+            ui.pause("\n  Press Enter to go back…")
+        except ui.Abort:
+            return
+
+
+def drill_mode(cfg, n=DRILL_SIZE):
+    """A short daily session: weak spots, then never-tried exercises, then
+    the ones practised longest ago (see stats.drill_queue()) — only
+    exercises the real exam can draw."""
+    names = [name for _, _, name, _, standard in exercise_entries() if standard]
+    queue = stats.drill_queue(TOOL, names, n)
+    rng = random.Random()
+    for i, name in enumerate(queue, 1):
+        ui.clear()
+        banner()
+        print()
+        ui.info("Drill %d/%d — %s (level %d)" % (i, len(queue), name,
+                                                ALL_EXERCISES[name]["level"]))
+        try:
+            ui.pause("  Press Enter to start, Ctrl-C to end the drill…")
+        except ui.Abort:
+            return
+        practice_one(name, cfg, rng, mode="drill")
+    ui.success("drill done — %d exercise%s. `--readiness` shows where you stand."
+               % (len(queue), "" if len(queue) == 1 else "s"))
+
+
+# ══════════════════════════════════════════════════════════════
 #  MAIN MENU
 # ══════════════════════════════════════════════════════════════
 MENU = [
@@ -778,14 +847,19 @@ MENU = [
     ("2", "Practice mode", "(drill a single exercise)"),
     ("3", "List all exercises", ""),
     ("4", "Training mode", "(LeetCode-style, by difficulty — not exam material)"),
+    ("5", "Exam readiness", "(what you've passed, level by level)"),
+    ("6", "Daily drill", "(%d exercises from your gaps)" % DRILL_SIZE),
     ("q", "Quit", ""),
 ]
 
 
 def main_menu(cfg):
+    update = update_check.start_background_check(cfg.no_update_check)
     while True:
         ui.clear()
         banner()
+        if update["notice"]:
+            ui.note(update["notice"])
         print()
         ui.menu(MENU)
         try:
@@ -804,6 +878,10 @@ def main_menu(cfg):
             list_mode()
         elif choice == "4":
             training_mode(cfg)
+        elif choice == "5":
+            readiness_mode()
+        elif choice == "6":
+            drill_mode(cfg)
         elif choice in ("q", "quit", "exit"):
             ui.info("Good luck on the real exam! 🍀")
             print()
@@ -849,6 +927,13 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--readiness", action="store_true",
+                      help="show, level by level, which exercises the exam "
+                           "can draw you've passed, failed or never tried")
+    mode.add_argument("--drill", nargs="?", type=int, const=DRILL_SIZE, metavar="N",
+                      help="a short daily session (default %d exercises): weak "
+                           "spots, never-tried ones, then the longest-unpractised"
+                           % DRILL_SIZE)
 
     p.add_argument("--seed", type=int, default=None,
                    help="seed the RNG so a run is reproducible")
@@ -907,6 +992,9 @@ def build_parser():
     p.add_argument("--time-limit", type=int, default=None, metavar="MIN",
                    help="exam mode only: end the exam after MIN minutes, "
                         "with a countdown in the prompt (default: no limit)")
+    p.add_argument("--no-update-check", action="store_true",
+                   help="don't check GitHub (at most once a day, in the "
+                        "background) for a newer version of this tester")
     p.add_argument("--version", action="version",
                    version="%(prog)s " + __version__)
     p.add_argument("--no-rich", action="store_true",
@@ -973,6 +1061,10 @@ def main(argv=None):
         show_stats()
         return 0
 
+    if args.readiness:
+        readiness_mode(interactive=False)
+        return 0
+
     if args.check:
         rng = random.Random(args.seed if args.seed is not None else 0)
         if cfg.valgrind and not grader.have_valgrind():
@@ -1028,6 +1120,12 @@ def main(argv=None):
         if args.practice and not name:
             return 2
         practice_mode(cfg, name)
+        return 0
+    if args.drill is not None:
+        if args.drill < 1:
+            ui.error("--drill needs at least 1 exercise")
+            return 2
+        drill_mode(cfg, args.drill)
         return 0
     if args.train is not None:
         value = args.train.lower()

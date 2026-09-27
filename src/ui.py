@@ -640,14 +640,14 @@ def training_table(entries, numbered=False):
               + c(func + "()", "GRAY"))
 
 
-def overview_table(rows):
+def overview_table(rows, title="Grading overview"):
     """rows: [(level, name, status, tests_label), …]
 
     status is "ok" / "ko" / "missing".
     """
     glyph = {"ok": ("✔", "green"), "ko": ("✖", "red"), "missing": ("·", "dim")}
     if _rich:
-        t = Table(title="[bold]Grading overview[/bold]",
+        t = Table(title="[bold]%s[/bold]" % _esc(title),
                   box=box.SIMPLE_HEAVY, header_style="bold cyan",
                   row_styles=["", "dim"])
         t.add_column("Level", justify="center", style="yellow")
@@ -660,6 +660,7 @@ def overview_table(rows):
                       _esc(tests_label))
         _console.print(t)
         return
+    print(IND0 + c(title, "BOLD"))
     width = max((len(name) for _, name, _, _ in rows), default=0) + 2
     for lvl, name, status, tests_label in rows:
         mark, style = glyph[status]

@@ -538,5 +538,40 @@ class RealisticExamModeTests(unittest.TestCase):
         self.assertIn("left", examshell.countdown(session, _cfg("x", time_limit=90)))
 
 
+class ReadinessAndDrillModeTests(unittest.TestCase):
+    """--readiness / --drill wiring (the ranking itself is tested in
+    tests/test_shared.py)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = mock.patch.object(stats, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_readiness_lists_every_standard_exercise(self):
+        with mock.patch.object(examshell.ui, "overview_table") as table, \
+             mock.patch.object(examshell.ui, "summary"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.readiness_mode(interactive=False)
+        rows = table.call_args[0][0]
+        standard = {n for n in examshell.EXERCISES if examshell.EXERCISES[n]["standard"]}
+        self.assertEqual({row[1] for row in rows}, standard)
+        self.assertTrue(all(row[2] == "missing" for row in rows))
+
+    def test_drill_practises_n_standard_exercises(self):
+        with mock.patch.object(examshell, "practice_one") as practice, \
+             mock.patch.object(examshell.ui, "pause"), \
+             mock.patch.object(examshell.ui, "clear"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.drill_mode(_cfg("x"), n=3)
+        self.assertEqual(practice.call_count, 3)
+        for call in practice.call_args_list:
+            self.assertTrue(examshell.EXERCISES[call[0][0]]["standard"])
+            self.assertEqual(call[1]["mode"], "drill")
+
+
 if __name__ == "__main__":
     unittest.main()

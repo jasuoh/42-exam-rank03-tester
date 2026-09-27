@@ -24,7 +24,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/training_bank.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
-               $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py \
+               $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -35,6 +35,7 @@ C_RENDU     ?= c_rendu
 
 # Optional flags forwarded to the tester, e.g. `make exam SEED=42 FLAGS=--strict-imports`
 EX    ?=
+N     ?=
 SEED  ?=
 FLAGS ?=
 # Which Python exam pool to use: 03 (default), 04 or 05. Left empty rather
@@ -57,7 +58,8 @@ OFF   := \033[0m
         stats ranks check unit test lint format install venv deps clean fclean re \
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
-        c-grade c-grade-all c-stats c-check c-unit c-test c-status
+        c-grade c-grade-all c-stats c-check c-unit c-test c-status \
+        readiness drill c-readiness c-drill update
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -84,6 +86,8 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make grade-all" "grade every exam solution in $(RENDU)/, one overview"
 	@printf "                          $(DIM)(exam pool only — a training solution grades via 'make grade')$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make stats" "your local practice history (attempts, pass rate, best time)"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make readiness" "which exam exercises you've passed, level by level"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[N=5]$(OFF)\n" $(ROWW) "make drill" "short daily session from your gaps"
 	@printf "  $(BOLD)Develop$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make unit" "fast unit tests for grader/ui/examshell logic"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make check" "self-test every exam bank + the training bank"
@@ -92,6 +96,7 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make format" "run ruff format if installed"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make update" "pull the latest version of this tester (git pull)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make install" "create $(VENV)/ and install rich (nicer UI, optional)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make clean" "remove caches and stray artefacts"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make fclean" "clean + remove $(VENV)/"
@@ -112,6 +117,8 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)EX=ft_atoi$(OFF)\n" $(ROWW) "make c-grade" "grade one solution, no menu"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-grade-all" "grade every solution in $(C_RENDU)/, one overview"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-stats" "your local practice history (attempts, pass rate, best time)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-readiness" "which exam exercises you've passed, level by level"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[N=5]$(OFF)\n" $(ROWW) "make c-drill" "short daily session from your gaps"
 	@printf "  $(BOLD)Develop$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-unit" "fast unit tests for the C tester's own logic"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-check" "self-test both C exercise banks (real compiles)"
@@ -153,6 +160,12 @@ grade-all:
 stats:
 	@$(PY) -m $(SRC_PKG) --stats $(RANK_ARG)
 
+readiness:
+	@$(PY) -m $(SRC_PKG) --readiness $(RANK_ARG)
+
+drill:
+	@$(PY) -m $(SRC_PKG) --drill $(N) $(ARGS)
+
 ranks:
 	@$(PY) -m $(SRC_PKG) --list-ranks
 
@@ -188,6 +201,12 @@ c-grade-all:
 
 c-stats:
 	@$(PY) -m $(C_PKG) --stats
+
+c-readiness:
+	@$(PY) -m $(C_PKG) --readiness
+
+c-drill:
+	@$(PY) -m $(C_PKG) --drill $(N) $(C_ARGS)
 
 # ── develop ───────────────────────────────────────────────────
 unit:
@@ -256,6 +275,9 @@ c-status:
 		done
 
 # ── environment ───────────────────────────────────────────────
+update:
+	@git pull --ff-only
+
 install: venv deps
 
 venv: $(VENV_PYTHON)

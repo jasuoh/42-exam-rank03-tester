@@ -1,1 +1,3 @@
 rich>=13.0
+# the full-screen interface (--tui / make tui) — optional, Python 3.9+ only
+textual>=1.0,<9; python_version >= "3.9"

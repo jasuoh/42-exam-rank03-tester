@@ -747,5 +747,24 @@ class ProgramTimeoutBailOutTests(unittest.TestCase):
         self.assertLess(elapsed, len(self.EX["cases"]) - 1)
 
 
+@skip_without_cc
+class ProgramNewlineDisplayTests(unittest.TestCase):
+    """A program that forgets its trailing newline must show the difference
+    — stripped, expected and got would both read 'abc' yet still fail."""
+
+    EX = ProgramTimeoutBailOutTests.EX
+
+    def test_missing_newline_is_visible(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
+                fh.write("#include <unistd.h>\n#include <string.h>\n"
+                         "int main(int ac, char **av)\n{\n"
+                         "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                         "    return 0;\n}\n")
+            report = grader.grade("echo_arg", self.EX, tmp, timeout=2)
+        failure = report.failures[0]
+        self.assertEqual((failure.expected, failure.got), ("a\n", "a"))
+
+
 if __name__ == "__main__":
     unittest.main()

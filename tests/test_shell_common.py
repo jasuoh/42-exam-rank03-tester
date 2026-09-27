@@ -20,7 +20,7 @@ from src.grader import Report
 
 def _cfg(sh, **overrides):
     values = dict(rendu="unused-rendu", timeout=3, fuzz=0, strict_imports=False,
-                  strict=False, show_fails=4, diff=False, seed=7, relaxed=False,
+                  strict=False, show_fails=4, diff=False, seed=7, relaxed=False, blind=False,
                   time_limit=None, cc="cc", strict_norm=False, valgrind=False,
                   strict_valgrind=False, strict_forbidden=False)
     values.update(overrides)
@@ -169,6 +169,38 @@ class GradeTests(_TempDataDir):
         self.assertIsNone(outcomes[0].hint)
         self.assertEqual(outcomes[-1].hint, "look again")
         self.assertIsNone(in_exam.hint)
+
+
+class FinishAndBlindTests(_TempDataDir):
+    def test_finish_exam_returns_the_summary_as_data(self):
+        sh = py_shell
+        tmp = tempfile.mkdtemp()
+        run = shell_common.ExamRun(sh, _cfg(sh))
+        run.start("carol")
+        run.ensure_exercise()
+        run.begin_attempt()
+        with mock.patch.object(shell_common.report_export, "REPORTS_DIR", tmp), \
+             mock.patch.object(shell_common.ui, "summary") as rendered:
+            result = shell_common.finish_exam(sh, run.session, passed=False, timed_out=True)
+        rendered.assert_not_called()
+        self.assertIn("TIME'S UP", result.title)
+        self.assertEqual(dict(result.rows)["Attempts"], 1)
+        self.assertTrue(os.path.isfile(result.report_path))
+
+    def test_blind_exam_report_hides_failing_cases(self):
+        sh = py_shell
+        report = Report("py_inter", "inter")
+        report.total, report.passed = 3, 1
+        job = shell_common.GradingJob(3, lambda: report)
+        with mock.patch.object(sh, "prepare_grading", return_value=job), \
+             mock.patch.object(shell_common.ui, "report") as rendered, \
+             mock.patch.object(shell_common.ui, "spinner"):
+            shell_common.grade_exercise(sh, "py_inter", random.Random(0),
+                                        _cfg(sh, blind=True), mode="exam")
+            self.assertEqual(rendered.call_args[0][1], 0)
+            shell_common.grade_exercise(sh, "py_inter", random.Random(0),
+                                        _cfg(sh, blind=True), mode="practice")
+            self.assertEqual(rendered.call_args[0][1], 4)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,10 @@
 
 Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27 · Vorgänger: 0.2.0 (#4)
 
+> **Stand 0.3.0:** Phase A (#5) und die TUI (Phasen B–D) sind umgesetzt.
+> Offen für 1.0: Feedback echter Nutzer einarbeiten (Issue-Vorlagen sind
+> da), danach entscheiden, ob die TUI Standard wird.
+
 Ziel: aus dem zeilenbasierten Tester eine **Vollbild-Terminal-App** machen —
 Aufgabe und Ergebnisse nebeneinander, Live-Grading beim Speichern,
 Exam-Fortschritt und Countdown immer sichtbar, Readiness als Heatmap,

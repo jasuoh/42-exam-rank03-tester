@@ -65,3 +65,14 @@ things:
 > rote-learn the solutions — understand the logic.
 
 ---
+
+## 🖼️ Screenshots
+
+`docs/img/*.svg` are real Textual screenshots, regenerated with
+
+```bash
+venv/bin/python tools/screenshots.py
+```
+
+It runs the app headless against a throwaway `HOME` with a made-up practice
+history, so your own `~/.examshell/` is never touched.

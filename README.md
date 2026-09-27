@@ -21,6 +21,10 @@ Draw a random exercise per level, write your solution, type `grademe`, and
 only advance at **100 %** — graded as strictly as the real `examshell`, on
 far more edge cases than you'd think to test yourself.
 
+<p align="center">
+  <img src="docs/img/tui-practice.svg" alt="ExamShell's full-screen app: the subject on the left, a failing first_word on the right — each failing case with its edge case and a command to reproduce it" width="880">
+</p>
+
 ## ⚡ Quick start
 
 ```bash
@@ -28,10 +32,14 @@ git clone https://github.com/jasuoh/42-exam-tester && cd 42-exam-tester
 
 make run            # 🐍 Python · Exam Rank 03 — interactive menu (RANK=04 / 05 for the others)
 make c-run          # 🔧 C · Exam Rank 02 — needs nothing but a C compiler
-make install        # optional: nicer colours (installs `rich` into ./venv)
+
+make install        # optional: colours + the full-screen app (installs rich & textual into ./venv)
+make tui            # ✨ the full-screen app — make c-tui for C
 ```
 
 No dependencies required — it runs on a bare exam machine with Python 3.8+.
+The full-screen app is an optional extra (Python 3.9+); without it everything
+works in the plain terminal UI.
 
 ## 🔁 A typical week
 
@@ -46,8 +54,8 @@ When a test fails you see exactly why — and how to reproduce it:
 ```
 [KO] ./first_word $'  \tfoo bar'
      edge case: tabs · leading/trailing whitespace
-     expected : 'foo'
-     got      : '\tfoo'
+     expected : 'foo\n'
+     got      : '\tfoo\n'
 ```
 
 ## ✨ What you get
@@ -60,6 +68,7 @@ When a test fails you see exactly why — and how to reproduce it:
 | 📈 **Knows your gaps** | readiness per level, a daily drill, stats, hints after 3 fails in a row (never during the exam) |
 | ⏸️ **Life happens** | `quit` saves the exam, the next start resumes it; every run writes a Markdown report |
 | 🧠 **Beyond the exam** | a separate LeetCode-style training pool per language |
+| ✨ **Full-screen app** | subject and results side by side, **watch mode** re-grades every time you save, level stepper and countdown in the exam, readiness heatmap, stats with your streak — [screenshots](docs/features.md#-the-full-screen-app) |
 
 | | 🐍 Python | 🔧 C |
 |---|:---:|:---:|

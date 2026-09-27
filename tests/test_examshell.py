@@ -68,6 +68,11 @@ class ResolveExerciseTests(unittest.TestCase):
         self.assertEqual(examshell.resolve_exercise("py_kth_largest"),
                          "py_kth_largest")
 
+    def test_prefixed_name_wins_over_other_suffix_matches(self):
+        fake = {"py_inter": {}, "py_union_inter": {}}
+        with mock.patch.object(examshell, "ALL_EXERCISES", fake):
+            self.assertEqual(examshell.resolve_exercise("inter"), "py_inter")
+
     def test_unknown_returns_none(self):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertIsNone(examshell.resolve_exercise("not_a_real_exercise"))
@@ -359,7 +364,7 @@ class NewCommandResetsLevelTimingTests(unittest.TestCase):
     one in session.history / the exported report."""
 
     def test_attempts_after_new_do_not_include_the_abandoned_exercise(self):
-        cfg = _cfg("unused-rendu", fuzz=0, seed=None)
+        cfg = _cfg("unused-rendu", fuzz=0, seed=None, relaxed=True)
         ask_calls = ["  ", "grademe", "new", "grademe"]
         captured = {}
 
@@ -432,6 +437,159 @@ class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
         clear.assert_not_called()
         summary.assert_called_once()
         self.assertIn("ABORTED", summary.call_args[0][0])
+
+
+class SeededExamIsReproducibleTests(unittest.TestCase):
+    """--seed N must reproduce the same exam no matter how often the
+    student types `grademe`: grading (fuzz cases) draws from its own RNG,
+    never from the one that picks each level's exercise."""
+
+    def _drawn(self, fails_per_level):
+        cfg = _cfg("unused-rendu", fuzz=0, seed=1234)
+        drawn = []
+        outcomes = ([False] * fails_per_level + [True]) * N_LEVELS
+
+        def fake_grade(ex_name, rng, cfg, mode="practice"):
+            for _ in range(50):            # what a fuzzed grading run does
+                rng.random()
+            return outcomes.pop(0)
+
+        def fake_subject(ex_name, cfg, session=None):
+            if not drawn or drawn[-1] != ex_name:
+                drawn.append(ex_name)
+
+        asks = ["  "] + ["grademe"] * len(outcomes)
+        with mock.patch.object(examshell, "grade_exercise", side_effect=fake_grade), \
+             mock.patch.object(examshell, "show_subject", side_effect=fake_subject), \
+             mock.patch.object(examshell, "exam_summary"), \
+             mock.patch.object(examshell.session_store, "load", return_value=None), \
+             mock.patch.object(examshell.session_store, "save"), \
+             mock.patch.object(examshell.session_store, "clear"), \
+             mock.patch.object(examshell.ui, "ask", side_effect=asks), \
+             mock.patch.object(examshell.ui, "pause"), \
+             mock.patch.object(examshell.ui, "clear"), \
+             mock.patch.object(examshell.ui, "banner"), \
+             mock.patch.object(examshell.ui, "commands"), \
+             mock.patch.object(examshell.ui, "level_cleared"), \
+             mock.patch.object(examshell.ui, "info"), \
+             mock.patch.object(examshell.ui, "note"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.exam_mode(cfg)
+        return drawn
+
+    def test_retries_do_not_change_later_draws(self):
+        first_try = self._drawn(fails_per_level=0)
+        with_retries = self._drawn(fails_per_level=3)
+        self.assertEqual(len(first_try), N_LEVELS)
+        self.assertEqual(first_try, with_retries)
+
+
+
+STRICT_FLAGS = ("strict_imports",)
+class RealisticExamModeTests(unittest.TestCase):
+    """By default the exam grades as strictly as the real one and has no
+    `new`; --relaxed restores the lenient behaviour. --time-limit ends it."""
+
+    def test_exam_config_is_strict_by_default(self):
+        cfg = examshell.exam_config(_cfg("x"))
+        for flag in STRICT_FLAGS:
+            self.assertTrue(getattr(cfg, flag), flag)
+
+    def test_exam_config_leaves_the_original_config_alone(self):
+        base = _cfg("x")
+        examshell.exam_config(base)
+        for flag in STRICT_FLAGS:
+            self.assertFalse(getattr(base, flag), flag)
+
+    def test_relaxed_keeps_lenient_grading(self):
+        cfg = examshell.exam_config(_cfg("x", relaxed=True))
+        for flag in STRICT_FLAGS:
+            self.assertFalse(getattr(cfg, flag), flag)
+
+    def test_new_is_hidden_unless_relaxed(self):
+        names = [n for n, _ in examshell.exam_commands(_cfg("x"))]
+        self.assertNotIn("new", names)
+        names = [n for n, _ in examshell.exam_commands(_cfg("x", relaxed=True))]
+        self.assertIn("new", names)
+
+    def _run(self, cfg, asks, **patches):
+        captured = {}
+
+        def fake_summary(session, passed, timed_out=False):
+            captured.update(session=session, passed=passed, timed_out=timed_out)
+
+        with mock.patch.object(examshell, "grade_exercise", return_value=False), \
+             mock.patch.object(examshell, "exam_summary", side_effect=fake_summary), \
+             mock.patch.object(examshell.session_store, "load", return_value=None), \
+             mock.patch.object(examshell.session_store, "save"), \
+             mock.patch.object(examshell.session_store, "clear"), \
+             mock.patch.object(examshell.ui, "ask", side_effect=asks), \
+             mock.patch.object(examshell.ui, "warn") as warn, \
+             mock.patch.object(examshell.ui, "clear"), \
+             mock.patch.object(examshell.ui, "banner"), \
+             mock.patch.object(examshell.ui, "status_bar"), \
+             mock.patch.object(examshell.ui, "subject"), \
+             mock.patch.object(examshell.ui, "commands"), \
+             mock.patch.object(examshell.ui, "info"), \
+             mock.patch.object(examshell.ui, "note"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.exam_mode(cfg)
+        return captured, warn
+
+    def test_new_is_refused_in_realistic_mode(self):
+        cfg = _cfg("unused-rendu")
+        captured, warn = self._run(cfg, ["  ", "new", "quit"])
+        self.assertTrue(any("--relaxed" in c.args[0] for c in warn.call_args_list))
+        self.assertFalse(captured["timed_out"])
+
+    def test_time_limit_ends_the_exam(self):
+        cfg = _cfg("unused-rendu", time_limit=1)
+        with mock.patch.object(examshell.time, "time",
+                               side_effect=[1000.0] + [1000.0 + 61] * 50):
+            captured, _warn = self._run(cfg, ["  ", "grademe"])
+        self.assertTrue(captured["timed_out"])
+        self.assertFalse(captured["passed"])
+
+    def test_countdown_only_with_a_time_limit(self):
+        session = examshell.Session()
+        session.start_time = examshell.time.time()
+        self.assertEqual(examshell.countdown(session, _cfg("x")), "")
+        self.assertIn("left", examshell.countdown(session, _cfg("x", time_limit=90)))
+
+
+class ReadinessAndDrillModeTests(unittest.TestCase):
+    """--readiness / --drill wiring (the ranking itself is tested in
+    tests/test_shared.py)."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = mock.patch.object(stats, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_readiness_lists_every_standard_exercise(self):
+        with mock.patch.object(examshell.ui, "overview_table") as table, \
+             mock.patch.object(examshell.ui, "summary"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.readiness_mode(interactive=False)
+        rows = table.call_args[0][0]
+        standard = {n for n in examshell.EXERCISES if examshell.EXERCISES[n]["standard"]}
+        self.assertEqual({row[1] for row in rows}, standard)
+        self.assertTrue(all(row[2] == "missing" for row in rows))
+
+    def test_drill_practises_n_standard_exercises(self):
+        with mock.patch.object(examshell, "practice_one") as practice, \
+             mock.patch.object(examshell.ui, "pause"), \
+             mock.patch.object(examshell.ui, "clear"), \
+             contextlib.redirect_stdout(io.StringIO()):
+            examshell.drill_mode(_cfg("x"), n=3)
+        self.assertEqual(practice.call_count, 3)
+        for call in practice.call_args_list:
+            self.assertTrue(examshell.EXERCISES[call[0][0]]["standard"])
+            self.assertEqual(call[1]["mode"], "drill")
 
 
 if __name__ == "__main__":

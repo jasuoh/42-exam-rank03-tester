@@ -157,3 +157,64 @@ def summarize(tool=None):
         "exam_completions": len(completions),
         "best_seconds": best_seconds,
     }
+
+
+def exercise_status(tool, names):
+    """{name: {"status", "attempts", "passes", "last_ts"}} for each of
+    `names`, from every recorded grading (exam attempts included — a pass
+    in the exam counts as much as one in practice). status is "passed"
+    (at least once), "failed" (tried, never passed) or "untried"."""
+    wanted = set(names)
+    rows = {name: {"status": "untried", "attempts": 0, "passes": 0, "last_ts": None}
+            for name in names}
+    for e in load_all(tool):
+        name = e.get("exercise")
+        if name not in wanted:
+            continue
+        row = rows[name]
+        row["attempts"] += 1
+        row["passes"] += 1 if e.get("ok") else 0
+        row["last_ts"] = max(row["last_ts"] or 0, e.get("ts", 0))
+    for row in rows.values():
+        if row["attempts"]:
+            row["status"] = "passed" if row["passes"] else "failed"
+    return rows
+
+
+def readiness(tool, standard_levels):
+    """How exam-ready the student is, level by level: for each level of
+    `standard_levels` ({level: [names]} — only what the exam can draw),
+    (level, passed_count, total, [(name, status_row), …] sorted by name)."""
+    out = []
+    for level in sorted(standard_levels):
+        names = sorted(standard_levels[level])
+        status = exercise_status(tool, names)
+        passed = sum(1 for n in names if status[n]["status"] == "passed")
+        out.append((level, passed, len(names), [(n, status[n]) for n in names]))
+    return out
+
+
+def drill_queue(tool, candidate_names, n=5):
+    """Up to `n` exercises for a short daily drill, from `candidate_names`
+    (in the caller's order, e.g. by level):
+
+      1. weak spots first (weakest_exercises(): on a fail streak / low pass
+         rate) — but at most half the session, so a drill is never just a
+         wall of failures,
+      2. then exercises never tried yet, in the given order,
+      3. then passed ones, least recently practised first (a light form of
+         spaced repetition — what you nailed a month ago is due again),
+      4. then more weak spots if the session still isn't full.
+    """
+    status = exercise_status(tool, candidate_names)
+    weak = weakest_exercises(tool, list(candidate_names))
+    untried = [name for name in candidate_names if status[name]["status"] == "untried"]
+    stale = sorted((name for name in candidate_names
+                    if status[name]["status"] != "untried" and name not in weak),
+                   key=lambda name: status[name]["last_ts"] or 0)
+    first_weak = weak[:(n + 1) // 2]
+    queue = []
+    for name in first_weak + untried + stale + weak[len(first_weak):]:
+        if name not in queue:
+            queue.append(name)
+    return queue[:n]

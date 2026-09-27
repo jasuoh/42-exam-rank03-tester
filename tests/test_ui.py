@@ -245,5 +245,22 @@ class SplitSubjectTests(unittest.TestCase):
         self.assertIn("demo(2) -> 4", examples)
 
 
+class FailureTextsTests(unittest.TestCase):
+    """A CFailure's raw stdout is repr()'d on BOTH sides so invisible
+    characters show and --diff's pointer lines up; grader markers stay."""
+
+    def test_c_failure_reprs_both_sides(self):
+        f = _FakeCFailure("ab", "a\tb")
+        self.assertEqual(ui._failure_texts(f), ("'ab'", "'a\\tb'"))
+
+    def test_c_failure_marker_is_left_alone(self):
+        f = _FakeCFailure("ab", "[TIMEOUT]")
+        self.assertEqual(ui._failure_texts(f)[1], "[TIMEOUT]")
+
+    def test_python_failure_got_is_unchanged(self):
+        f = _FakeFailure("x", "'y'")
+        self.assertEqual(ui._failure_texts(f), ("'x'", "'y'"))
+
+
 if __name__ == "__main__":
     unittest.main()

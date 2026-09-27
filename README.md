@@ -8,7 +8,7 @@
 
 *Real sandboxed grading. Real edge cases. Real compiler. Zero internet required.*
 
-[![CI](https://github.com/jasuoh/42-exam-rank03-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/jasuoh/42-exam-rank03-tester/actions/workflows/ci.yml)
+[![CI](https://github.com/jasuoh/42-exam-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/jasuoh/42-exam-tester/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/dependencies-none%20required-brightgreen)
@@ -36,7 +36,7 @@ real thing.
 ## ⚡ Quick start
 
 ```bash
-git clone <this-repo> && cd 42-exam-rank03-tester
+git clone <this-repo> && cd 42-exam-tester
 
 make install     # optional — venv + rich, for the pretty TUI
 make run         # 🐍 Python · Exam Rank 03 — interactive menu
@@ -55,7 +55,7 @@ runs on a bare exam machine with nothing preinstalled.
 | | 🐍 Python · Exam Ranks 03 · 04 · 05 | 🔧 C · Exam Rank 02 |
 |---|:---:|:---:|
 | **Levels** | 6 (R03) · 4 (R04) · 3 (R05) | 4 |
-| **Exercises** | 44 (14 standard + 30 extra) · 7 (R04) · 7 (R05) | 59 (56 standard + 3 extra) |
+| **Exercises** | 44 (14 standard + 30 extra) · 7 (R04) · 7 (R05) | 60 (57 standard + 3 extra) |
 | **Training pool** | 20 exercises, 3 difficulties | 9 exercises, 3 difficulties |
 | **Grading engine** | in-process sandbox, type-strict `deep_eq` | compile → run → diff stdout, real `cc` |
 | **Solutions live in** | `rendu/` | `c_rendu/` |
@@ -86,6 +86,10 @@ stats, same resume/report engine) — learn it once, it just works on both.
 | 🔎 **Fuzzy exercise search** | `/text` in any picker narrows the list instantly |
 | 🧠 **A second, separate training pool** | LeetCode-style drills by difficulty, never mixed into a real exam draw |
 | 🪜 **Three Python exam ranks** | Rank 03, 04 and 05 in one tool (`RANK=04`), each with its own pool, level count and history |
+| 🎯 **Realistic exam mode** | the exam grades as strictly as the real one (any import fails; C: warnings and forbidden calls fail), no `new` redraws, optional `--time-limit` countdown — `--relaxed` to loosen |
+| 🔍 **Edge-case labels** | a failing test says *what kind* of input broke it (`empty string`, `tabs`, `negative number`, `no arguments`, …) and C programs show a pasteable `./prog …` command to rerun it |
+| 📈 **Exam readiness + daily drill** | `make readiness` shows which exam exercises you've passed, level by level; `make drill` builds a 5-exercise session from your gaps |
+| 🔔 **Update notice** | the menu tells you when a new release is out (checked at most once a day, in the background) — `make update` pulls it |
 
 <br>
 
@@ -106,7 +110,7 @@ stats, same resume/report engine) — learn it once, it just works on both.
 **🔧 C · Exam Rank 02**
 [How it works](#-how-it-works) ·
 [Exercise pool](#-exercise-pool-1) ·
-[Fuzzing](#-fuzzing-partial) ·
+[Fuzzing](#-fuzzing) ·
 [Valgrind](#-valgrind-optional) ·
 [Training pool](#-training-pool-leetcode-style-1) ·
 [Make targets](#️-make-targets-1) ·
@@ -165,15 +169,31 @@ Commands during the exam:
 | `grademe` | test your solution |
 | `subject` | show the assignment again |
 | `status` | show your progress |
-| `new` | draw a different exercise for this level |
+| `new` | draw a different exercise for this level (**only with `--relaxed`**) |
 | `stub` | create the solution file for you |
 | `quit` | abort (you still get a summary) |
+
+**The exam is as strict as the real one by default.** Practice and training
+only *warn* about an `import` (or, in C, a compiler warning or a forbidden
+call) so mistakes stay cheap while you learn — but the exam fails you on
+them, exactly like the real moulinette, and there is no `new` to redraw an
+exercise you don't like. Passing here therefore means something. Two flags
+change that:
+
+```bash
+make exam FLAGS=--relaxed            # the old lenient exam: warnings only, `new` allowed
+make exam FLAGS="--time-limit 180"   # end the exam after 180 minutes, countdown in the prompt
+```
+
+With `--seed N` the whole exam is reproducible: the same exercises are
+drawn no matter how many times you type `grademe` along the way.
 
 Modes from the main menu: **Start exam** (the full run above — draws only
 from the Standard 14, one per level), **Practice mode** (drill *any* of
 the 44, Standard or Extra, no progression), **List all exercises**,
 **Training mode** (LeetCode-style exercises by difficulty — see below,
-never part of the exam).
+never part of the exam), **Exam readiness** and **Daily drill** (see
+[Readiness & drill](#-exam-readiness--daily-drill)).
 
 Every generated stub (`stub` / `make stub`) also embeds a small
 **self-check block**: a handful of the exercise's own curated cases with
@@ -230,8 +250,8 @@ The published Rank 04 and Rank 05 Python pools are much smaller than Rank
 03's, and **every exercise in them is a documented subject** — so there is
 no Standard/Extra split here: all 14 are ★, and `make exam RANK=04` can
 draw any of them. The flip side of a small pool is that some levels hold a
-single exercise, so `new` simply re-draws it — that is the real pool, not a
-bug.
+single exercise, so `new` (with `--relaxed`) simply re-draws it — that is
+the real pool, not a bug.
 
 <details>
 <summary><b>📖 Show the Rank 04 pool (7 exercises, 4 levels)</b></summary>
@@ -452,6 +472,59 @@ is a convenience for closed laptops and accidental `quit`s, not a way to
 game the real exam's rules — the real moulinette has no resume button
 either.
 
+### 📈 Exam readiness & daily drill
+
+`--stats` tells you how you did; these two tell you **what to do next**.
+
+```bash
+make readiness        # python3 -m src --readiness   (C: make c-readiness)
+make drill            # python3 -m src --drill        (C: make c-drill, N=3 for 3)
+```
+
+**Readiness** lists every exercise the exam can actually draw, level by
+level — ✔ passed at least once, ✖ tried but never passed, · never tried —
+plus a per-level and overall score and the level with the biggest gap.
+A pass in the exam, in practice or via `make grade` all count.
+
+**Drill** builds a short session (5 exercises by default) from your own
+history and walks you through them one by one in practice mode: your weak
+spots first (at most half the session, so it's never a wall of failures),
+then exercises you've never tried, then the ones you passed longest ago —
+a light form of spaced repetition. Only exercises the real exam can draw
+are ever picked.
+
+### 🔍 Edge-case labels on failing tests
+
+Every failing test names the edge case its input represents, and C
+programs show the exact command to rerun it (tabs spelled out with
+`$'…'`):
+
+```
+[KO] ./first_word $'  \tfoo bar'
+     edge case: tabs · leading/trailing whitespace
+     expected : 'foo'
+     got      : '\tfoo'
+```
+
+The labels only describe the *input* (`empty string`, `only whitespace`,
+`tabs`, `repeated spaces`, `zero`, `negative number`, `INT_MIN/INT_MAX`,
+`empty list`, `single element`, `no arguments`) — they never guess at
+your bug.
+
+### 🔔 Staying up to date
+
+The interactive menu checks GitHub for a newer release at most once a day,
+in a background thread (so a slow or missing network never delays
+anything; an offline machine just never shows the notice). When there is
+one, the menu says so — `make update` (`git pull --ff-only`) gets it, and
+`--version` shows what you have. Nothing about you is sent: it's one
+anonymous request for the latest release tag. Turn it off with
+`--no-update-check` or `EXAMSHELL_NO_UPDATE_CHECK=1`.
+
+Releases are cut by pushing a `vX.Y.Z` tag; `.github/workflows/release.yml`
+publishes that version's [CHANGELOG](CHANGELOG.md) section as the release
+notes.
+
 ### 🔎 Fuzzy search in the exercise picker
 
 Practice mode's and Training mode's exercise pickers accept `/text` as a
@@ -470,7 +543,7 @@ saved report: 🏅 *Flawless* (every level cleared on the first `grademe`),
 *New personal best time!* (faster than any previous completion) — bragging
 rights only, they don't affect scoring.
 
-**→ [TUTORIAL.md](TUTORIAL.md)** walks through all six of the above
+**→ [TUTORIAL.md](TUTORIAL.md)** walks through the above
 step by step, with real command output.
 
 ## 🛠️ Make targets
@@ -488,6 +561,9 @@ step by step, with real command output.
 | `make grade EX=…` | grade one solution, no menu |
 | `make grade-all` | grade every **exam** solution in `rendu/` at once, one overview (training solutions: `make grade EX=…`) |
 | `make stats` | your local practice history — attempts, pass rate, best exam time (per rank) |
+| `make readiness` | which exam exercises you've passed / failed / never tried, level by level |
+| `make drill` | a short daily session from your gaps (`N=3` for 3 exercises) |
+| `make update` | pull the latest version of this tester |
 | `make ranks` | list the exam ranks, their pools, and which one is active |
 | `make unit` | fast unit tests for the tool's own logic |
 | `make check` | self-test every exam bank + the training bank (`RANK=04` narrows it to one) |
@@ -507,7 +583,9 @@ Options: `RANK=03|04|05`, `EX=<exercise>`, `SEED=<n>`, `RENDU=<dir>`,
 make exam SEED=42                 # reproducible exam, same draw every time
 make exam RANK=04                 # the Rank 04 pool instead of Rank 03
 make list RANK=05                 # what Rank 05 contains
-make exam FLAGS=--strict-imports  # any import fails grading, like the moulinette
+make exam FLAGS=--relaxed         # lenient exam: imports only warn, `new` allowed
+make exam FLAGS="--time-limit 180"  # end the exam after 3 hours
+make grade EX=py_inter FLAGS=--strict-imports  # strict grading outside the exam too
 ```
 
 ## ⌨️ CLI
@@ -528,6 +606,10 @@ python3 -m src --grade inter         # grade once (unique suffixes work)
 python3 -m src --grade-all           # grade every exam solution in rendu/
 python3 -m src --check               # validate every bank (add --rank for one)
 python3 -m src --stats               # your local practice history
+python3 -m src --readiness           # passed/failed/untried, level by level
+python3 -m src --drill 5             # a short session from your gaps
+python3 -m src --exam --time-limit 180   # exam with a 3-hour countdown
+python3 -m src --version
 python3 -m src --theme light --save-config   # remember a theme for next time
 python3 -m src --list
 python3 -m src --list-training
@@ -538,8 +620,8 @@ Run it from the repository root — `src/` is a package, not a standalone
 script, so `python3 src/examshell.py` will not work.
 
 Useful flags: `--rank {03,04,05}`, `--rendu DIR`, `--timeout SEC`, `--fuzz N`, `--show-fails N`,
-`--strict-imports`, `--theme {dark,light,highcontrast}`, `--save-config`,
-`--no-color`, `--no-rich`. See
+`--strict-imports`, `--relaxed`, `--time-limit MIN`, `--theme {dark,light,highcontrast}`,
+`--save-config`, `--no-color`, `--no-rich`, `--no-update-check`. See
 [Quality-of-life features](#️-quality-of-life-features-both-testers) above
 for what `--theme`, `--save-config` and `--stats` actually do.
 
@@ -584,6 +666,9 @@ things:
 | `src/stats.py` | `~/.examshell/stats.jsonl` — local grading history, shared by both testers |
 | `src/session_store.py` | exam save/resume state, shared by both testers |
 | `src/report_export.py` | Markdown session reports in `~/.examshell/reports/`, shared by both testers |
+| `src/case_labels.py` | names the edge case of a failing input, shared by both testers |
+| `src/update_check.py` | the once-a-day "new version available" notice |
+| `src/version.py` | the version number (`--version`, releases, the update check) |
 | `src/hints.py` | the "stuck 3x in a row" nudge (generic + curated), shared by both testers |
 | `tests/` | unit tests for the tool itself |
 | `rendu/` | your solutions (git-ignored) |
@@ -651,14 +736,17 @@ Beyond pass/fail, `grademe` tells you when:
   much more informative than "0/N passed" on its own,
 * your program **timed out** (infinite loop) — per test case in "program"
   mode, per whole run in "function" mode,
-* a **compiler warning** was raised (`-Wall -Wextra` always run; add
-  `--strict-norm` to turn warnings into hard failures with `-Werror`,
-  mirroring the Python tool's `--strict-imports`),
+* a **compiler warning** was raised (`-Wall -Wextra` always run) — a
+  warning in practice, a **hard failure in the exam** (`-Werror`, like the
+  real one; `--strict-norm` does the same outside the exam, `--relaxed`
+  turns it off in the exam),
 * you used a **forbidden libc call** for that exercise (e.g. `atoi` itself
-  for `ft_atoi`) — a warning by default (matching the Python tool's
-  default posture on imports), or a hard failure with `--strict-forbidden`
-  (matching the real moulinette, and `--strict-imports` on the Python
-  side).
+  for `ft_atoi`) — again a warning in practice and a **failure in the
+  exam** (`--strict-forbidden` / `--relaxed` as above).
+
+An infinite loop in a "program" stops being run after 3 timeouts in a row
+— the remaining cases are marked skipped instead of each waiting out the
+full timeout.
 
 `--cc` isn't just a convenience flag: every oracle in both C banks is
 also verified against a second compiler (GCC, alongside the default
@@ -688,10 +776,10 @@ the file directly: `cc c_rendu/rotone.c -o /tmp/t && /tmp/t abc`.
 
 ## 📚 Exercise pool
 
-**59 exercises, across 4 levels**, split the same way as the Python
+**60 exercises, across 4 levels**, split the same way as the Python
 bank — Standard vs Extra:
 
-* **Standard (56)** — the complete pool of a real Exam Rank 02 practice
+* **Standard (57)** — the complete pool of a real Exam Rank 02 practice
   repository, its own per-level folder structure used directly (not
   blended across sources with different level splits). Names, prototypes,
   behaviour and level placement are all real. Exact level placement still
@@ -704,13 +792,13 @@ bank — Standard vs Extra:
   through **Practice mode** instead (marked with ○ in `--list`).
 
 <details>
-<summary><b>📖 Show the full C exercise pool (59 exercises)</b></summary>
+<summary><b>📖 Show the full C exercise pool (60 exercises)</b></summary>
 <br>
 
 | Level | Standard (drawn by `make c-exam`) | Extra (practice mode only) |
 |------:|----------|-------|
 | 1 (12) | **`first_word`** 🖥️ · **`fizzbuzz`** 🖥️ · **`ft_putstr`** · **`ft_strcpy`** · **`ft_strlen`** · **`ft_swap`** · **`repeat_alpha`** 🖥️ · **`rev_print`** 🖥️ · **`rot_13`** 🖥️ · **`rotone`** 🖥️ · **`search_and_replace`** 🖥️ · **`ulstr`** 🖥️ | `count_vowels` 🖥️ |
-| 2 (19) | **`alpha_mirror`** 🖥️ · **`camel_to_snake`** 🖥️ · **`do_op`** 🖥️ · **`ft_atoi`** · **`ft_strcmp`** · **`ft_strcspn`** · **`ft_strdup`** · **`ft_strpbrk`** · **`ft_strrev`** · **`ft_strspn`** · **`is_power_of_2`** · **`last_word`** 🖥️ · **`max`** · **`print_bits`** · **`reverse_bits`** · **`snake_to_camel`** 🖥️ · **`swap_bits`** · **`union`** 🖥️ · **`wdmatch`** 🖥️ | `is_palindrome_str` 🖥️ |
+| 2 (20) | **`alpha_mirror`** 🖥️ · **`camel_to_snake`** 🖥️ · **`do_op`** 🖥️ · **`ft_atoi`** · **`ft_strcmp`** · **`ft_strcspn`** · **`ft_strdup`** · **`ft_strpbrk`** · **`ft_strrev`** · **`ft_strspn`** · **`inter`** 🖥️ · **`is_power_of_2`** · **`last_word`** 🖥️ · **`max`** · **`print_bits`** · **`reverse_bits`** · **`snake_to_camel`** 🖥️ · **`swap_bits`** · **`union`** 🖥️ · **`wdmatch`** 🖥️ | `is_palindrome_str` 🖥️ |
 | 3 (15) | **`add_prime_sum`** 🖥️ · **`epur_str`** 🖥️ · **`expand_str`** 🖥️ · **`ft_atoi_base`** · **`ft_list_size`** 🔗 · **`ft_range`** · **`ft_rrange`** · **`hidenp`** 🖥️ · **`lcm`** · **`paramsum`** 🖥️ · **`pgcd`** 🖥️ · **`print_hex`** 🖥️ · **`rstr_capitalizer`** 🖥️ · **`str_capitalizer`** 🖥️ · **`tab_mult`** 🖥️ | `longest_word_str` 🖥️ |
 | 4 (10) | **`flood_fill`** 🧩 · **`fprime`** 🖥️ · **`ft_itoa`** · **`ft_list_foreach`** 🔗 · **`ft_list_remove_if`** 🔗 · **`ft_split`** · **`rev_wstr`** 🖥️ · **`rostring`** 🖥️ · **`sort_int_tab`** · **`sort_list`** 🔗 | — |
 
@@ -733,11 +821,22 @@ argument at all, at the cost of not exercising arbitrary callback logic.
 
 </details>
 
-### 🎲 Fuzzing (partial)
+### 🎲 Fuzzing
 
-`--fuzz N` (default 8, like the Python tool's) adds N random extra cases
-to every **"function"-kind exercise whose args are all "safe" to
-randomise** — plain `int`/`char`/`str`/`int_arr`/`int_list`/`buf`
+`--fuzz N` (default 8) adds N random extra cases to every **"program"-kind
+exercise** (except `fizzbuzz`, which takes no input) and every
+**"function"-kind exercise whose args are all "safe" to randomise**.
+
+**Programs** are fuzzed by argv *shape* — each one names its shape in the
+bank (`sentence`, `two_strings`, `subsequence`, `camel`, `snake`,
+`positive_int`, `do_op`, `search_and_replace`, `any_args`, …), and the
+generators aim at exactly what people fail real exams on: runs of spaces
+**and tabs**, leading/trailing blanks, empty and blank-only strings,
+punctuation, and — in about 1 case in 10 — the wrong number of arguments.
+Every generator stays inside the subject's own promises (a positive number
+where the subject guarantees one, no division by zero for `do_op`).
+
+**Functions** are fuzzed when their args are — plain `int`/`char`/`str`/`int_arr`/`int_list`/`buf`
 arguments with no exercise-specific precondition. Unlike the Python
 tool, there is no per-exercise custom fuzzer: C has no oracle-only
 in-process check, so a fuzzed value can only be validated by actually
@@ -746,9 +845,6 @@ trigger undefined behaviour identically on both sides (a false failure
 that's nobody's fault). So exercises using a linked list, `t_point`,
 a char grid, or a fixed callback keep their curated cases only —
 `make c-check` marks which exercises got fuzzed with `(+fuzz)`.
-**"Program"-kind exercises are never fuzzed** — their argv shapes vary
-too much (a bare string vs. multiple flags vs. numeric parsing) to
-randomise generically without mostly generating meaningless input.
 
 ```bash
 python3 -m c_exam --grade ft_atoi --fuzz 20
@@ -814,6 +910,8 @@ array_sum` drills that one exercise directly.
 | `make c-grade EX=…` | grade one solution, no menu |
 | `make c-grade-all` | grade every solution in `c_rendu/` at once, one overview |
 | `make c-stats` | your local practice history — attempts, pass rate, best exam time |
+| `make c-readiness` | which exam exercises you've passed / failed / never tried, level by level |
+| `make c-drill` | a short daily session from your gaps (`N=3` for 3 exercises) |
 | `make c-unit` | fast unit tests for the C tester's own logic |
 | `make c-check` | self-test both C exercise banks (every oracle, through the real sandbox) |
 | `make c-test` | `c-unit` + `c-check` |
@@ -833,6 +931,9 @@ python3 -m c_exam --grade atoi          # grade once (unique suffixes work)
 python3 -m c_exam --grade-all           # grade every solution in c_rendu/
 python3 -m c_exam --check               # validate both banks
 python3 -m c_exam --stats               # your local practice history
+python3 -m c_exam --readiness           # passed/failed/untried, level by level
+python3 -m c_exam --drill               # a short session from your gaps
+python3 -m c_exam --exam --relaxed      # lenient exam: warnings only, `new` allowed
 python3 -m c_exam --list
 python3 -m c_exam --list-training
 python3 -m c_exam --help
@@ -840,11 +941,11 @@ python3 -m c_exam --help
 
 Useful flags: `--rendu DIR`, `--cc COMPILER`, `--timeout SEC`, `--strict-norm`,
 `--strict-forbidden`, `--fuzz N`, `--valgrind`, `--strict-valgrind`, `--show-fails N`,
-`--theme {dark,light,highcontrast}`, `--save-config`, `--no-color`,
-`--no-rich`. Same shared theme/config/stats/resume/report layer as the
+`--relaxed`, `--time-limit MIN`, `--theme {dark,light,highcontrast}`, `--save-config`,
+`--no-color`, `--no-rich`, `--no-update-check`. Same shared theme/config/stats/resume/report layer as the
 Python tester — see
 [Quality-of-life features](#️-quality-of-life-features-both-testers) up top,
-[Fuzzing (partial)](#-fuzzing-partial) for what `--fuzz` covers here, and
+[Fuzzing](#-fuzzing) for what `--fuzz` covers here, and
 [Valgrind (optional)](#-valgrind-optional) for the leak checker.
 
 ## 🗂️ Layout

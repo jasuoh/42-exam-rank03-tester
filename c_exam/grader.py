@@ -36,13 +36,14 @@ instead of call arguments.
 
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
 import tempfile
 import time
 
-from src.grader import Report
+from src.grader import MAX_TIMEOUTS, Report
 
 DEFAULT_TIMEOUT = 5        # seconds per case (program mode) / per whole run (function mode)
 DEFAULT_CC = "cc"
@@ -119,14 +120,33 @@ typedef struct s_point
 """
 
 
-class CFailure(object):
-    __slots__ = ("index", "expected", "got")
+def shell_arg(arg):
+    """`arg` quoted so the whole command can be pasted into bash as-is —
+    $'...' when it holds a tab/newline (they'd be invisible otherwise)."""
+    if any(ch in arg for ch in "\t\n\r"):
+        escaped = (arg.replace("\\", "\\\\").replace("'", "\\'")
+                   .replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r"))
+        return "$'" + escaped + "'"
+    return shlex.quote(arg)
 
-    def __init__(self, index, expected, got):
+
+class CFailure(object):
+    __slots__ = ("index", "expected", "got", "args", "program")
+
+    def __init__(self, index, expected, got, args=None, program=False):
         self.index, self.expected, self.got = index, expected, got
+        # The case's own inputs — call values for a "function"-kind
+        # exercise, argv for a "program"-kind one — so the report shows
+        # exactly what to rerun (and src/case_labels.py can name its edge
+        # case). None only for callers that don't know them.
+        self.args, self.program = args, program
 
     def call(self, function):
-        return "%s()  [case %d]" % (function, self.index)
+        if self.args is None:
+            return "%s()  [case %d]" % (function, self.index)
+        if self.program:
+            return " ".join(["./" + function] + [shell_arg(a) for a in self.args])
+        return "%s(%s)" % (function, ", ".join(repr(a) for a in self.args))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -407,9 +427,8 @@ FIXED_CALLBACK_KINDS = {
 # So only arg kinds with no exercise-specific precondition get random
 # values; an exercise using any other kind (voidlist, point, char_grid,
 # a fixed callback with its own contract, ...) is graded on its curated
-# cases only, same as before this existed. "program"-kind exercises are
-# never fuzzed either — their argv shapes are too varied to randomise
-# generically (see the module docstring).
+# cases only, same as before this existed. "program"-kind exercises get
+# their own shape-based argv fuzzing instead (see ARGV_SHAPES below).
 FUZZABLE_VALUE_KINDS = {"int", "int_ptr", "char", "str", "int_arr", "int_list", "buf"}
 
 _FUZZ_STR_ALPHABET = ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -438,10 +457,127 @@ def _fuzz_value(kind, rng):
     raise ValueError("kind %r has no fuzz generator" % (kind,))  # pragma: no cover
 
 
+# ── argv fuzzing  ·  "program"-kind exercises ─────────────────────────
+# A program's argv can't be randomised generically (the module docstring
+# above), but most of them fall into a handful of SHAPES — "one sentence",
+# "two strings", "a positive number", ... A bank entry opts in with
+# `"fuzz_argv": "<shape>"`; the generators below produce exactly the
+# inputs people fail real exams on: runs of spaces AND tabs, leading and
+# trailing whitespace, empty strings, punctuation, and the wrong argc.
+# Every generator stays inside the subject's own preconditions (a positive
+# number where the subject promises one, ...) — the reference program
+# defines the expected output for everything else it's handed.
+_WORD_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+_PUNCT = ".,;:!?'-_()"
+_BLANKS = (" ", "  ", "\t", " \t ", "   ")
+
+
+def _fuzz_word(rng, max_len=8, punct=True):
+    chars = _WORD_CHARS + (_PUNCT if punct else "")
+    return "".join(rng.choice(chars) for _ in range(rng.randint(1, max_len)))
+
+
+def _fuzz_sentence(rng):
+    """Words separated by random runs of spaces/tabs, sometimes with
+    leading/trailing blanks, sometimes empty or blank-only."""
+    roll = rng.random()
+    if roll < 0.07:
+        return ""
+    if roll < 0.14:
+        return "".join(rng.choice(_BLANKS) for _ in range(rng.randint(1, 3)))
+    words = [_fuzz_word(rng) for _ in range(rng.randint(1, 6))]
+    text = "".join(w + rng.choice(_BLANKS) for w in words[:-1]) + words[-1]
+    if rng.random() < 0.4:
+        text = rng.choice(_BLANKS) + text
+    if rng.random() < 0.4:
+        text += rng.choice(_BLANKS)
+    return text
+
+
+def _fuzz_small_alphabet(rng, max_len=12):
+    """A string over a tiny alphabet, so two of them actually overlap
+    (union/inter) and repeat characters (the 'no doubles' traps)."""
+    return "".join(rng.choice("abcdeAB12 ") for _ in range(rng.randint(0, max_len)))
+
+
+def _fuzz_subsequence_pair(rng):
+    """(s1, s2) where s1 is hidden in s2 in order about half the time."""
+    s1 = _fuzz_word(rng, 5, punct=False)
+    noise = [_fuzz_word(rng, 3, punct=False) for _ in range(len(s1) + 1)]
+    if rng.random() < 0.5:
+        s2 = "".join(n + c for n, c in zip(noise, s1)) + noise[-1]
+    else:
+        s2 = "".join(noise)
+    return [s1, s2]
+
+
+def _fuzz_camel(rng):
+    words = ["".join(rng.choice("abcdefghijklmnopqrstuvwxyz")
+                     for _ in range(rng.randint(1, 5))) for _ in range(rng.randint(1, 4))]
+    return words[0] + "".join(w.capitalize() for w in words[1:])
+
+
+def _fuzz_snake(rng):
+    return "_".join("".join(rng.choice("abcdefghijklmnopqrstuvwxyz")
+                            for _ in range(rng.randint(1, 5)))
+                    for _ in range(rng.randint(1, 4)))
+
+
+def _fuzz_do_op(rng):
+    op = rng.choice("+-*/%")
+    left = rng.randint(-1000, 1000)
+    right = rng.randint(-1000, 1000)
+    if op in "/%" and right == 0:
+        right = rng.choice((-7, 3, 5))     # the subject never divides by 0
+    return [str(left), op, str(right)]
+
+
+def _fuzz_search_and_replace(rng):
+    text = _fuzz_sentence(rng)
+    pool = [c for c in text if c not in " \t"] or ["a"]
+    search = rng.choice(pool) if rng.random() < 0.8 else rng.choice(_WORD_CHARS)
+    replace = rng.choice(_WORD_CHARS + _PUNCT)
+    if rng.random() < 0.15:                # not a single character -> "\n"
+        replace += rng.choice(_WORD_CHARS)
+    return [text, search, replace]
+
+
+# shape -> (generator for the RIGHT argv, how many args that is)
+ARGV_SHAPES = {
+    "sentence": (lambda rng: [_fuzz_sentence(rng)], 1),
+    "sentences": (lambda rng: [_fuzz_sentence(rng) for _ in range(rng.randint(1, 3))], None),
+    "two_strings": (lambda rng: [_fuzz_small_alphabet(rng), _fuzz_small_alphabet(rng)], 2),
+    "subsequence": (_fuzz_subsequence_pair, 2),
+    "camel": (lambda rng: [_fuzz_camel(rng)], 1),
+    "snake": (lambda rng: [_fuzz_snake(rng)], 1),
+    "positive_int": (lambda rng: [str(rng.randint(1, 100000))], 1),
+    "non_negative_int": (lambda rng: [str(rng.randint(0, 1 << 20))], 1),
+    "small_positive_int": (lambda rng: [str(rng.randint(1, 3000))], 1),
+    "two_positive_ints": (lambda rng: [str(rng.randint(1, 10000)),
+                                       str(rng.randint(1, 10000))], 2),
+    "do_op": (_fuzz_do_op, 3),
+    "search_and_replace": (_fuzz_search_and_replace, 3),
+    "any_args": (lambda rng: [_fuzz_word(rng) for _ in range(rng.randint(0, 12))], None),
+}
+
+
+def fuzz_argv(shape, rng):
+    """One random argv for `shape` — about 1 in 10 has the wrong argc
+    (none at all, or one too many), the case every subject specifies and
+    many solutions forget."""
+    make, argc = ARGV_SHAPES[shape]
+    argv = make(rng)
+    if argc is not None and rng.random() < 0.1:
+        argv = [] if rng.random() < 0.5 else argv + [_fuzz_word(rng)]
+    return argv
+
+
 def is_fuzzable(ex):
-    """True when every arg this exercise takes is safe to randomise."""
+    """True when this exercise can get random extra cases: every arg of a
+    "function"-kind exercise is safe to randomise, or a "program"-kind one
+    names its argv shape (see ARGV_SHAPES)."""
     if ex.get("kind") == "program":
-        return False
+        return ex.get("fuzz_argv") in ARGV_SHAPES
     return all(k in FUZZABLE_VALUE_KINDS or k in FIXED_CALLBACK_KINDS
                for k in ex.get("args", ()))
 
@@ -926,7 +1062,7 @@ def grade(ex_name, ex, rendu_dir, cc=DEFAULT_CC, timeout=DEFAULT_TIMEOUT,
     lenient so a beginner's warning-only feedback loop isn't lost."""
     if ex.get("kind") == "program":
         return _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                              valgrind, strict_valgrind, strict_forbidden)
+                              valgrind, strict_valgrind, strict_forbidden, rng, fuzz)
     return _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                            rng, fuzz, valgrind, strict_valgrind, strict_forbidden)
 
@@ -1065,7 +1201,7 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 # the harness's own trailing newline, so ui.py's failure
                 # list doesn't grow a stray blank line per entry.
                 report.failures.append(
-                    CFailure(i, expected.rstrip("\n"), got.rstrip("\n")))
+                    CFailure(i, expected.rstrip("\n"), got.rstrip("\n"), args=cases[i]))
         # Updated (not just set once above) so a valgrind pass — much
         # slower than the bare binary, see VALGRIND_TIMEOUT_MULT — is
         # counted too, the same way _grade_program's single end-of-loop
@@ -1078,7 +1214,8 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
 
 
 def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                   valgrind=False, strict_valgrind=False, strict_forbidden=False):
+                   valgrind=False, strict_valgrind=False, strict_forbidden=False,
+                   rng=None, fuzz=0):
     """"program"-kind exercises: the student's file compiles ALONE (it IS
     the main()), and is run once per case with that case's argv."""
     report = Report(ex_name, ex["function"])
@@ -1123,27 +1260,40 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
 
         run_valgrind_ok = valgrind and have_valgrind()
         vg_issues = []
-        cases = ex["cases"]
+        cases = list(ex["cases"])
+        if fuzz and rng is not None and is_fuzzable(ex):
+            cases += [fuzz_argv(ex["fuzz_argv"], rng) for _ in range(fuzz)]
         report.total = len(cases)
+        streak = 0
         for i, argv in enumerate(cases):
             ref_out, ref_crash = run_bin(ref_bin, timeout, argv=argv)
             if ref_crash:
                 return report.fail("BANK_ERROR", "%s: reference program %s on case %d"
                                    % (ex_name, ref_crash, i))
+            # Same bail-out as the Python sandbox (src/grader.py's
+            # MAX_TIMEOUTS): an infinite loop would otherwise cost the full
+            # timeout on EVERY remaining case — 30s+ of staring at a spinner.
+            if streak >= MAX_TIMEOUTS:
+                report.failures.append(CFailure(i, ref_out.rstrip("\n"),
+                                                "[skipped after %d timeouts]" % streak,
+                                                args=argv, program=True))
+                continue
             stu_out, stu_crash = run_bin(student_bin, timeout, argv=argv)
+            streak = streak + 1 if stu_crash == "TIMEOUT" else 0
             if stu_crash:
                 note = stu_crash.split(":", 1)[-1]
                 report.warnings.append("case %d %s: %s"
                                        % (i, "timed out" if stu_crash == "TIMEOUT"
                                           else "crashed", note))
                 report.failures.append(CFailure(i, ref_out.rstrip("\n"),
-                                                "[%s]" % note))
+                                                "[%s]" % note, args=argv, program=True))
                 continue
             if stu_out == ref_out:
                 report.passed += 1
             else:
                 report.failures.append(
-                    CFailure(i, ref_out.rstrip("\n"), stu_out.rstrip("\n")))
+                    CFailure(i, ref_out.rstrip("\n"), stu_out.rstrip("\n"),
+                             args=argv, program=True))
             if run_valgrind_ok:
                 vg_clean, vg_detail = run_valgrind(student_bin, timeout, argv=argv)
                 if not vg_clean:

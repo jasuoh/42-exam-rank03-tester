@@ -315,6 +315,48 @@ you've ever finished this tester's exam end to end; ⏱ *New personal best
 time!* means this run beat every previous completion. They're for
 motivation, not part of the score.
 
+## 9. Know where you stand: readiness, then a drill
+
+Once you have some history, ask what the exam could still throw at you:
+
+```bash
+make readiness             # C: make c-readiness
+```
+
+Every exercise the exam can draw is listed per level — ✔ passed at least
+once, ✖ tried but never passed, · never tried — followed by a per-level
+score and the level with the biggest gap. Then let the tester pick your
+next session for you:
+
+```bash
+make drill                 # 5 exercises; make drill N=3 for fewer
+```
+
+It walks you through your weak spots, then exercises you've never tried,
+then the ones you passed longest ago — each in practice mode, so hints and
+lenient warnings still apply. Press Ctrl-C at the "Press Enter" prompt to
+end the drill early.
+
+## 10. Rehearse under real conditions
+
+`make exam` already grades like the real exam (an `import` — or in C a
+compiler warning or forbidden call — fails the level, and there is no
+`new`). Add the clock for a full rehearsal:
+
+```bash
+make exam FLAGS="--time-limit 180"
+```
+
+The prompt counts down (`[alice@exam · lvl2 · 02:41:07 left]$`) and the
+exam ends with a *TIME'S UP* summary when it runs out. If you'd rather warm
+up without the pressure, `make exam FLAGS=--relaxed` brings back the
+lenient grading and `new`.
+
+When a failing test shows up, read its **edge case** line first — "tabs",
+"empty string", "no arguments" usually tells you what to fix before you
+even look at the values. For C programs the failing line is a command you
+can paste straight into your shell to reproduce it.
+
 ## Everything at once
 
 ```bash
@@ -327,4 +369,7 @@ make exam                 # offers to resume
 make practice              # try /text filtering in the picker
 # ... fail the same exercise 3x in a row for a hint ...
 make stats                 # see your history so far
+make readiness             # what the exam could still draw that you haven't passed
+make drill                 # a short session from your gaps
+make exam FLAGS="--time-limit 180"   # full rehearsal with the clock running
 ```

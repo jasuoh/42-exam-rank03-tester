@@ -20,12 +20,15 @@ you.
 """
 
 import argparse
+import copy
 import os
 import random
 import shlex
 import time
 
 from src import achievements, hints, report_export, session_store, settings, stats, ui
+from src import update_check
+from src.version import __version__
 
 from . import grader
 from .bank import EXERCISES, LEVELS, N_LEVELS, STANDARD_LEVELS
@@ -67,6 +70,10 @@ class Config(object):
         self.valgrind = args.valgrind or args.strict
         self.strict_valgrind = args.strict_valgrind or args.strict
         self.strict_forbidden = args.strict_forbidden or args.strict
+        # Exam-only realism, see exam_config() / exam_commands().
+        self.relaxed = getattr(args, "relaxed", False)
+        self.time_limit = getattr(args, "time_limit", None)   # minutes
+        self.no_update_check = getattr(args, "no_update_check", False)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -219,8 +226,46 @@ EXAM_COMMANDS = [
 ]
 
 
+def exam_config(cfg):
+    """The config the exam actually grades with. Unless --relaxed, it is as
+    strict as the real exam: any compiler warning fails grading (the real exam compiles with
+    -Wall -Wextra -Werror) and so does a forbidden call. Practice and training keep the lenient
+    warn-only feedback — that is where mistakes are supposed to be cheap."""
+    if cfg.relaxed:
+        return cfg
+    strict = copy.copy(cfg)
+    strict.strict_norm = True
+    strict.strict_forbidden = True
+    return strict
+
+
+def exam_commands(cfg):
+    """EXAM_COMMANDS minus `new` unless --relaxed: the real exam never lets
+    you redraw an exercise you don't like."""
+    return [row for row in EXAM_COMMANDS if cfg.relaxed or row[0] != "new"]
+
+
+def time_left(session, cfg):
+    """Seconds left under --time-limit (negative once it ran out), or None
+    when the exam has no limit."""
+    if not cfg.time_limit or session.start_time is None:
+        return None
+    return cfg.time_limit * 60 - (time.time() - session.start_time)
+
+
+def exam_grade_rng(seed):
+    """The exam's grading RNG — independent of the exercise-draw RNG, but
+    still deterministic under --seed (string seeds are hashed stably)."""
+    return random.Random(None if seed is None else "grade-%d" % seed)
+
+
 def exam_mode(cfg):
     rng = random.Random(cfg.seed)
+    # Grading draws its fuzz cases from its OWN generator: sharing `rng`
+    # would make every later exercise draw depend on how many times the
+    # student typed `grademe`, so `--seed N` would not reproduce the exam.
+    grade_rng = exam_grade_rng(cfg.seed)
+    cfg = exam_config(cfg)
     session = Session()
     ui.clear()
     banner()
@@ -258,6 +303,11 @@ def exam_mode(cfg):
         session.start()
         if cfg.seed is not None:
             ui.note("seed %d — this exam is reproducible" % cfg.seed)
+    if not cfg.relaxed:
+        ui.note("realistic mode — graded as strictly as the real exam, no "
+                "'new' (start with --relaxed for lenient grading)")
+    if cfg.time_limit:
+        ui.note("time limit: %d minutes" % cfg.time_limit)
 
     if resumed:
         level_attempts = saved.get("level_attempts", 0)
@@ -276,19 +326,22 @@ def exam_mode(cfg):
             level_started, level_attempts = time.time(), 0
         resumed = False
         show_subject(session.current_ex, cfg, session)
-        ui.commands(EXAM_COMMANDS)
+        ui.commands(exam_commands(cfg))
 
         while True:
             try:
-                cmd = ui.ask("\n  [%s@c-exam · lvl%d]$ "
-                            % (session.login, session.level)).lower()
+                cmd = ui.ask("\n  [%s@c-exam · lvl%d%s]$ "
+                             % (session.login, session.level,
+                                countdown(session, cfg))).lower()
             except ui.Abort:
                 cmd = "quit"
+            if _times_up(session, cfg):
+                return
 
             if cmd in ("grademe", "g"):
                 session.attempts += 1
                 level_attempts += 1
-                if grade_exercise(session.current_ex, rng, cfg, mode="exam"):
+                if grade_exercise(session.current_ex, grade_rng, cfg, mode="exam"):
                     session.passed.append(session.current_ex)
                     session.history.append((session.level, session.current_ex,
                                             level_attempts, time.time() - level_started))
@@ -312,10 +365,13 @@ def exam_mode(cfg):
                 ui.info("Fix your solution and type 'grademe' again.")
             elif cmd in ("subject", "s"):
                 show_subject(session.current_ex, cfg, session)
-                ui.commands(EXAM_COMMANDS)
+                ui.commands(exam_commands(cfg))
             elif cmd == "status":
                 print()
                 ui.status_bar(session, N_LEVELS)
+            elif cmd == "new" and not cfg.relaxed:
+                ui.warn("the real exam has no 'new' — solve this one "
+                        "(or start with --relaxed to allow redraws)")
             elif cmd == "new":
                 session.current_ex = draw(rng, STANDARD_LEVELS[session.level],
                                           session.current_ex)
@@ -325,7 +381,7 @@ def exam_mode(cfg):
                 # would misreport the abandoned exercise's time/attempts.
                 level_started, level_attempts = time.time(), 0
                 show_subject(session.current_ex, cfg, session)
-                ui.commands(EXAM_COMMANDS)
+                ui.commands(exam_commands(cfg))
                 ui.info("New exercise drawn for level %d." % session.level)
             elif cmd == "stub":
                 make_stub(session.current_ex, cfg)
@@ -338,13 +394,31 @@ def exam_mode(cfg):
                 continue
             else:
                 ui.warn("unknown command — " +
-                        " · ".join(name for name, _ in EXAM_COMMANDS))
+                        " · ".join(name for name, _ in exam_commands(cfg)))
 
     session_store.clear(TOOL)
     exam_summary(session, passed=True)
 
 
-def exam_summary(session, passed):
+def countdown(session, cfg):
+    """' · 1:23:45 left' for the exam prompt, or '' without a time limit."""
+    left = time_left(session, cfg)
+    if left is None:
+        return ""
+    return " · %s left" % fmt_duration(max(0, left))
+
+
+def _times_up(session, cfg):
+    """End the exam when --time-limit ran out. True when it did."""
+    left = time_left(session, cfg)
+    if left is None or left > 0:
+        return False
+    session_store.clear(TOOL)
+    exam_summary(session, passed=False, timed_out=True)
+    return True
+
+
+def exam_summary(session, passed, timed_out=False):
     ui.clear()
     banner()
     ui.status_bar(session, N_LEVELS)
@@ -373,7 +447,9 @@ def exam_summary(session, passed):
         rows.append(("Badges", ", ".join(badge_lines) if badge_lines else "—"))
 
     title = ("🎉  EXAM PASSED — all %d levels cleared!" % N_LEVELS if passed
-             else "EXAM ABORTED — %d/%d levels cleared" % (len(session.passed), N_LEVELS))
+             else "%s — %d/%d levels cleared"
+             % ("⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
+                len(session.passed), N_LEVELS))
     ui.summary(title, rows, passed)
 
     report_path = report_export.write_exam_report(TOOL, session, N_LEVELS, passed, badge_lines)
@@ -527,7 +603,8 @@ def training_mode(cfg, ex_name=None, difficulty=None):
             difficulty = _DIFFICULTY_KEYS[choice]
             continue
         if not choice.isdigit() or not 1 <= int(choice) <= len(shown):
-            ui.warn("pick a number, e/m/h to filter, /text to search, or b to go back")
+            ui.warn("pick a number, e/m/h/w/a to filter, /text to search, "
+                    "or b to go back")
             time.sleep(0.8)
             continue
         practice_one(shown[int(choice) - 1][2], cfg, rng, mode="train")
@@ -696,6 +773,73 @@ def show_stats():
 
 
 # ══════════════════════════════════════════════════════════════
+#  READINESS  ·  DRILL
+# ══════════════════════════════════════════════════════════════
+DRILL_SIZE = 5
+_READY_GLYPH = {"passed": "ok", "failed": "ko", "untried": "missing"}
+
+
+def _percent(part, whole):
+    return int(round(100.0 * part / whole)) if whole else 0
+
+
+def readiness_mode(interactive=True):
+    """How ready you are for the real exam: every exercise the exam can
+    draw, level by level — passed at least once, tried but never passed,
+    or never tried (see stats.readiness())."""
+    if interactive:
+        ui.clear()
+        banner()
+        print()
+    levels = stats.readiness(TOOL, STANDARD_LEVELS)
+    rows = []
+    for level, _passed, _total, entries in levels:
+        for name, row in entries:
+            label = ("%d/%d passed" % (row["passes"], row["attempts"])
+                     if row["attempts"] else "never tried")
+            rows.append((level, name, _READY_GLYPH[row["status"]], label))
+    ui.overview_table(rows, title="Exam readiness — every exercise the exam can draw")
+    done = sum(passed for _, passed, _, _ in levels)
+    total = sum(count for _, _, count, _ in levels)
+    summary_rows = [("Level %d" % level, "%d/%d passed  (%d%%)"
+                     % (passed, count, _percent(passed, count)))
+                    for level, passed, count, _ in levels]
+    summary_rows.append(("Overall", "%d/%d  (%d%%)" % (done, total, _percent(done, total))))
+    ui.summary("Exam readiness", summary_rows, passed=done == total)
+    if done < total:
+        weakest = min(levels, key=lambda lv: _percent(lv[1], lv[2]))
+        ui.info("level %d is your biggest gap — `--drill` builds a short "
+                "session from your gaps" % weakest[0])
+    if interactive:
+        try:
+            ui.pause("\n  Press Enter to go back…")
+        except ui.Abort:
+            return
+
+
+def drill_mode(cfg, n=DRILL_SIZE):
+    """A short daily session: weak spots, then never-tried exercises, then
+    the ones practised longest ago (see stats.drill_queue()) — only
+    exercises the real exam can draw."""
+    names = [name for _, _, name, _, standard in exercise_entries() if standard]
+    queue = stats.drill_queue(TOOL, names, n)
+    rng = random.Random()
+    for i, name in enumerate(queue, 1):
+        ui.clear()
+        banner()
+        print()
+        ui.info("Drill %d/%d — %s (level %d)" % (i, len(queue), name,
+                                                ALL_EXERCISES[name]["level"]))
+        try:
+            ui.pause("  Press Enter to start, Ctrl-C to end the drill…")
+        except ui.Abort:
+            return
+        practice_one(name, cfg, rng, mode="drill")
+    ui.success("drill done — %d exercise%s. `--readiness` shows where you stand."
+               % (len(queue), "" if len(queue) == 1 else "s"))
+
+
+# ══════════════════════════════════════════════════════════════
 #  MAIN MENU
 # ══════════════════════════════════════════════════════════════
 MENU = [
@@ -703,14 +847,19 @@ MENU = [
     ("2", "Practice mode", "(drill a single exercise)"),
     ("3", "List all exercises", ""),
     ("4", "Training mode", "(LeetCode-style, by difficulty — not exam material)"),
+    ("5", "Exam readiness", "(what you've passed, level by level)"),
+    ("6", "Daily drill", "(%d exercises from your gaps)" % DRILL_SIZE),
     ("q", "Quit", ""),
 ]
 
 
 def main_menu(cfg):
+    update = update_check.start_background_check(cfg.no_update_check)
     while True:
         ui.clear()
         banner()
+        if update["notice"]:
+            ui.note(update["notice"])
         print()
         ui.menu(MENU)
         try:
@@ -729,6 +878,10 @@ def main_menu(cfg):
             list_mode()
         elif choice == "4":
             training_mode(cfg)
+        elif choice == "5":
+            readiness_mode()
+        elif choice == "6":
+            drill_mode(cfg)
         elif choice in ("q", "quit", "exit"):
             ui.info("Good luck on the real exam! 🍀")
             print()
@@ -774,6 +927,13 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--readiness", action="store_true",
+                      help="show, level by level, which exercises the exam "
+                           "can draw you've passed, failed or never tried")
+    mode.add_argument("--drill", nargs="?", type=int, const=DRILL_SIZE, metavar="N",
+                      help="a short daily session (default %d exercises): weak "
+                           "spots, never-tried ones, then the longest-unpractised"
+                           % DRILL_SIZE)
 
     p.add_argument("--seed", type=int, default=None,
                    help="seed the RNG so a run is reproducible")
@@ -825,6 +985,18 @@ def build_parser():
                         "next time, then exit")
     p.add_argument("--no-color", action="store_true",
                    help="disable colours (also honours NO_COLOR)")
+    p.add_argument("--relaxed", action="store_true",
+                   help="exam mode only: grade leniently (compiler warnings and forbidden calls only warn) "
+                        "and allow 'new' to redraw an exercise — by default "
+                        "the exam is as strict as the real one")
+    p.add_argument("--time-limit", type=int, default=None, metavar="MIN",
+                   help="exam mode only: end the exam after MIN minutes, "
+                        "with a countdown in the prompt (default: no limit)")
+    p.add_argument("--no-update-check", action="store_true",
+                   help="don't check GitHub (at most once a day, in the "
+                        "background) for a newer version of this tester")
+    p.add_argument("--version", action="version",
+                   version="%(prog)s " + __version__)
     p.add_argument("--no-rich", action="store_true",
                    help="force the plain ANSI UI even if rich is installed")
     return p
@@ -835,7 +1007,11 @@ def resolve_exercise(name):
     both the exam pool and the training pool."""
     if name in ALL_EXERCISES:
         return name
-    matches = [n for n in ALL_EXERCISES if n == "ft_" + name or n.endswith(name)]
+    # "<prefix><name>" is an exact match in all but spelling — it wins over
+    # a mere suffix match (e.g. "range" is ft_range, not also ft_rrange).
+    if "ft_" + name in ALL_EXERCISES:
+        return "ft_" + name
+    matches = [n for n in ALL_EXERCISES if n.endswith(name)]
     if len(matches) == 1:
         return matches[0]
     if not matches:
@@ -873,12 +1049,20 @@ def main(argv=None):
             ui.error("could not write %s" % settings.CONFIG_PATH)
         return 0 if ok else 1
 
+    if args.time_limit is not None and args.time_limit < 1:
+        ui.error("--time-limit must be >= 1 (minutes)")
+        return 2
+
     if args.timeout < 1 or args.fuzz < 0:
         ui.error("--timeout must be >= 1 and --fuzz must be >= 0")
         return 2
 
     if args.stats:
         show_stats()
+        return 0
+
+    if args.readiness:
+        readiness_mode(interactive=False)
         return 0
 
     if args.check:
@@ -936,6 +1120,12 @@ def main(argv=None):
         if args.practice and not name:
             return 2
         practice_mode(cfg, name)
+        return 0
+    if args.drill is not None:
+        if args.drill < 1:
+            ui.error("--drill needs at least 1 exercise")
+            return 2
+        drill_mode(cfg, args.drill)
         return 0
     if args.train is not None:
         value = args.train.lower()

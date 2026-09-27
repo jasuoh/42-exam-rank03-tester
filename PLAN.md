@@ -2,6 +2,11 @@
 
 Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27
 
+> **Status: vollständig umgesetzt in Version 0.2.0** (Phase 1 + H1–H6, dazu
+> Versionierung/Releases und Update-Hinweis). Entscheidungen zu den offenen
+> Fragen: realistischer Modus ist **Default** im Exam (`--relaxed` als
+> Ausweg), Zeitlimit **nur per `--time-limit`**. Details: CHANGELOG.md.
+
 Ziel: (1) den Tester auf Bugs prüfen und sie beheben, (2) danach Hilfsmittel
 einbauen, die Leuten konkret helfen, die echten Exams zu bestehen.
 

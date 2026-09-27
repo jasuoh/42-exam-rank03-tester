@@ -18,6 +18,20 @@ from src.examshell import Session
 from src.grader import Failure, Report
 
 
+def unwritable_dir(testcase):
+    """A directory path that os.makedirs() can never create, even as root:
+    it sits *under a regular file*, so every attempt fails with
+    NotADirectoryError. A made-up absolute path like /this/does/not/exist
+    would simply get created when the tests run as root (Docker, CI
+    containers) — failing the test and littering the filesystem."""
+    tmp = tempfile.TemporaryDirectory()
+    testcase.addCleanup(tmp.cleanup)
+    blocker = os.path.join(tmp.name, "a-file")
+    with open(blocker, "w", encoding="utf-8"):
+        pass
+    return os.path.join(blocker, "sub")
+
+
 class SettingsTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -59,9 +73,10 @@ class SettingsTests(unittest.TestCase):
 
     def test_save_config_survives_unwritable_dir(self):
         # DATA_DIR unset/unwritable: os.makedirs should fail -> best-effort False
-        with patch.object(settings, "DATA_DIR", "/this/does/not/exist/at/all"), \
+        bad_dir = unwritable_dir(self)
+        with patch.object(settings, "DATA_DIR", bad_dir), \
              patch.object(settings, "CONFIG_PATH",
-                          "/this/does/not/exist/at/all/config.json"):
+                          os.path.join(bad_dir, "config.json")):
             self.assertFalse(settings.save_config({"theme": "dark"}))
 
     def test_merged_prefers_explicit_cli_flag(self):
@@ -518,7 +533,7 @@ class ReportExportTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(path))
 
     def test_write_report_survives_unwritable_dir(self):
-        with patch.object(report_export, "REPORTS_DIR", "/this/does/not/exist/at/all"):
+        with patch.object(report_export, "REPORTS_DIR", unwritable_dir(self)):
             session = self._session()
             path = report_export.write_exam_report("py", session, 6, True)
         self.assertIsNone(path)
@@ -692,6 +707,164 @@ class HintForTests(unittest.TestCase):
         ex = {"hint": {"crash": "a crash-specific hint"}}
         report = self._report(fatal="TIMEOUT")
         self.assertIn("infinite loop", hints.hint_for(ex, report))
+
+
+class VersionTests(unittest.TestCase):
+    """src/version.py is the single source of truth; pyproject.toml and
+    CHANGELOG.md must agree with it (the release workflow relies on both)."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _read(self, name):
+        with open(os.path.join(self.ROOT, name), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_pyproject_version_matches(self):
+        from src.version import __version__
+        self.assertIn('version = "%s"' % __version__, self._read("pyproject.toml"))
+
+    def test_changelog_has_a_section_for_this_version(self):
+        from src.version import __version__
+        headings = [line for line in self._read("CHANGELOG.md").splitlines()
+                    if line.startswith("## ")]
+        self.assertTrue(any(h == "## " + __version__ or h.startswith("## %s " % __version__)
+                            for h in headings), headings)
+
+
+class CaseLabelTests(unittest.TestCase):
+    """case_labels.describe(): names the edge-case traits of a failing input."""
+
+    class _F(object):
+        def __init__(self, args, program=False):
+            self.args, self.program = args, program
+
+    def _d(self, args, program=False):
+        from src import case_labels
+        return case_labels.describe(self._F(args, program))
+
+    def test_strings(self):
+        self.assertEqual(self._d([""]), "empty string")
+        self.assertEqual(self._d(["   "]), "only whitespace")
+        self.assertEqual(self._d(["a\tb"]), "tabs")
+        self.assertEqual(self._d([" a"]), "leading/trailing whitespace")
+        self.assertEqual(self._d(["a  b"]), "repeated spaces")
+        self.assertEqual(self._d(["plain"]), "")
+
+    def test_numbers(self):
+        self.assertEqual(self._d([0]), "zero")
+        self.assertEqual(self._d([-4]), "negative number")
+        self.assertEqual(self._d([-2 ** 31]), "INT_MIN/INT_MAX")
+        self.assertEqual(self._d([True]), "")
+
+    def test_lists(self):
+        self.assertEqual(self._d([[]]), "empty list")
+        self.assertEqual(self._d([[1]]), "single element")
+
+    def test_argv(self):
+        self.assertEqual(self._d([], program=True), "no arguments")
+        self.assertEqual(self._d(["-3"], program=True), "negative number")
+        self.assertEqual(self._d(["0"], program=True), "zero")
+
+    def test_at_most_two_labels_without_duplicates(self):
+        self.assertEqual(self._d([" \ta  b ", "", 0]), "tabs · leading/trailing whitespace")
+
+    def test_no_inputs_known(self):
+        from src import case_labels
+        self.assertEqual(case_labels.describe(object()), "")
+
+
+class ReadinessAndDrillTests(unittest.TestCase):
+    """stats.exercise_status() / readiness() / drill_queue()."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = patch.object(stats, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.clock = 1000.0
+
+    def _grade(self, name, ok, mode="practice"):
+        self.clock += 10
+        with patch.object(stats.time, "time", return_value=self.clock):
+            stats.record("py", name, 1, ok, 1 if ok else 0, 1, mode)
+
+    def test_exercise_status(self):
+        self._grade("a", False)
+        self._grade("a", True)
+        self._grade("b", False)
+        status = stats.exercise_status("py", ["a", "b", "c"])
+        self.assertEqual(status["a"]["status"], "passed")
+        self.assertEqual((status["a"]["passes"], status["a"]["attempts"]), (1, 2))
+        self.assertEqual(status["b"]["status"], "failed")
+        self.assertEqual(status["c"]["status"], "untried")
+
+    def test_exam_passes_count_for_readiness(self):
+        self._grade("a", True, mode="exam")
+        levels = stats.readiness("py", {1: ["a", "b"], 2: ["c"]})
+        self.assertEqual([(lv, passed, total) for lv, passed, total, _ in levels],
+                         [(1, 1, 2), (2, 0, 1)])
+
+    def test_drill_order_weak_then_untried_then_stale(self):
+        self._grade("old_pass", True)
+        self._grade("new_pass", True)
+        self._grade("weak", False)
+        queue = stats.drill_queue("py", ["new_pass", "old_pass", "weak", "fresh"], n=4)
+        self.assertEqual(queue, ["weak", "fresh", "old_pass", "new_pass"])
+
+    def test_drill_caps_weak_spots_at_half_the_session(self):
+        for name in ("w1", "w2", "w3", "w4"):
+            self._grade(name, False)
+        queue = stats.drill_queue("py", ["w1", "w2", "w3", "w4", "u1", "u2"], n=4)
+        self.assertEqual(len(queue), 4)
+        self.assertEqual(sorted(queue[2:]), ["u1", "u2"])
+
+    def test_drill_is_short_when_there_are_few_candidates(self):
+        self.assertEqual(stats.drill_queue("py", ["x"], n=5), ["x"])
+
+
+class UpdateCheckTests(unittest.TestCase):
+    def setUp(self):
+        from src import update_check
+        self.uc = update_check
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("CACHE_PATH", os.path.join(self.tmpdir.name, "u.json")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = patch.object(update_check, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_version_comparison(self):
+        self.assertTrue(self.uc.is_newer("v0.10.0", "0.9.9"))
+        self.assertFalse(self.uc.is_newer("v0.2.0", "0.2.0"))
+        self.assertFalse(self.uc.is_newer("garbage", "0.2.0"))
+
+    def test_notice_only_for_a_newer_version(self):
+        self.assertIsNone(self.uc.notice_text(None))
+        self.assertIsNone(self.uc.notice_text("v0.0.1"))
+        self.assertIn("99.0.0", self.uc.notice_text("v99.0.0"))
+
+    def test_result_is_cached_for_a_day_even_when_the_fetch_failed(self):
+        calls = []
+
+        def fetch():
+            calls.append(1)
+            return None
+
+        self.assertIsNone(self.uc.latest_version(now=time.time(), fetch=fetch))
+        self.uc.latest_version(now=time.time() + 60, fetch=fetch)
+        self.assertEqual(len(calls), 1)
+        self.uc.latest_version(now=time.time() + self.uc.CHECK_EVERY + 1, fetch=fetch)
+        self.assertEqual(len(calls), 2)
+
+    def test_opt_out(self):
+        self.assertFalse(self.uc.enabled(opt_out_flag=True))
+        with patch.dict(os.environ, {self.uc.ENV_OPT_OUT: "1"}):
+            self.assertFalse(self.uc.enabled())
+            self.assertEqual(self.uc.start_background_check(), {"notice": None})
 
 
 if __name__ == "__main__":

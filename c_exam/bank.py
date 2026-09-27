@@ -144,6 +144,7 @@ EXERCISES = {
     },
     "rotone": {
         "level": 1, "function": "rotone", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Both 'z' and 'Z' need to wrap back to the start of "
                 "their own case instead of just doing c + 1, which would "
@@ -253,6 +254,7 @@ EXERCISES = {
     },
     "first_word": {
         "level": 1, "function": "first_word", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Skip any leading spaces/tabs before you start copying "
                 "the word, and stop the moment you hit the next "
@@ -373,6 +375,7 @@ EXERCISES = {
     },
     "rev_print": {
         "level": 1, "function": "rev_print", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Find the string's length first, then walk backwards "
                 "starting from the LAST character (index length - 1) "
@@ -418,6 +421,7 @@ EXERCISES = {
     },
     "search_and_replace": {
         "level": 1, "function": "search_and_replace", "kind": "program",
+        "fuzz_argv": "search_and_replace",
         "standard": True,
         "hint": ("Only the FIRST character of the search and replacement "
                 "arguments matters, even if a longer string is passed "
@@ -473,6 +477,7 @@ EXERCISES = {
     },
     "ulstr": {
         "level": 1, "function": "ulstr", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Case-swap only actual letters — leave digits, spaces "
                 "and punctuation untouched — and make sure your two "
@@ -647,6 +652,7 @@ EXERCISES = {
     },
     "rot_13": {
         "level": 1, "function": "rot_13", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Only letters shift — everything else (digits, spaces, "
                 "punctuation) passes through untouched. And the shift "
@@ -698,6 +704,7 @@ EXERCISES = {
     },
     "alpha_mirror": {
         "level": 2, "function": "alpha_mirror", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("The mirror formula is 'z' - (c - 'a') for lowercase "
                 "letters (and the 'Z'/'A' equivalent for uppercase) — "
@@ -750,6 +757,7 @@ EXERCISES = {
     },
     "camel_to_snake": {
         "level": 2, "function": "camel_to_snake", "kind": "program",
+        "fuzz_argv": "camel",
         "standard": True,
         "hint": ("Each uppercase letter becomes an underscore PLUS its "
                 "lowercase self, in that order — insert the '_' right "
@@ -804,6 +812,7 @@ EXERCISES = {
     },
     "do_op": {
         "level": 2, "function": "do_op", "kind": "program",
+        "fuzz_argv": "do_op",
         "standard": True,
         "hint": ("The operator is a single character — read it with "
                 "argv[2][0], not by comparing the whole argv[2] string — "
@@ -1133,6 +1142,7 @@ EXERCISES = {
     },
     "last_word": {
         "level": 2, "function": "last_word", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Scan from the END of the string: first skip past any "
                 "trailing spaces/tabs, then walk backward while you're "
@@ -1228,6 +1238,7 @@ EXERCISES = {
     },
     "snake_to_camel": {
         "level": 2, "function": "snake_to_camel", "kind": "program",
+        "fuzz_argv": "snake",
         "standard": True,
         "hint": ("Underscores themselves must never appear in the "
                 "output — consume each '_' silently and just remember, "
@@ -1318,8 +1329,74 @@ EXERCISES = {
         """),
         "cases": [[65], [0], [255], [15], [240], [18]],
     },
+    "inter": {
+        "level": 2, "function": "inter", "kind": "program",
+        "fuzz_argv": "two_strings",
+        "standard": True,
+        "hint": ("Two conditions per character of the FIRST string: it must "
+                "appear somewhere in the second string, and it must not have "
+                "appeared earlier in the first string (that's the 'no "
+                "doubles' part — check positions before the current one, "
+                "not what you've printed from the second string)."),
+        "subject": _sub_c("inter", "int main(int argc, char **argv);",
+                         "write", """
+        Write a PROGRAM that takes two strings and displays, without
+        doubles, the characters that appear in BOTH strings, in the order
+        they appear in the first one, followed by a newline. If argc != 3,
+        just a newline.
+
+        Examples:
+            ./inter "padinton" "paqefwtdjetyiytjneytjoeyjnejeyj" -> padinto
+            ./inter "ddf6vewg64f" "gtwthgdwthdwfteewhrtag6h4ffdhsd" -> df6ewg4
+            ./inter "rien" "cette phrase ne cache rien" -> rien
+        """),
+        "oracle_c": textwrap.dedent("""
+        #include <unistd.h>
+
+        static int in_str(char *s, char c, int limit)
+        {
+            int i;
+
+            i = 0;
+            while (s[i] && (limit < 0 || i < limit))
+            {
+                if (s[i] == c)
+                    return (1);
+                i++;
+            }
+            return (0);
+        }
+
+        int main(int argc, char **argv)
+        {
+            int i;
+
+            if (argc == 3)
+            {
+                i = 0;
+                while (argv[1][i])
+                {
+                    if (!in_str(argv[1], argv[1][i], i)
+                        && in_str(argv[2], argv[1][i], -1))
+                        write(1, &argv[1][i], 1);
+                    i++;
+                }
+            }
+            write(1, "\\n", 1);
+            return (0);
+        }
+        """),
+        "cases": [
+            ["padinton", "paqefwtdjetyiytjneytjoeyjnejeyj"],
+            ["ddf6vewg64f", "gtwthgdwthdwfteewhrtag6h4ffdhsd"],
+            ["rien", "cette phrase ne cache rien"],
+            ["abc", "xyz"], ["aaa", "a"], ["", "abc"], ["abc", ""],
+            [], ["only one"], ["a", "b", "c"],
+        ],
+    },
     "union": {
         "level": 2, "function": "union", "kind": "program",
+        "fuzz_argv": "two_strings",
         "standard": True,
         "hint": ("Dedup against everything printed so far, not just "
                 "within the string you're currently scanning — a "
@@ -1397,6 +1474,7 @@ EXERCISES = {
     },
     "wdmatch": {
         "level": 2, "function": "wdmatch", "kind": "program",
+        "fuzz_argv": "subsequence",
         "standard": True,
         "hint": ("This is a subsequence check, not 'do these characters "
                 "appear somewhere' — walk both strings with two "
@@ -1458,6 +1536,7 @@ EXERCISES = {
     },
     "epur_str": {
         "level": 3, "function": "epur_str", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Don't write a space the instant you see one — set a "
                 "'need a space before the next word' flag instead, and "
@@ -1525,6 +1604,7 @@ EXERCISES = {
     },
     "expand_str": {
         "level": 3, "function": "expand_str", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("Same idea as collapsing whitespace to a single space, "
                 "except each boundary between words prints exactly "
@@ -1757,6 +1837,7 @@ EXERCISES = {
     },
     "paramsum": {
         "level": 3, "function": "paramsum", "kind": "program",
+        "fuzz_argv": "any_args",
         "standard": True,
         "hint": ("argc counts the program's own name too — the number "
                 "of actual arguments passed is argc - 1, not argc "
@@ -1795,6 +1876,7 @@ EXERCISES = {
     },
     "print_hex": {
         "level": 3, "function": "print_hex", "kind": "program",
+        "fuzz_argv": "non_negative_int",
         "standard": True,
         "forbidden": ["atoi"],
         "hint": ("atoi is forbidden, so parse the decimal argument "
@@ -1855,6 +1937,7 @@ EXERCISES = {
     },
     "rstr_capitalizer": {
         "level": 3, "function": "rstr_capitalizer", "kind": "program",
+        "fuzz_argv": "sentences",
         "standard": True,
         "hint": ("'Last letter' means the last ALPHABETIC character of "
                 "the word, not simply its last character — a word like "
@@ -1955,6 +2038,7 @@ EXERCISES = {
     },
     "str_capitalizer": {
         "level": 3, "function": "str_capitalizer", "kind": "program",
+        "fuzz_argv": "sentences",
         "standard": True,
         "hint": ("Track a 'start of a new word' flag that gets set on "
                 "every separator character and cleared right after you "
@@ -2027,6 +2111,7 @@ EXERCISES = {
     },
     "tab_mult": {
         "level": 3, "function": "tab_mult", "kind": "program",
+        "fuzz_argv": "small_positive_int",
         "standard": True,
         "forbidden": ["atoi"],
         "hint": ("atoi is forbidden, so you need your own "
@@ -2263,6 +2348,7 @@ EXERCISES = {
     },
     "hidenp": {
         "level": 3, "function": "hidenp", "kind": "program",
+        "fuzz_argv": "subsequence",
         "standard": True,
         "hint": ("Same subsequence idea as wdmatch: advance through s2 "
                 "one character at a time, but only advance your "
@@ -2318,6 +2404,7 @@ EXERCISES = {
     },
     "pgcd": {
         "level": 3, "function": "pgcd", "kind": "program",
+        "fuzz_argv": "two_positive_ints",
         "standard": True,
         "hint": ("Classic Euclidean algorithm: repeatedly replace (a, b) "
                 "with (b, a % b) until b hits 0 — a common slip is "
@@ -2413,6 +2500,7 @@ EXERCISES = {
     },
     "add_prime_sum": {
         "level": 3, "function": "add_prime_sum", "kind": "program",
+        "fuzz_argv": "small_positive_int",
         "standard": True,
         "forbidden": ["atoi"],
         "hint": ("atoi is forbidden, so you need your own decimal "
@@ -2662,6 +2750,7 @@ EXERCISES = {
     },
     "repeat_alpha": {
         "level": 1, "function": "repeat_alpha", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": ("The repeat count is the letter's 1-based alphabet "
                 "position ('a' -> 1, 'b' -> 2, ...) — using the raw "
@@ -2727,6 +2816,7 @@ EXERCISES = {
     },
     "fprime": {
         "level": 4, "function": "fprime", "kind": "program",
+        "fuzz_argv": "positive_int",
         "standard": True,
         "hint": ("After the trial-division loop stops (once d*d > n), "
                 "whatever's left in n still needs printing unless "
@@ -2855,6 +2945,7 @@ EXERCISES = {
     },
     "rev_wstr": {
         "level": 4, "function": "rev_wstr", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": {
             "crash": ("If you malloc a buffer per extracted word, its "
@@ -2941,6 +3032,7 @@ EXERCISES = {
     },
     "rostring": {
         "level": 4, "function": "rostring", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": True,
         "hint": {
             "crash": ("If you malloc a buffer to save the first word "
@@ -3226,6 +3318,7 @@ EXERCISES = {
     # ── EXTRA (practice only — never drawn by `make c-exam`) ────
     "count_vowels": {
         "level": 1, "function": "count_vowels", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": False,
         "hint": ("Only a, e, i, o, u count as vowels (not 'y') — "
                 "normalize the character's case before comparing (or "
@@ -3292,6 +3385,7 @@ EXERCISES = {
     },
     "is_palindrome_str": {
         "level": 2, "function": "is_palindrome_str", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": False,
         "hint": ("A string with zero letters must print 'no', not "
                 "'yes' — your two-pointer scan trivially finishes "
@@ -3384,6 +3478,7 @@ EXERCISES = {
     },
     "longest_word_str": {
         "level": 3, "function": "longest_word_str", "kind": "program",
+        "fuzz_argv": "sentence",
         "standard": False,
         "hint": ("On a tie, the FIRST longest word wins — that means "
                 "your comparison has to be strictly greater-than "

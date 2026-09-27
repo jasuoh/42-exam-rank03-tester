@@ -197,9 +197,77 @@ class FuzzableTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 self.assertFalse(grader.is_fuzzable({"args": [kind]}))
 
-    def test_program_kind_is_never_fuzzable(self):
+    def test_program_kind_without_an_argv_shape_is_not_fuzzable(self):
         ex = {"kind": "program", "args": ["str"]}
         self.assertFalse(grader.is_fuzzable(ex))
+
+    def test_program_kind_with_an_argv_shape_is_fuzzable(self):
+        self.assertTrue(grader.is_fuzzable({"kind": "program", "fuzz_argv": "sentence"}))
+        self.assertFalse(grader.is_fuzzable({"kind": "program", "fuzz_argv": "no-such"}))
+
+
+class ArgvFuzzTests(unittest.TestCase):
+    """Shape-based argv fuzzing for "program"-kind exercises."""
+
+    def test_every_shape_yields_string_argvs(self):
+        rng = random.Random(5)
+        for shape in grader.ARGV_SHAPES:
+            with self.subTest(shape=shape):
+                for _ in range(200):
+                    argv = grader.fuzz_argv(shape, rng)
+                    self.assertIsInstance(argv, list)
+                    self.assertTrue(all(isinstance(a, str) and "\0" not in a for a in argv))
+
+    def test_fixed_argc_shapes_mostly_have_the_right_argc(self):
+        rng = random.Random(6)
+        for shape, (_make, argc) in grader.ARGV_SHAPES.items():
+            if argc is None:
+                continue
+            with self.subTest(shape=shape):
+                counts = [len(grader.fuzz_argv(shape, rng)) for _ in range(300)]
+                right = sum(1 for n in counts if n == argc)
+                self.assertGreater(right, 200)       # ~90% right argc
+                self.assertLess(right, 300)          # …but wrong argc happens
+
+    def test_sentences_cover_whitespace_traps(self):
+        rng = random.Random(7)
+        texts = [grader.fuzz_argv("sentence", rng) for _ in range(300)]
+        flat = [t[0] for t in texts if len(t) == 1]
+        self.assertTrue(any("\t" in t for t in flat))
+        self.assertTrue(any(t == "" for t in flat))
+        self.assertTrue(any(t and t.strip() == "" for t in flat))
+        self.assertTrue(any(t != t.strip() and t.strip() for t in flat))
+
+    def test_division_never_by_zero(self):
+        rng = random.Random(8)
+        for _ in range(500):
+            argv = grader.fuzz_argv("do_op", rng)
+            if len(argv) == 3 and argv[1] in "/%":
+                self.assertNotEqual(argv[2], "0")
+
+    def test_every_bank_shape_exists(self):
+        from c_exam.bank import EXERCISES
+        for name, ex in EXERCISES.items():
+            if "fuzz_argv" in ex:
+                with self.subTest(name=name):
+                    self.assertIn(ex["fuzz_argv"], grader.ARGV_SHAPES)
+
+
+class CFailureCallTests(unittest.TestCase):
+    def test_program_call_is_a_pasteable_command(self):
+        f = grader.CFailure(3, "", "", args=["a b", "\tx"], program=True)
+        self.assertEqual(f.call("first_word"), "./first_word 'a b' $'\\tx'")
+
+    def test_no_arguments(self):
+        f = grader.CFailure(0, "", "", args=[], program=True)
+        self.assertEqual(f.call("rotone"), "./rotone")
+
+    def test_function_call_shows_the_values(self):
+        f = grader.CFailure(1, "5", "4", args=["hello"])
+        self.assertEqual(f.call("ft_strlen"), "ft_strlen('hello')")
+
+    def test_unknown_inputs_fall_back_to_the_case_index(self):
+        self.assertEqual(grader.CFailure(2, "", "").call("f"), "f()  [case 2]")
 
     def test_no_args_is_fuzzable(self):
         self.assertTrue(grader.is_fuzzable({"args": []}))
@@ -647,6 +715,36 @@ class ValgrindProgramKindEndToEndTests(unittest.TestCase):
             report = grader.grade("echoprog", self.EX, tmp, valgrind=True)
             self.assertTrue(report.ok)
             self.assertEqual(report.warnings, [])
+
+
+@skip_without_cc
+class ProgramTimeoutBailOutTests(unittest.TestCase):
+    """A "program"-kind infinite loop stops being run after MAX_TIMEOUTS
+    consecutive timeouts — the remaining cases are marked skipped instead
+    of each burning the full per-case timeout."""
+
+    EX = {
+        "kind": "program", "function": "echo_arg",
+        "oracle_c": "#include <unistd.h>\n#include <string.h>\n"
+                    "int main(int ac, char **av)\n{\n"
+                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                    "    write(1, \"\\n\", 1);\n    return 0;\n}\n",
+        "cases": [["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"], ["h"]],
+    }
+
+    def test_infinite_loop_skips_cases_after_max_timeouts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
+                fh.write("int main(void)\n{\n    while (1)\n        ;\n}\n")
+            started = time.time()
+            report = grader.grade("echo_arg", self.EX, tmp, timeout=1)
+            elapsed = time.time() - started
+        self.assertEqual(report.passed, 0)
+        self.assertEqual(len(report.failures), len(self.EX["cases"]))
+        skipped = [f for f in report.failures if "skipped" in f.got]
+        self.assertEqual(len(skipped), len(self.EX["cases"]) - grader.MAX_TIMEOUTS)
+        # 3 real timeouts at 1s each, not 8
+        self.assertLess(elapsed, len(self.EX["cases"]) - 1)
 
 
 if __name__ == "__main__":

@@ -2,12 +2,70 @@
 
 Notable changes to this project, newest entries first. This tracks the
 *tester itself* (grading logic, exercise banks, UX) — not students'
-`rendu/` solutions. Loosely follows [Keep a Changelog](https://keepachangelog.com/);
-this repo has no version numbers, so entries are grouped by date instead.
+`rendu/` solutions. Loosely follows [Keep a Changelog](https://keepachangelog.com/).
+Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
+version's section below as a GitHub Release (see
+`.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
-## Unreleased
+## 0.2.0 — 2026-09-27
+
+### Changed
+- **The exam now grades as strictly as the real one** (both testers). In
+  `--exam`, Python fails on any import and C fails on compiler warnings
+  (`-Werror`) and forbidden calls; `new` (redraw an exercise) is gone.
+  Practice and training keep the lenient warn-only feedback. `--relaxed`
+  restores the previous lenient exam.
+- C reports now show `repr()` of both expected and got output, so tabs,
+  trailing spaces and newlines are visible (got used to be raw, which also
+  made `--diff`'s pointer index the wrong character).
 
 ### Added
+- **`--time-limit MIN`** — ends the exam with a *TIME'S UP* summary, with a
+  countdown in the exam prompt.
+- **Edge-case fuzzing for C "program" exercises** — every program except
+  `fizzbuzz` names an argv shape (`fuzz_argv` in `c_exam/bank.py`) and
+  `--fuzz N` now adds random cases built from the usual exam traps: runs of
+  spaces and tabs, leading/trailing blanks, empty/blank strings,
+  punctuation, wrong argc. See `ARGV_SHAPES` in `c_exam/grader.py`.
+- **Reproducible failing cases** — a failing C program case shows a
+  pasteable `./prog 'arg' $'\targ'` command, a failing C function case its
+  call values (was just `[case N]`).
+- **Edge-case labels** (`src/case_labels.py`) — every failing test names
+  what kind of input it was: `empty string`, `only whitespace`, `tabs`,
+  `repeated spaces`, `zero`, `negative number`, `INT_MIN/INT_MAX`,
+  `empty list`, `single element`, `no arguments`.
+- **`--readiness` / `make readiness`** (and `c-readiness`) — every
+  exercise the exam can draw, per level, as passed / failed / never tried,
+  with per-level and overall scores. Menu entry in both testers.
+- **`--drill [N]` / `make drill`** (and `c-drill`) — a short session from
+  your own history: weak spots (at most half), then never-tried exercises,
+  then the longest-unpractised passes. Menu entry in both testers.
+- **`inter`** — the missing Level 2 standard exercise of the C bank.
+- **Versioning and releases** — `src/version.py` (0.2.0), `--version` on
+  both testers, and `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag
+  publishes that version's section of this file as a GitHub Release.
+- **Update notice** (`src/update_check.py`) — the interactive menu checks
+  GitHub for a newer release at most once a day in the background (cached,
+  silent offline). `--no-update-check` / `EXAMSHELL_NO_UPDATE_CHECK=1` turn
+  it off; `make update` pulls the new version.
+
+### Fixed
+- **`--seed` exams weren't reproducible** — grading drew its fuzz cases
+  from the same RNG as the exercise draw, so the exercise of every later
+  level depended on how often you typed `grademe`. Grading has its own
+  (still seed-deterministic) RNG now, in both testers.
+- **C program infinite loops took 30–65 s to grade** — every case waited
+  out the full timeout. Like the Python sandbox, grading now skips the
+  remaining cases after 3 consecutive timeouts.
+- `--grade range` (C) was reported as ambiguous between `ft_range` and
+  `ft_rrange`; the exact `ft_`/`py_`-prefixed name now wins.
+- Two unit tests failed — and created `/this/does/not/exist/...` — when run
+  as root (Docker, CI containers); they now use a path that is uncreatable
+  for every user.
+- `pyproject.toml` / README badges pointed at the repo's old name.
+- Training mode's invalid-input warning now lists every filter key.
+
+### Added (earlier in this release)
 - **Exam Rank 04 and Rank 05 (Python)** — the Python tester now carries
   three exam pools instead of one, selected with `--rank 03|04|05`
   (`RANK=04` from the Makefile) or menu entry **5 · Switch exam rank**:
@@ -165,7 +223,7 @@ this repo has no version numbers, so entries are grouped by date instead.
   buffers where a sizing bug and a missing `free` are genuinely different
   mistakes worth nudging differently.
 
-### Fixed
+### Fixed (earlier in this release)
 - **`py_bracket_validator`** carried `"level": 1` while living in the
   `exam_bank.py` level-6 section — level 1's standard pool had 3 exercises
   instead of 2, and level 6's had only 1 (`whisper_cipher`), so a level-6

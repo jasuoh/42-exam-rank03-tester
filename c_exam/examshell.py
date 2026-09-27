@@ -26,6 +26,7 @@ import shlex
 import time
 
 from src import achievements, hints, report_export, session_store, settings, stats, ui
+from src.version import __version__
 
 from . import grader
 from .bank import EXERCISES, LEVELS, N_LEVELS, STANDARD_LEVELS
@@ -836,6 +837,8 @@ def build_parser():
                         "next time, then exit")
     p.add_argument("--no-color", action="store_true",
                    help="disable colours (also honours NO_COLOR)")
+    p.add_argument("--version", action="version",
+                   version="%(prog)s " + __version__)
     p.add_argument("--no-rich", action="store_true",
                    help="force the plain ANSI UI even if rich is installed")
     return p

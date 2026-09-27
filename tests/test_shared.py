@@ -709,5 +709,27 @@ class HintForTests(unittest.TestCase):
         self.assertIn("infinite loop", hints.hint_for(ex, report))
 
 
+class VersionTests(unittest.TestCase):
+    """src/version.py is the single source of truth; pyproject.toml and
+    CHANGELOG.md must agree with it (the release workflow relies on both)."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _read(self, name):
+        with open(os.path.join(self.ROOT, name), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_pyproject_version_matches(self):
+        from src.version import __version__
+        self.assertIn('version = "%s"' % __version__, self._read("pyproject.toml"))
+
+    def test_changelog_has_a_section_for_this_version(self):
+        from src.version import __version__
+        headings = [line for line in self._read("CHANGELOG.md").splitlines()
+                    if line.startswith("## ")]
+        self.assertTrue(any(h == "## " + __version__ or h.startswith("## %s " % __version__)
+                            for h in headings), headings)
+
+
 if __name__ == "__main__":
     unittest.main()

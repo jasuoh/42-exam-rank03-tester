@@ -1,7 +1,7 @@
 [project]
-name = "42-exam-rank03-tester"
-version = "0.1.0"
-description = "A local practice tester for 42 School's Exam Rank 03 (Python) and Rank 02 (C) — sandboxed grading, fuzzing, hints, and training pools."
+name = "42-exam-tester"
+version = "0.2.0"
+description = "A local practice tester for 42 School's Exam Ranks 03-05 (Python) and Rank 02 (C) — sandboxed grading, fuzzing, hints, and training pools."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
@@ -9,7 +9,7 @@ authors = [{ name = "jasuoh" }]
 dependencies = ["rich>=13.0"]
 
 [project.urls]
-Repository = "https://github.com/jasuoh/42-exam-rank03-tester"
+Repository = "https://github.com/jasuoh/42-exam-tester"
 
 [tool.ruff]
 line-length = 100

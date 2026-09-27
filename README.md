@@ -8,7 +8,7 @@
 
 *Real sandboxed grading. Real edge cases. Real compiler. Zero internet required.*
 
-[![CI](https://github.com/jasuoh/42-exam-rank03-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/jasuoh/42-exam-rank03-tester/actions/workflows/ci.yml)
+[![CI](https://github.com/jasuoh/42-exam-tester/actions/workflows/ci.yml/badge.svg)](https://github.com/jasuoh/42-exam-tester/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/dependencies-none%20required-brightgreen)
@@ -36,7 +36,7 @@ real thing.
 ## ⚡ Quick start
 
 ```bash
-git clone <this-repo> && cd 42-exam-rank03-tester
+git clone <this-repo> && cd 42-exam-tester
 
 make install     # optional — venv + rich, for the pretty TUI
 make run         # 🐍 Python · Exam Rank 03 — interactive menu

@@ -2,10 +2,12 @@
 
 Notable changes to this project, newest entries first. This tracks the
 *tester itself* (grading logic, exercise banks, UX) — not students'
-`rendu/` solutions. Loosely follows [Keep a Changelog](https://keepachangelog.com/);
-this repo has no version numbers, so entries are grouped by date instead.
+`rendu/` solutions. Loosely follows [Keep a Changelog](https://keepachangelog.com/).
+Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
+version's section below as a GitHub Release (see
+`.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
-## Unreleased
+## 0.2.0 — 2026-09-27
 
 ### Added
 - **Exam Rank 04 and Rank 05 (Python)** — the Python tester now carries

@@ -36,6 +36,7 @@ from . import (achievements, grader, hints, ranks, report_export,
 from .bank_common import signature_for as _signature_for
 from .bank_common import signature_of as _signature_of
 from .training_bank import DIFFICULTIES, TRAINING_BY_DIFFICULTY, TRAINING_EXERCISES
+from .version import __version__
 
 RENDU_DIR = "rendu"
 STUB_SAMPLE_CASES = 3    # curated cases embedded as a quick self-check in a stub
@@ -923,6 +924,8 @@ def build_parser():
                         "for next time, then exit")
     p.add_argument("--no-color", action="store_true",
                    help="disable colours (also honours NO_COLOR)")
+    p.add_argument("--version", action="version",
+                   version="%(prog)s " + __version__)
     p.add_argument("--no-rich", action="store_true",
                    help="force the plain ANSI UI even if rich is installed")
     return p

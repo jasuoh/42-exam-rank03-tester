@@ -349,7 +349,11 @@ def grade_exercise(sh, ex_name, rng, cfg, mode="practice"):
         return False
     with ui.spinner("%s %s … (%d tests)" % (job.verb, ex_name, job.size)):
         report = job.run()
-    ui.report(report, cfg.show_fails, cfg.diff, solution_path(sh, ex_name, cfg))
+    # --blind: in the exam, like the real one, you learn THAT you failed,
+    # not on which input — testing your own edge cases is part of the exam.
+    blind = mode == "exam" and getattr(cfg, "blind", False)
+    ui.report(report, 0 if blind else cfg.show_fails, cfg.diff,
+              solution_path(sh, ex_name, cfg))
     outcome = record(sh, ex_name, report, cfg, mode)
     for emoji, label in outcome.badges:
         ui.badge_unlocked(emoji, label)
@@ -519,6 +523,8 @@ def exam_mode(sh, cfg):
                 "'new' (start with --relaxed for lenient grading)")
     if cfg.time_limit:
         ui.note("time limit: %d minutes" % cfg.time_limit)
+    if getattr(cfg, "blind", False):
+        ui.note("blind grading — you'll see how many tests failed, not which")
 
     commands = exam_commands(sh, cfg)
     while not run.finished:
@@ -587,10 +593,18 @@ def exam_mode(sh, cfg):
     sh.exam_summary(session, passed=True)
 
 
-def exam_summary(sh, session, passed, timed_out=False):
-    ui.clear()
-    sh.banner()
-    ui.status_bar(session, sh.N_LEVELS)
+class ExamResult(object):
+    """What finish_exam() produces: the summary panel's title and rows,
+    whether the exam was passed, any badges earned, and the report path."""
+
+    def __init__(self, title, rows, passed, badges, report_path):
+        self.title, self.rows, self.passed = title, rows, passed
+        self.badges, self.report_path = badges, report_path
+
+
+def finish_exam(sh, session, passed, timed_out=False):
+    """Close an exam: record a completion (badges, personal best), write
+    the Markdown report, and return an ExamResult to show. No output."""
     rows = [("Total time", session.elapsed()),
             ("Attempts", session.attempts),
             ("Score", "%d/100" % session.score())]
@@ -619,12 +633,19 @@ def exam_summary(sh, session, passed, timed_out=False):
              else "%s — %d/%d levels cleared"
              % ("⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
                 len(session.passed), sh.N_LEVELS))
-    ui.summary(title, rows, passed)
-
     report_path = report_export.write_exam_report(sh.TOOL, session, sh.N_LEVELS,
                                                   passed, badge_lines)
-    if report_path:
-        ui.note("Session report saved to %s" % report_path)
+    return ExamResult(title, rows, passed, badge_lines, report_path)
+
+
+def exam_summary(sh, session, passed, timed_out=False):
+    ui.clear()
+    sh.banner()
+    ui.status_bar(session, sh.N_LEVELS)
+    result = finish_exam(sh, session, passed, timed_out)
+    ui.summary(result.title, result.rows, result.passed)
+    if result.report_path:
+        ui.note("Session report saved to %s" % result.report_path)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -900,3 +921,23 @@ def resolve_exercise(sh, name, prefix):
         ui.error("ambiguous exercise %r — did you mean %s?"
                  % (name, ", ".join(sorted(matches))))
     return None
+
+
+def run_tui(sh, cfg, args):
+    """--tui: hand over to the full-screen app (src/tui/) when it can run
+    here, starting where the other flags point (--exam, --practice X).
+    Returns an exit code, or None — after saying why — to fall back to the
+    line-based UI."""
+    from . import tui
+    if not tui.available():
+        ui.warn(tui.why_unavailable() + " — using the normal interface")
+        return None
+    start = None
+    if args.exam:
+        start = "exam"
+    elif getattr(args, "practice", None):
+        name = sh.resolve_exercise(args.practice)
+        if not name:
+            return 2
+        start = ("practice", name)
+    return tui.run(sh, cfg, start)

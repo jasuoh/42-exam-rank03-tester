@@ -7,9 +7,37 @@ Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
 version's section below as a GitHub Release (see
 `.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
-## Unreleased
+## 0.3.0 — 2026-09-27
+
+### Added
+- **✨ Full-screen app** (`make tui` / `make c-tui` / `--tui`) — optional,
+  built on Textual (Python 3.9+, `make install`). Subject and results side
+  by side, grading in the background, **watch mode** (`w`: re-grade on
+  every save), drill queue, exam with login/resume, level stepper,
+  countdown and quit-and-save, a readiness heatmap, and stats with your
+  practice streak, a 4-week activity chart and recent exams. It drives the
+  same engine as the plain interface; without Textual `--tui` explains why
+  and falls back. See docs/features.md.
+- **`--blind`** (exam) — shows how many tests failed, not which inputs.
+- `stats.daily_activity()`, `practice_streak()`, `exam_history()`.
+- **Issue forms** for "exercise differs from the real exam", bugs and
+  feedback.
+- `tools/screenshots.py` regenerates `docs/img/`.
 
 ### Changed
+- **README is now a one-page landing page**; the full documentation moved
+  unchanged into `docs/` (python, c, features, development).
+- Subject text is reflowed into paragraphs so it wraps to any width.
+- `write_stub()` / `finish_exam()` return their result as data (the
+  `make_stub()` / `exam_summary()` wrappers still print it).
+
+### Fixed
+- **C program failures hid a missing trailing newline**: expected and got
+  were both shown with the newline stripped, so `'abc'` vs `'abc'` could
+  fail with no visible difference. Program output is now shown raw
+  (`'abc\n'` vs `'abc'`).
+
+### Changed (engine)
 - **One shared flow for both testers** (`src/shell_common.py`). The exam,
   practice, training, readiness, drill and menu logic used to exist twice
   (~900 identical lines in `src/examshell.py` and `c_exam/examshell.py`);

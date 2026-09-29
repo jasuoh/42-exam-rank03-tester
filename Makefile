@@ -25,7 +25,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
                $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py \
+               $(SRC_PKG)/shell_common.py $(wildcard $(SRC_PKG)/tui/*.py) \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -60,7 +60,7 @@ OFF   := \033[0m
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
-        readiness drill c-readiness c-drill update
+        readiness drill c-readiness c-drill update tui c-tui
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -75,6 +75,7 @@ help:
 	@printf "$(CYAN)╚══════════════════════════════════════════════════════════════╝$(OFF)\n"
 	@printf "\n$(BOLD)$(CYAN)▸ PYTHON$(OFF)  $(DIM)— Exam Rank 03 (default) · 04 · 05, pick with RANK=04$(OFF)\n"
 	@printf "  $(BOLD)Play$(OFF)\n"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make tui" "✨ full-screen app (needs make install, Python 3.9+)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make run" "interactive menu (exam · practice · list · training)"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make exam" "jump straight into the exam"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make ranks" "list the exam ranks and their pools"
@@ -108,6 +109,7 @@ help:
 	@printf "  $(DIM)python: $(PY)$(OFF)\n"
 	@printf "\n$(BOLD)$(CYAN)▸ C$(OFF)  $(DIM)— Exam Rank 02, compile-based, separate $(C_RENDU)/$(OFF)\n"
 	@printf "  $(BOLD)Play$(OFF)\n"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-tui" "✨ full-screen app (needs make install, Python 3.9+)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-run" "interactive menu (exam · practice · list)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-exam" "jump straight into the exam"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[EX=ft_atoi]$(OFF)\n" $(ROWW) "make c-practice" "drill a single exercise"
@@ -164,6 +166,9 @@ stats:
 readiness:
 	@$(PY) -m $(SRC_PKG) --readiness $(RANK_ARG)
 
+tui:
+	@$(PY) -m $(SRC_PKG) --tui $(ARGS)
+
 drill:
 	@$(PY) -m $(SRC_PKG) --drill $(N) $(ARGS)
 
@@ -205,6 +210,9 @@ c-stats:
 
 c-readiness:
 	@$(PY) -m $(C_PKG) --readiness
+
+c-tui:
+	@$(PY) -m $(C_PKG) --tui $(C_ARGS)
 
 c-drill:
 	@$(PY) -m $(C_PKG) --drill $(N) $(C_ARGS)
@@ -290,7 +298,7 @@ $(VENV_PYTHON):
 
 deps: $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m pip install --quiet -r requirements.txt
-	@printf "$(GREEN)✔$(OFF) rich installed — run $(BOLD)make run$(OFF)\n"
+	@printf "$(GREEN)✔$(OFF) installed — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
 
 # ── cleaning ──────────────────────────────────────────────────
 clean:

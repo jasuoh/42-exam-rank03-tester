@@ -3,7 +3,7 @@
 Step 1 and 2 cover running the tool via the Makefile and checking that the
 tool itself is working correctly (`make test`). Everything from step 3 on
 walks through the extras described in the README's
-[Quality-of-life features](README.md#-quality-of-life-features-both-testers)
+[shared features](docs/features.md)
 section. Everything here applies to **both** testers — examples below use
 `python3 -m src` (or `make …`); swap in `python3 -m c_exam` (or `make
 c-…`) for the C tester and it behaves identically, since both share the

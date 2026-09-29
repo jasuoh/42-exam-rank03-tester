@@ -1274,7 +1274,7 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
             # MAX_TIMEOUTS): an infinite loop would otherwise cost the full
             # timeout on EVERY remaining case — 30s+ of staring at a spinner.
             if streak >= MAX_TIMEOUTS:
-                report.failures.append(CFailure(i, ref_out.rstrip("\n"),
+                report.failures.append(CFailure(i, ref_out,
                                                 "[skipped after %d timeouts]" % streak,
                                                 args=argv, program=True))
                 continue
@@ -1285,15 +1285,19 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 report.warnings.append("case %d %s: %s"
                                        % (i, "timed out" if stu_crash == "TIMEOUT"
                                           else "crashed", note))
-                report.failures.append(CFailure(i, ref_out.rstrip("\n"),
+                report.failures.append(CFailure(i, ref_out,
                                                 "[%s]" % note, args=argv, program=True))
                 continue
             if stu_out == ref_out:
                 report.passed += 1
             else:
+                # Raw, NOT rstrip()'d like the function-kind chunks above:
+                # there the trailing newline is the harness's own, here it
+                # is the student's — and a missing (or extra) "\n" is one
+                # of the most common real exam failures. Stripped, the two
+                # sides could look identical while the case still fails.
                 report.failures.append(
-                    CFailure(i, ref_out.rstrip("\n"), stu_out.rstrip("\n"),
-                             args=argv, program=True))
+                    CFailure(i, ref_out, stu_out, args=argv, program=True))
             if run_valgrind_ok:
                 vg_clean, vg_detail = run_valgrind(student_bin, timeout, argv=argv)
                 if not vg_clean:

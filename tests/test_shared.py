@@ -867,5 +867,53 @@ class UpdateCheckTests(unittest.TestCase):
             self.assertEqual(self.uc.start_background_check(), {"notice": None})
 
 
+class HistoryStatsTests(unittest.TestCase):
+    """stats.daily_activity() / practice_streak() / exam_history()."""
+
+    DAY = 86400
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+                            ("DATA_DIR", self.tmpdir.name)):
+            patcher = patch.object(stats, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.now = time.mktime((2026, 9, 20, 12, 0, 0, 0, 0, -1))   # local noon
+
+    def _grade(self, days_ago, ok=True):
+        with patch.object(stats.time, "time", return_value=self.now - days_ago * self.DAY):
+            stats.record("py", "py_inter", 1, ok, 1, 1, "practice")
+
+    def test_daily_activity(self):
+        self._grade(0)
+        self._grade(0, ok=False)
+        self._grade(2)
+        activity = stats.daily_activity("py", days=4, now=self.now)
+        self.assertEqual(activity, [(0, 0), (1, 1), (0, 0), (2, 1)])
+
+    def test_streak_ends_today_or_yesterday(self):
+        for d in (1, 2, 3, 5):
+            self._grade(d)
+        self.assertEqual(stats.practice_streak("py", now=self.now), 3)
+        self._grade(0)
+        self.assertEqual(stats.practice_streak("py", now=self.now), 4)
+        self.assertEqual(stats.practice_streak("py", now=self.now + 3 * self.DAY), 0)
+
+    def test_exam_history_newest_first(self):
+        for i, secs in enumerate((300, 200, 100)):
+            with patch.object(stats.time, "time", return_value=self.now + i):
+                stats.record_exam_complete("py", secs, 6, 100)
+        self.assertEqual([e["seconds"] for e in stats.exam_history("py", n=2)], [100, 200])
+
+
+class ReflowTests(unittest.TestCase):
+    def test_joins_hard_wrapped_lines_and_keeps_paragraphs_and_lists(self):
+        from src import ui
+        prose = "one\ntwo\n\nthree\n  - item\n  - item2\n"
+        self.assertEqual(ui._reflow(prose), "one two\n\nthree\n  - item\n  - item2")
+
+
 if __name__ == "__main__":
     unittest.main()

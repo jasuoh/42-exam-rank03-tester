@@ -34,9 +34,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install rich
+      # The "rich" leg also gets Textual, so the full-screen UI's pilot
+      # tests (tests/test_tui_app.py) run for real; the other leg proves
+      # the zero-dependency fallback — those tests skip themselves there.
+      - name: Install rich + textual
         if: matrix.rich
-        run: python3 -m pip install --quiet rich
+        run: python3 -m pip install --quiet -r requirements.txt
 
       - name: Install ruff (deeper lint)
         run: python3 -m pip install --quiet ruff

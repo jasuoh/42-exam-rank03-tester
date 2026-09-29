@@ -95,6 +95,7 @@ class Config(object):
         # Exam-only realism, see exam_config() / exam_commands().
         self.relaxed = getattr(args, "relaxed", False)
         self.time_limit = getattr(args, "time_limit", None)   # minutes
+        self.blind = getattr(args, "blind", False)
         self.no_update_check = getattr(args, "no_update_check", False)
 
 # ══════════════════════════════════════════════════════════════
@@ -318,13 +319,14 @@ def _sample_cases(part, n=STUB_SAMPLE_CASES):
     return samples
 
 
-def make_stub(ex_name, cfg):
-    """Create rendu/<ex>.py with the required signature(s). Never overwrites."""
+def write_stub(ex_name, cfg):
+    """Create rendu/<ex>.py with the required signature(s). Never overwrites.
+    Returns (ok, kind, message) — kind names the ui function to report it
+    with ("success" / "warn" / "error"); nothing is printed here."""
     ex = ALL_EXERCISES[ex_name]
     path = os.path.join(cfg.rendu, ex_name + ".py")
     if os.path.exists(path):
-        ui.warn("%s already exists — not touching it" % path)
-        return False
+        return False, "warn", "%s already exists — not touching it" % path
     parts = grader.parts_of(ex)
     shared = {
         "name": ex_name,
@@ -359,11 +361,16 @@ def make_stub(ex_name, cfg):
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(body)
     except OSError as exc:
-        ui.error("cannot create %s: %s" % (path, exc))
-        return False
-    ui.success("created %s  (%d quick self-check case%s included)"
-              % (path, len(samples), "" if len(samples) == 1 else "s"))
-    return True
+        return False, "error", "cannot create %s: %s" % (path, exc)
+    return True, "success", ("created %s  (%d quick self-check case%s included)"
+                             % (path, len(samples), "" if len(samples) == 1 else "s"))
+
+
+def make_stub(ex_name, cfg):
+    """write_stub(), reported through the line-based UI. True on success."""
+    ok, kind, message = write_stub(ex_name, cfg)
+    getattr(ui, kind)(message)
+    return ok
 
 
 # ══════════════════════════════════════════════════════════════
@@ -519,6 +526,12 @@ def build_parser():
                    help="exam mode only: grade leniently (imports only warn) "
                         "and allow 'new' to redraw an exercise — by default "
                         "the exam is as strict as the real one")
+    p.add_argument("--blind", action="store_true",
+                   help="exam mode only: like the real exam, show how many "
+                        "tests failed but not which inputs")
+    p.add_argument("--tui", action="store_true",
+                   help="full-screen interface (needs Python 3.9+ and "
+                        "`pip install textual`; falls back to the normal one)")
     p.add_argument("--time-limit", type=int, default=None, metavar="MIN",
                    help="exam mode only: end the exam after MIN minutes, "
                         "with a countdown in the prompt (default: no limit)")
@@ -655,6 +668,11 @@ def main(argv=None):
         return 0 if grade_all(cfg) else 1
 
     os.makedirs(cfg.rendu, exist_ok=True)
+
+    if args.tui:
+        code = shell_common.run_tui(_SH, cfg, args)
+        if code is not None:
+            return code
 
     if args.exam:
         exam_mode(cfg)

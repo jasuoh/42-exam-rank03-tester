@@ -1,0 +1,61 @@
+name: Exercise differs from the real exam
+description: A subject, level, exercise or grading result here doesn't match what you saw in your real 42 exam.
+title: "[exam] "
+labels: ["exam-fidelity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks — this is the most valuable feedback this project can get. Pools differ between
+        campuses and change over time, so please say where and when you saw it.
+        **Please don't paste your own full solution.**
+  - type: dropdown
+    id: tester
+    attributes:
+      label: Which exam?
+      options:
+        - C · Exam Rank 02
+        - Python · Exam Rank 03
+        - Python · Exam Rank 04
+        - Python · Exam Rank 05
+    validations:
+      required: true
+  - type: input
+    id: exercise
+    attributes:
+      label: Exercise
+      placeholder: e.g. inter, py_hidenp — or the name of a missing exercise
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What's different?
+      options:
+        - The subject text / expected behaviour
+        - A case: the real grader accepts/rejects something this one doesn't
+        - The exercise is on a different level in the real exam
+        - The exercise is missing here
+        - This exercise never appears in the real exam
+        - Allowed / forbidden functions
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What does the real exam do, and what does this tester do? An input that shows the difference is ideal.
+    validations:
+      required: true
+  - type: input
+    id: campus
+    attributes:
+      label: Campus and month of your exam
+      placeholder: e.g. 42 Berlin, September 2026
+  - type: input
+    id: version
+    attributes:
+      label: Tester version
+      description: Output of `python3 -m src --version`
+      placeholder: python3 -m src 0.2.0

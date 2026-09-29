@@ -1,0 +1,26 @@
+name: Feedback / idea
+description: What helped you, what annoyed you, what you'd want next.
+title: "[feedback] "
+labels: ["feedback"]
+body:
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where are you with the exam?
+      options:
+        - Preparing, haven't taken it yet
+        - Took it, didn't pass
+        - Took it and passed
+        - Not a student / just curious
+  - type: textarea
+    id: helped
+    attributes:
+      label: What helped most?
+  - type: textarea
+    id: annoyed
+    attributes:
+      label: What annoyed you or got in the way?
+  - type: textarea
+    id: wish
+    attributes:
+      label: What would you want next?

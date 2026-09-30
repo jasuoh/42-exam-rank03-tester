@@ -47,6 +47,7 @@ works in the plain terminal UI.
 make c-readiness    # what could the exam still throw at you? (✔ passed · ✖ failed · · never tried)
 make c-drill        # 5 exercises picked from your gaps
 make c-exam FLAGS="--time-limit 180"   # full rehearsal, as strict as the real one, clock running
+make sync           # take it all (progress, paused exam, solutions) to your other device
 ```
 
 When a test fails you see exactly why — and how to reproduce it:
@@ -68,6 +69,7 @@ When a test fails you see exactly why — and how to reproduce it:
 | 📈 **Knows your gaps** | readiness per level, a daily drill, stats, hints after 3 fails in a row (never during the exam) |
 | ⏸️ **Life happens** | `quit` saves the exam, the next start resumes it; every run writes a Markdown report |
 | 🧠 **Beyond the exam** | a separate LeetCode-style training pool per language |
+| 🔄 **Continue on any device** | `make sync` carries your progress, paused exam and solutions through your own private git repo — school in the morning, laptop at night ([how](docs/features.md#-continue-on-another-device-make-sync)) |
 | ✨ **Full-screen app** | subject and results side by side, **watch mode** re-grades every time you save, level stepper and countdown in the exam, readiness heatmap, stats with your streak — [screenshots](docs/features.md#-the-full-screen-app) |
 
 | | 🐍 Python | 🔧 C |

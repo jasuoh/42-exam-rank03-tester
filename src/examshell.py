@@ -104,6 +104,8 @@ class Config(object):
 _SH = sys.modules[__name__]
 
 PROG = "python3 -m src"
+# which folder of the sync repo this tester's --rendu maps to (src/sync.py)
+SYNC_SLOT = "rendu"
 SOURCE_EXT = ".py"
 EXAM_PROMPT = "exam"
 PRACTICE_PROMPT = "practice"
@@ -476,6 +478,12 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--sync", action="store_true",
+                      help="carry your progress and solutions to/from your own "
+                           "private git repo (see --sync-setup)")
+    mode.add_argument("--sync-setup", metavar="REPO_URL",
+                      help="connect this device to your private git repo for "
+                           "--sync (once per device), then sync")
     mode.add_argument("--readiness", action="store_true",
                       help="show, level by level, which exercises the exam "
                            "can draw you've passed, failed or never tried")
@@ -632,6 +640,9 @@ def main(argv=None):
     if args.readiness:
         readiness_mode(interactive=False)
         return 0
+
+    if args.sync or args.sync_setup:
+        return shell_common.run_sync(_SH, cfg, args.sync_setup)
 
     if args.list_ranks:
         list_ranks()

@@ -35,7 +35,7 @@ Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
 ---
 
-## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · *dieser PR*
+## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · ✔ umgesetzt
 
 Ziel: Fortschritt **und** Lösungen über ein eigenes, **privates** Git-Repo
 zwischen Geräten (Schule ↔ Laptop) mitnehmen — kein Server, kein Account

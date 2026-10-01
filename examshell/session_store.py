@@ -55,7 +55,7 @@ def save(tool, session, rng, current_ex, level_attempts=0, level_started=None):
         "elapsed_seconds": time.time() - session.start_time
                           if session.start_time else 0,
         "rng_state": _rng_to_json(rng),
-        # what src/sync.py compares when two devices both have a save
+        # what examshell/sync.py compares when two devices both have a save
         "saved_at": time.time(),
     }
     try:

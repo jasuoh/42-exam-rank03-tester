@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""The full-screen app (src/tui/app.py), driven headless through Textual's
+"""The full-screen app (examshell/tui/app.py), driven headless through Textual's
 test pilot. Skipped where Textual isn't installed (it's optional)."""
 
 import argparse
@@ -11,13 +11,13 @@ import time
 import unittest
 from unittest import mock
 
-from src import examshell as py_shell
-from src import report_export, session_store, shell_common, stats, tui
-from src.grader import Report
+from examshell import examshell as py_shell
+from examshell import report_export, session_store, shell_common, stats, tui
+from examshell.grader import Report
 
 HAVE_TEXTUAL = tui.available()
 if HAVE_TEXTUAL:
-    from src.tui import app as tui_app
+    from examshell.tui import app as tui_app
 
 GOOD_INTER = ("def inter(s1, s2):\n    out = ''\n    for c in s1:\n"
               "        if c in s2 and c not in out:\n            out += c\n    return out\n")

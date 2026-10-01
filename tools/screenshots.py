@@ -28,8 +28,8 @@ os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"
 sys.path.insert(0, ROOT)
 
 from c_exam import examshell as c_shell          # noqa: E402
-from src import stats                            # noqa: E402
-from src.tui.app import ExamShellApp             # noqa: E402
+from examshell import stats                            # noqa: E402
+from examshell.tui.app import ExamShellApp             # noqa: E402
 
 # A first_word that forgets tabs — passes the curated cases, fails the fuzz.
 BUGGY_FIRST_WORD = r"""#include <unistd.h>
@@ -140,7 +140,7 @@ async def shoot():
 
 
 def _screen(name, *args):
-    from src.tui import app as tui_app
+    from examshell.tui import app as tui_app
     return getattr(tui_app, name)(*args)
 
 

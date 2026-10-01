@@ -1,1 +1,5 @@
-"""ExamShell — 42 Common Core · Exam Rank 03 (Python) practice tester."""
+"""Compatibility shim: the Python tester's package is now `examshell`.
+
+Kept only so `python3 -m src` from older notes and muscle memory still
+works — it is not part of the installed package (see pyproject.toml).
+"""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for src/shell_common.py's engine layer — ExamRun and grade(),
+"""Unit tests for examshell/shell_common.py's engine layer — ExamRun and grade(),
 the I/O-free core both testers' line-based UI (and a future full-screen
 one) drive. Run against both tester modules, since each supplies its own
 hooks."""
@@ -13,9 +13,9 @@ import unittest
 from unittest import mock
 
 from c_exam import examshell as c_shell
-from src import examshell as py_shell
-from src import session_store, shell_common, stats
-from src.grader import Report
+from examshell import examshell as py_shell
+from examshell import session_store, shell_common, stats
+from examshell.grader import Report
 
 
 def _cfg(sh, **overrides):

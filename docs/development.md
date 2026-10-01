@@ -33,25 +33,25 @@ things:
 
 | File | |
 |---|---|
-| `src/__main__.py` | entry point for `python3 -m src` |
-| `src/examshell.py` | the Python tester: its CLI, rank switching, stubs, and the hooks the shared flow needs |
-| `src/shell_common.py` | the exam / practice / training / readiness / drill flow **both** testers run — an I/O-free engine (`ExamRun`, `grade()`) plus the line-based UI on top of it |
-| `src/grader.py` | test building, the sandbox, the self-test |
-| `src/ui.py` | all rendering — `rich` when available, ANSI otherwise |
-| `src/bank_common.py` | tiny helpers shared by both exercise banks |
-| `src/exam_bank.py` | the 6-level Rank 03 exam bank ⚠ **contains the answers** |
-| `src/exam_bank_r04.py` | the 4-level Rank 04 exam bank ⚠ **contains the answers** |
-| `src/exam_bank_r05.py` | the 3-level Rank 05 exam bank ⚠ **contains the answers** |
-| `src/ranks.py` | which ranks exist: bank, level count, history tag |
-| `src/training_bank.py` | the LeetCode-style training bank, shared by every rank ⚠ **contains the answers** |
-| `src/settings.py` | `~/.examshell/config.json` — theme/timeout/fuzz/show-fails, shared by both testers |
-| `src/stats.py` | `~/.examshell/stats.jsonl` — local grading history, shared by both testers |
-| `src/session_store.py` | exam save/resume state, shared by both testers |
-| `src/report_export.py` | Markdown session reports in `~/.examshell/reports/`, shared by both testers |
-| `src/case_labels.py` | names the edge case of a failing input, shared by both testers |
-| `src/update_check.py` | the once-a-day "new version available" notice |
-| `src/version.py` | the version number (`--version`, releases, the update check) |
-| `src/hints.py` | the "stuck 3x in a row" nudge (generic + curated), shared by both testers |
+| `examshell/__main__.py` | entry point for `python3 -m examshell` |
+| `examshell/examshell.py` | the Python tester: its CLI, rank switching, stubs, and the hooks the shared flow needs |
+| `examshell/shell_common.py` | the exam / practice / training / readiness / drill flow **both** testers run — an I/O-free engine (`ExamRun`, `grade()`) plus the line-based UI on top of it |
+| `examshell/grader.py` | test building, the sandbox, the self-test |
+| `examshell/ui.py` | all rendering — `rich` when available, ANSI otherwise |
+| `examshell/bank_common.py` | tiny helpers shared by both exercise banks |
+| `examshell/exam_bank.py` | the 6-level Rank 03 exam bank ⚠ **contains the answers** |
+| `examshell/exam_bank_r04.py` | the 4-level Rank 04 exam bank ⚠ **contains the answers** |
+| `examshell/exam_bank_r05.py` | the 3-level Rank 05 exam bank ⚠ **contains the answers** |
+| `examshell/ranks.py` | which ranks exist: bank, level count, history tag |
+| `examshell/training_bank.py` | the LeetCode-style training bank, shared by every rank ⚠ **contains the answers** |
+| `examshell/settings.py` | `~/.examshell/config.json` — theme/timeout/fuzz/show-fails, shared by both testers |
+| `examshell/stats.py` | `~/.examshell/stats.jsonl` — local grading history, shared by both testers |
+| `examshell/session_store.py` | exam save/resume state, shared by both testers |
+| `examshell/report_export.py` | Markdown session reports in `~/.examshell/reports/`, shared by both testers |
+| `examshell/case_labels.py` | names the edge case of a failing input, shared by both testers |
+| `examshell/update_check.py` | the once-a-day "new version available" notice |
+| `examshell/version.py` | the version number (`--version`, releases, the update check) |
+| `examshell/hints.py` | the "stuck 3x in a row" nudge (generic + curated), shared by both testers |
 | `tests/` | unit tests for the tool itself |
 | `rendu/` | your solutions (git-ignored) |
 

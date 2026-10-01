@@ -17,7 +17,7 @@ Every "standard" exercise here mirrors a real, publicly documented Exam
 Rank 02 subject (names, prototypes and behaviour cross-checked against
 several independent public exam-prep repositories) — the exact pool and
 level placement still varies by campus/date. Same opt-IN convention as
-the Python bank (see src/exam_bank.py's own docstring): every entry
+the Python bank (see examshell/exam_bank.py's own docstring): every entry
 marks itself "standard": True explicitly, and the index-building loop
 below defaults an exercise with no such key to False (Extra) — so a new
 exercise a contributor forgets to mark never silently becomes eligible

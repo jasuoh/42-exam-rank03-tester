@@ -4,10 +4,10 @@
 app.py  ·  ExamShell as a full-screen Textual app
 
 Every screen drives the same engine the line-based UI uses —
-src/shell_common.py's ExamRun / grade() / finish_exam() and the tester
+examshell/shell_common.py's ExamRun / grade() / finish_exam() and the tester
 module's hooks (`sh`) — so rules, grading, stats and saves are identical
 whichever interface the student picks. This module only lays things out
-and turns keys into engine calls; src/tui/render.py builds the visuals.
+and turns keys into engine calls; examshell/tui/render.py builds the visuals.
 
 Grading runs in a worker thread (it compiles, runs subprocesses, can take
 seconds) and hands its result back to the UI thread.

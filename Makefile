@@ -7,15 +7,18 @@
 # ══════════════════════════════════════════════════════════════
 
 PYTHON      ?= python3
-VENV        := venv
+# `make install` uses uv when it's installed (fast, locked versions from
+# uv.lock, its own .venv/), and plain venv + pip into venv/ otherwise.
+UV          := $(shell command -v uv 2>/dev/null)
+VENV        := $(if $(UV),.venv,venv)
 VENV_PYTHON := $(VENV)/bin/python
 SHELL       := /bin/sh
 
 # Prefer the project venv once it exists, fall back to the system python.
 # Recursively expanded on purpose: `make install run` must see the new venv.
-PY = $(shell [ -x $(VENV_PYTHON) ] && echo $(VENV_PYTHON) || echo $(PYTHON))
+PY = $(shell for p in .venv/bin/python venv/bin/python; do [ -x $$p ] && echo $$p && exit; done; echo $(PYTHON))
 
-SRC_PKG     := src
+SRC_PKG     := examshell
 C_PKG       := c_exam
 SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/grader.py $(SRC_PKG)/ui.py $(SRC_PKG)/bank_common.py \
@@ -289,7 +292,7 @@ c-status:
 update:
 	@git pull --ff-only
 
-# One `make sync` carries BOTH testers' progress and solutions (src/sync.py).
+# One `make sync` carries BOTH testers' progress and solutions (examshell/sync.py).
 REPO ?=
 sync:
 	@$(PY) -m $(SRC_PKG) --sync
@@ -300,7 +303,13 @@ sync-setup:
 	fi
 	@$(PY) -m $(SRC_PKG) --sync-setup "$(REPO)"
 
-install: venv deps
+install:
+ifneq ($(UV),)
+	@uv sync --quiet --extra tui
+	@printf "$(GREEN)✔$(OFF) installed with uv into .venv/ — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+else
+	@$(MAKE) --no-print-directory deps
+endif
 
 venv: $(VENV_PYTHON)
 
@@ -309,23 +318,25 @@ $(VENV_PYTHON):
 	@$(PYTHON) -m venv $(VENV)
 	@$(VENV_PYTHON) -m pip install --quiet --upgrade pip
 
+# The no-uv path: plain venv + pip from requirements.txt.
 deps: $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m pip install --quiet -r requirements.txt
-	@printf "$(GREEN)✔$(OFF) installed — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+	@printf "$(GREEN)✔$(OFF) installed into $(VENV)/ — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+	@printf "$(DIM)tip: with uv (https://docs.astral.sh/uv/) installs are faster and pinned$(OFF)\n"
 
 # ── cleaning ──────────────────────────────────────────────────
 clean:
-	@find . -path ./$(VENV) -prune -o -name '__pycache__' -type d -print0 2>/dev/null \
+	@find . -path ./venv -prune -o -path ./.venv -prune -o -name '__pycache__' -type d -print0 2>/dev/null \
 		| xargs -0 rm -rf 2>/dev/null || true
-	@find . -path ./$(VENV) -prune -o -name '*.py[co]' -type f -print0 2>/dev/null \
+	@find . -path ./venv -prune -o -path ./.venv -prune -o -name '*.py[co]' -type f -print0 2>/dev/null \
 		| xargs -0 rm -f 2>/dev/null || true
 	@rm -rf .ruff_cache .pytest_cache
 	@rm -rf $${TMPDIR:-/tmp}/examshell-* $${TMPDIR:-/tmp}/c-exam-* 2>/dev/null || true
 	@printf "$(GREEN)✔$(OFF) caches removed\n"
 
 fclean: clean
-	@rm -rf $(VENV)
-	@printf "$(GREEN)✔$(OFF) $(VENV)/ removed\n"
+	@rm -rf .venv venv
+	@printf "$(GREEN)✔$(OFF) .venv/ and venv/ removed\n"
 
 # Never wired into clean/fclean: these are the student's own answers.
 rendu-clean:

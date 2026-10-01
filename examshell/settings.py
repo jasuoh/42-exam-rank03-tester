@@ -19,7 +19,7 @@ import os
 
 # EXAMSHELL_HOME moves everything (stats, saved exams, reports, config) —
 # e.g. into a folder iCloud/Dropbox already syncs, the zero-setup
-# alternative to `make sync` (src/sync.py).
+# alternative to `make sync` (examshell/sync.py).
 DATA_DIR = (os.environ.get("EXAMSHELL_HOME")
             or os.path.join(os.path.expanduser("~"), ".examshell"))
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")

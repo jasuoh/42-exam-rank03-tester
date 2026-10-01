@@ -3,7 +3,7 @@
 """
 shell_common.py  ·  the exam/practice/training flow, shared by both testers
 
-`src/examshell.py` (Python) and `c_exam/examshell.py` (C) used to carry a
+`examshell/examshell.py` (Python) and `c_exam/examshell.py` (C) used to carry a
 full copy each of everything below. Now each of them is a thin "tester
 module" that supplies only what really differs — its banks, how one
 exercise is graded, how a stub is written, its CLI — and hands itself to
@@ -17,7 +17,7 @@ Two layers:
     Anything that wants to drive an exam (the line-based UI below, a
     full-screen TUI) builds on these.
   * the line-based UI — exam_mode(), practice_mode(), … — which drives the
-    engine through src/ui.py.
+    engine through examshell/ui.py.
 
 Every collaborator is looked up on `sh` at call time (sh.grade_exercise,
 sh.show_subject, sh.N_LEVELS, …), never imported or bound early: the
@@ -54,6 +54,16 @@ DRILL_SIZE = 5
 # ══════════════════════════════════════════════════════════════
 #  SMALL PURE HELPERS
 # ══════════════════════════════════════════════════════════════
+def command_name(installed, module):
+    """How the student invoked this tester — the installed console script
+    (`examshell`, `examshell-c`) or `python3 -m <module>` — so --help,
+    --version and every "run `…`" hint name the command they actually use."""
+    import sys
+    if os.path.basename(sys.argv[0] or "") == installed:
+        return installed
+    return "python3 -m " + module
+
+
 def fmt_duration(seconds):
     seconds = int(seconds)
     return "%02d:%02d:%02d" % (seconds // 3600, (seconds % 3600) // 60, seconds % 60)
@@ -927,7 +937,7 @@ def resolve_exercise(sh, name, prefix):
 
 
 def run_tui(sh, cfg, args):
-    """--tui: hand over to the full-screen app (src/tui/) when it can run
+    """--tui: hand over to the full-screen app (examshell/tui/) when it can run
     here, starting where the other flags point (--exam, --practice X).
     Returns an exit code, or None — after saying why — to fall back to the
     line-based UI."""
@@ -947,7 +957,7 @@ def run_tui(sh, cfg, args):
 
 
 def sync_dirs(sh, cfg):
-    """{slot: local dir} for src/sync.py — this tester's own --rendu, the
+    """{slot: local dir} for examshell/sync.py — this tester's own --rendu, the
     other tester's default folder, so one `make sync` carries both."""
     dirs = {"rendu": "rendu", "c_rendu": "c_rendu"}
     dirs[sh.SYNC_SLOT] = cfg.rendu

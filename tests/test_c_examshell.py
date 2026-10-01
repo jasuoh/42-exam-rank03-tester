@@ -16,12 +16,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-from src import shell_common
+from examshell import shell_common
 
 from c_exam import examshell
 from c_exam.bank import EXERCISES, N_LEVELS
 from c_exam.training_bank import DIFFICULTIES, TRAINING_EXERCISES
-from src import stats
+from examshell import stats
 
 HAVE_CC = shutil.which("cc") is not None
 skip_without_cc = unittest.skipUnless(HAVE_CC, "no C compiler on PATH")
@@ -119,7 +119,7 @@ class ExerciseEntriesTests(unittest.TestCase):
         self.assertEqual(len(flagged), 57)
 
     def test_new_exercises_default_to_extra_not_standard(self):
-        # Same opt-IN convention as src/exam_bank.py's own bank — every
+        # Same opt-IN convention as examshell/exam_bank.py's own bank — every
         # exercise must mark "standard": True explicitly, and an entry
         # that forgets to must fail CLOSED (Extra) rather than silently
         # becoming eligible for a real `make c-exam` draw. Source-level
@@ -260,7 +260,7 @@ class GradeAllValgrindWarningTests(unittest.TestCase):
 class GradeExerciseHintTests(unittest.TestCase):
     """Mirrors tests/test_examshell.py's GradeExerciseHintTests — same
     grade_exercise() wiring (STUCK_THRESHOLD, never during --exam), shared
-    verbatim between both testers (see src/hints.py)."""
+    verbatim between both testers (see examshell/hints.py)."""
 
     WRONG_SOLUTION = "int ft_strlen(char *str)\n{\n    (void)str;\n    return -1;\n}\n"
 
@@ -380,7 +380,7 @@ class NewCommandResetsLevelTimingTests(unittest.TestCase):
 
 class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
     """Mirrors tests/test_examshell.py's class of the same name — same fix,
-    same regression, both examshell.py's (see src/examshell.py's exam_mode
+    same regression, both examshell.py's (see examshell/examshell.py's exam_mode
     and c_exam/examshell.py's own copy)."""
 
     def _run(self, pause_side_effect, n_asks):

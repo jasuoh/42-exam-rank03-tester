@@ -27,7 +27,7 @@ REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 _UNSAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 
 # Which tester wrote this report, by the `tool` tag it files everything
-# under (see src/ranks.py and c_exam/examshell.py's TOOL). An unknown tag
+# under (see examshell/ranks.py and c_exam/examshell.py's TOOL). An unknown tag
 # is named rather than guessed at — better a bare "py09" in one line of a
 # report than a report that confidently claims the wrong rank.
 TOOL_LABELS = {

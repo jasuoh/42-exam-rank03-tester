@@ -34,14 +34,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The "rich" leg also gets Textual, so the full-screen UI's pilot
-      # tests (tests/test_tui_app.py) run for real; the other leg proves
-      # the zero-dependency fallback — those tests skip themselves there.
-      - name: Install rich + textual
+      # The "rich" leg installs exactly like a student does — `make install`
+      # through uv, from uv.lock, with Textual — so the full-screen UI's
+      # pilot tests (tests/test_tui_app.py) run for real and the lockfile
+      # is proven installable. The Makefile then runs everything with
+      # .venv/bin/python. The other leg proves the zero-dependency
+      # fallback (no uv, no rich, no Textual — those tests skip themselves).
+      - uses: astral-sh/setup-uv@v6
         if: matrix.rich
-        run: python3 -m pip install --quiet -r requirements.txt
 
-      - name: Install ruff (deeper lint)
+      - name: make install (uv)
+        if: matrix.rich
+        run: make install
+
+      - name: Install ruff (deeper lint, no-uv leg)
+        if: ${{ !matrix.rich }}
         run: python3 -m pip install --quiet ruff
 
       # valgrind isn't installable on macOS at all (Apple Silicon included)
@@ -56,6 +63,7 @@ jobs:
       - name: Show toolchain
         run: |
           python3 --version
+          [ -x .venv/bin/python ] && .venv/bin/python --version || true
           cc --version | head -1
           valgrind --version 2>/dev/null || echo "valgrind: not installed on this OS"
 

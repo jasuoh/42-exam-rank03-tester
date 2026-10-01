@@ -445,7 +445,7 @@ def _reflow(prose):
 def subject_blocks(ex, lexer_theme="monokai", code_background="default"):
     """The subject as a rich Group (metadata table, prose, signature,
     examples) — needs rich. Shared by subject() below and the full-screen
-    TUI (src/tui/), which frames it itself."""
+    TUI (examshell/tui/), which frames it itself."""
     header, prose, signature, examples = _split_subject(ex["subject"])
     lexer = "c" if _file_ext(ex) == ".c" else "python"
     meta = Table.grid(padding=(0, 1))
@@ -609,7 +609,7 @@ def exercise_table(entries, numbered=False):
     """entries: [(index, level, name, function, standard), …]. `standard`
     marks the exercises a real exam run can actually draw — everything
     else is practice-only, shown with a dim ○ instead of ★. Shared by both
-    testers (src/exam_bank.py's Standard/Extra split and c_exam/bank.py's)."""
+    testers (examshell/exam_bank.py's Standard/Extra split and c_exam/bank.py's)."""
     if _rich:
         t = Table(title="[bold]Exercise pool[/bold]  "
                         "(★ = can appear in a real exam run)",
@@ -908,7 +908,7 @@ def _failure_texts(f):
 
 def _call_text(f, function):
     """The failing call, plus the edge case its input represents (see
-    src/case_labels.py) when there is one worth naming."""
+    examshell/case_labels.py) when there is one worth naming."""
     from . import case_labels
     label = case_labels.describe(f)
     return f.call(function), label
@@ -988,7 +988,7 @@ def _failures(rep, show_fails, diff=False, filepath=None):
 
 def _extract_source(filepath, function_name):
     """Best-effort source lookup for --diff's inline code panel — Python
-    files use src.grader's ast-based extractor, C files use c_exam.grader's
+    files use examshell.grader's ast-based extractor, C files use c_exam.grader's
     brace-matching one. Imported lazily (not at module load) so this
     presentation module doesn't hard-depend on either grading backend at
     import time. Never raises — both extractors already return None on any

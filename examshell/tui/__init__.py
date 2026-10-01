@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-src/tui  ·  the full-screen terminal interface (optional)
+examshell/tui  ·  the full-screen terminal interface (optional)
 
 Built on Textual, which needs Python 3.9+ and `pip install textual`. The
 testers never import anything below this package's __init__ unless the

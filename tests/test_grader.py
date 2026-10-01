@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for the pure logic in src/grader.py.
+"""Unit tests for the pure logic in examshell/grader.py.
 
 These do not touch the exercise bank's content — that is `make check`'s
 job. They exercise the grader's own building blocks in isolation: type
@@ -12,7 +12,7 @@ import random
 import tempfile
 import unittest
 
-from src import grader
+from examshell import grader
 
 _SOME_MODULE_GLOBAL = 42  # used by a fixture function below
 

@@ -13,8 +13,8 @@ import random
 import tempfile
 import unittest
 
-from src import examshell, grader, ranks, report_export
-from src.training_bank import TRAINING_EXERCISES
+from examshell import examshell, grader, ranks, report_export
+from examshell.training_bank import TRAINING_EXERCISES
 
 
 def _cfg(rendu, **overrides):
@@ -92,7 +92,7 @@ class BankShapeTests(unittest.TestCase):
         # must never silently become eligible for a real exam draw.
         import inspect
 
-        from src import exam_bank_r04, exam_bank_r05
+        from examshell import exam_bank_r04, exam_bank_r05
         for module in (exam_bank_r04, exam_bank_r05):
             self.assertIn('_ex.setdefault("standard", False)',
                           inspect.getsource(module))

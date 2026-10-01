@@ -69,12 +69,12 @@ einfachste Alternative ohne Git.
 
 ## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
 
-Heute: `src/examshell.py` und `c_exam/examshell.py` enthalten **je** den
+Heute: `examshell/examshell.py` und `c_exam/examshell.py` enthalten **je** den
 kompletten Ablauf (Exam, Practice, Training, Readiness, Drill, Menü) —
 ~900 identische Zeilen, und Logik und `print`/`input` sind verwoben. Eine
 TUI kann darauf nicht aufsetzen.
 
-1. **`src/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
+1. **`examshell/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
    Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf, Stubs,
    CLI-Flags, Menüpunkte) als „Hooks“.
 2. **`ExamRun`** — das Exam als reiner Zustand (Level, Aufgabe, Versuche,
@@ -91,7 +91,7 @@ bleiben (plus neue Tests für `ExamRun`/`grade()`).
 
 ## Phase B — App-Gerüst (0.4.0)
 
-`make tui` / `python3 -m src --tui` (später Default, wenn Textual da ist):
+`make tui` / `python3 -m examshell --tui` (später Default, wenn Textual da ist):
 Screens für Menü, Practice-Liste mit Suche, Training, Readiness, Stats;
 Tastaturkürzel, die drei Themes, Fallback-Erkennung.
 

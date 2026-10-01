@@ -30,10 +30,10 @@ ist seit 0.2.0 jedes Mal liegen geblieben. Ohne Release funktionieren der
 Update-Hinweis im Menü und der Update-Check in `doctor` nicht.
 **Lösung:** Workflow auf `main`: Hat sich `examshell/version.py` geändert und
 gibt es den Tag noch nicht → Tests laufen → Tag `vX.Y.Z` + GitHub-Release mit
-dem passenden CHANGELOG-Abschnitt. Der bisherige Tag-Workflow bleibt als
-manueller Weg bestehen.
-**Einmalig:** v0.5.0 nachträglich veröffentlichen (passiert beim ersten Lauf
-automatisch).
+dem passenden CHANGELOG-Abschnitt und Paket (wheel + sdist). Manuell
+nachholen: Actions → Release → „Run workflow“.
+**Einmalig:** 0.2–0.5 werden nicht nachträglich veröffentlicht — **v0.6.0 wird
+das erste Release** (entsteht automatisch beim Merge dieses PRs).
 **Aufwand:** ~30–45 min
 
 ### F1 · Feedback mit einem Klick ✔

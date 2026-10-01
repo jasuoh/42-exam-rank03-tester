@@ -679,6 +679,8 @@ def practice_one(sh, ex_name, cfg, rng, mode="practice"):
             ui.commands(sh.PRACTICE_COMMANDS)
         elif cmd == "stub":
             sh.make_stub(ex_name, cfg)
+        elif cmd == "feedback":
+            run_feedback(sh, "exam", ex_name)
         elif cmd in ("back", "b", "quit", "q", "exit"):
             return
         elif cmd == "":
@@ -881,14 +883,16 @@ def drill_mode(sh, cfg, n=DRILL_SIZE):
 #  LINE-BASED UI  ·  main menu
 # ══════════════════════════════════════════════════════════════
 def with_sync_row(rows):
-    """The tester's menu rows plus the shared "s  Sync" entry, right before Quit."""
+    """The tester's menu rows plus the shared "s  Sync" and "f  Feedback"
+    entries, right before Quit."""
     from . import settings, sync
     hint = ("(with %s)" % sync.remote_url(settings.DATA_DIR)
             if sync.is_configured(settings.DATA_DIR)
             else "(not set up — see docs/sync.md)")
     sync_row = ("s", "Sync progress", hint)
+    feedback_row = ("f", "Give feedback", "(opens a GitHub form — nothing is sent automatically)")
     quit_rows = [r for r in rows if r[0] == "q"]
-    return [r for r in rows if r[0] != "q"] + [sync_row] + quit_rows
+    return [r for r in rows if r[0] != "q"] + [sync_row, feedback_row] + quit_rows
 
 
 def main_menu(sh, cfg):
@@ -922,9 +926,12 @@ def main_menu(sh, cfg):
             ui.info("Good luck on the real exam! 🍀")
             print()
             return
-        elif choice == "s":
+        elif choice in ("s", "f"):
             print()
-            run_sync(sh, cfg)
+            if choice == "s":
+                run_sync(sh, cfg)
+            else:
+                run_feedback(sh)
             try:
                 ui.pause("\n  Press Enter for the main menu…")
             except ui.Abort:
@@ -1044,3 +1051,76 @@ def run_doctor(sh, cfg):
     else:
         ui.success("everything is ready")
     return 0
+
+
+def tester_label(sh):
+    """'Python · Exam Rank 03' / 'C · Exam Rank 02' — matches the issue
+    forms' exam dropdown."""
+    if hasattr(sh, "RANK"):
+        return "Python · %s" % sh.RANK.label
+    return "C · Exam Rank 02"
+
+
+def run_feedback(sh, kind=None, exercise=None):
+    """--feedback / the menu's "f" / practice's `feedback`: open (or print)
+    the prefilled issue form. Asks which kind when `kind` is None."""
+    from . import feedback
+    if kind is None:
+        rows = [(str(i), label, "") for i, (_k, label) in enumerate(feedback.KIND_LABELS, 1)]
+        ui.menu(rows)
+        try:
+            choice = ui.ask("\n  What kind of feedback? ").strip()
+        except ui.Abort:
+            return 0
+        if not choice.isdigit() or not 1 <= int(choice) <= len(rows):
+            return 0
+        kind = feedback.KIND_LABELS[int(choice) - 1][0]
+    url = feedback.issue_url(kind, tester_label(sh), exercise)
+    if feedback.open_in_browser(url):
+        ui.success("opened the form in your browser — nothing is sent until you submit it")
+    else:
+        ui.info("open this link to give feedback (nothing is sent until you submit it):")
+    print("  " + url)
+    return 0
+
+
+def auto_sync_enabled():
+    from . import settings
+    return bool(settings.load_config().get("auto_sync"))
+
+
+def set_auto_sync(on):
+    """--auto-sync on|off. Returns a process exit code."""
+    from . import settings, sync
+    if not settings.update_config("auto_sync", bool(on)):
+        ui.error("could not write %s" % settings.CONFIG_PATH)
+        return 1
+    if on:
+        ui.success("auto-sync on — every session pulls first and pushes when it ends")
+        if not sync.is_configured(settings.DATA_DIR):
+            ui.note("sync isn't set up on this device yet: "
+                    "make sync-setup REPO=<your private repo> (see docs/sync.md)")
+    else:
+        ui.success("auto-sync off — run `make sync` yourself")
+    return 0
+
+
+def auto_sync(sh, cfg, when):
+    """Called around every interactive session (`when` = "start" / "end").
+    Does nothing unless auto-sync is on and sync is set up; a failure
+    (offline, …) is only ever a one-line warning — never a reason not to
+    practise."""
+    from . import settings, sync
+    if not auto_sync_enabled() or not sync.is_configured(settings.DATA_DIR):
+        return None
+    ui.info("auto-sync (%s) …" % ("pulling your progress" if when == "start"
+                                  else "pushing your progress"))
+    try:
+        result = sync.sync(settings.DATA_DIR, sync_dirs(sh, cfg))
+    except (sync.SyncError, OSError) as exc:
+        ui.warn("auto-sync skipped — %s (your progress stays here; `make sync` later)" % exc)
+        return None
+    ui.note("🔄 " + result.summary())
+    for backup in result.backups:
+        ui.note("a newer version came from the repo — your older one is kept at %s" % backup)
+    return result

@@ -1,6 +1,6 @@
 # PLAN — ExamShell
 
-Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-10-01 · aktuell auf `main`: **0.5.0**
+Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-10-01 · aktuell auf `main`: **0.5.0** (dieser PR: **0.6.0**)
 (noch **kein** veröffentlichtes Release — es gibt keinen einzigen Tag)
 
 ---
@@ -18,13 +18,13 @@ Details: CHANGELOG.md.
 
 ---
 
-## ▶ Nächster Schritt: 0.6.0 — „bereit für echte Nutzer“
+## ▶ 0.6.0 — „bereit für echte Nutzer“ · F1, F2, T1, S1 ✔ umgesetzt — R1 offen
 
 Ziel: Das Tool ist technisch weit — jetzt soll es **bei Leuten ankommen**,
 **Feedback einsammeln** und **zuverlässig Updates ausliefern**. Dazu die
 letzten bekannten Test-Lücken schließen.
 
-### R1 · Releases automatisch veröffentlichen ⭐
+### R1 · Releases automatisch veröffentlichen ⭐ — *noch offen*
 **Problem:** Ein Release entsteht nur durch einen manuell gepushten Tag — das
 ist seit 0.2.0 jedes Mal liegen geblieben. Ohne Release funktionieren der
 Update-Hinweis im Menü und der Update-Check in `doctor` nicht.
@@ -36,7 +36,7 @@ manueller Weg bestehen.
 automatisch).
 **Aufwand:** ~30–45 min
 
-### F1 · Feedback mit einem Klick
+### F1 · Feedback mit einem Klick ✔
 - `examshell --feedback` / `examshell-c --feedback` und ein Menüpunkt
   „Feedback geben“ (Terminal-Menü + TUI): öffnet die passende Issue-Vorlage
   im Browser, **Version, Tester und Betriebssystem schon ausgefüllt**. Ohne
@@ -46,7 +46,7 @@ automatisch).
   selbst ab.
 **Aufwand:** ~45 min
 
-### F2 · Richtige Haltung nach außen
+### F2 · Richtige Haltung nach außen ✔
 - Kurzer Hinweis im README: *Übungstool — im echten Exam gibt es nichts davon;
   es ersetzt nicht das eigene Lernen.* Signalisiert die richtige Absicht, falls
   Staff/Bocal draufschaut.
@@ -57,7 +57,7 @@ automatisch).
   (Zahnrad bei „About“) — ich liefere die Texte.*
 **Aufwand:** ~15 min
 
-### T1 · Randfall-Tests für die letzten 3 C-Aufgaben
+### T1 · Randfall-Tests für die letzten 3 C-Aufgaben ✔
 `flood_fill`, `ft_list_foreach` und `ft_list_remove_if` werden bisher nur mit
 festen Fällen geprüft. Eigene Zufallsgeneratoren:
 - **Listen:** leer, ein Element, alle gleich, Treffer am Anfang / am Ende /
@@ -69,7 +69,7 @@ festen Fällen geprüft. Eigene Zufallsgeneratoren:
 - Alles auch unter valgrind im Bank-Selbsttest (keine Leaks in den Referenzlösungen).
 **Aufwand:** ~2 h
 
-### S1 · Optional: Auto-Sync
+### S1 · Optional: Auto-Sync ✔
 Einstellung (per `--save-config`): beim Start automatisch holen, beim Beenden
 automatisch hochladen — nur wenn Sync eingerichtet ist, Fehler (offline)
 werden nur als Hinweis gezeigt, nie als Abbruch.

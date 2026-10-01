@@ -28,7 +28,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
                $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(SRC_PKG)/doctor.py $(wildcard $(SRC_PKG)/tui/*.py) \
+               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(SRC_PKG)/doctor.py $(SRC_PKG)/feedback.py $(wildcard $(SRC_PKG)/tui/*.py) \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -63,7 +63,7 @@ OFF   := \033[0m
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
-        readiness drill c-readiness c-drill update tui c-tui sync sync-setup c-sync c-sync-setup doctor c-doctor
+        readiness drill c-readiness c-drill update tui c-tui sync sync-setup c-sync c-sync-setup doctor c-doctor feedback c-feedback auto-sync
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -103,8 +103,10 @@ help:
 	@printf "  $(BOLD)Environment$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make update" "pull the latest version of this tester (git pull)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make doctor" "is this machine ready? (Python, compiler, extras, sync …)"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[KIND=exam|bug|idea]$(OFF)\n" $(ROWW) "make feedback" "open a prefilled GitHub issue form"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)REPO=<url>$(OFF)\n" $(ROWW) "make sync-setup" "connect this device to your private git repo (once)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make sync" "carry progress + solutions to/from that repo (both testers)"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[ON=off]$(OFF)\n" $(ROWW) "make auto-sync" "sync automatically at the start and end of every session"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make install" "create $(VENV)/ and install rich (nicer UI, optional)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make clean" "remove caches and stray artefacts"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make fclean" "clean + remove $(VENV)/"
@@ -297,6 +299,14 @@ update:
 doctor:
 	@$(PY) -m $(SRC_PKG) --doctor
 
+# KIND=exam|bug|idea (default: idea) — opens a prefilled GitHub issue form
+KIND ?= idea
+feedback:
+	@$(PY) -m $(SRC_PKG) --feedback $(KIND)
+
+c-feedback:
+	@$(PY) -m $(C_PKG) --feedback $(KIND)
+
 # One `make sync` carries BOTH testers' progress and solutions (examshell/sync.py).
 REPO ?=
 sync:
@@ -312,6 +322,11 @@ sync-setup:
 # keep the c- prefix consistent for people who only use the C tester.
 c-sync:
 	@$(PY) -m $(C_PKG) --sync
+
+# make auto-sync ON=on|off — sync automatically around every session
+ON ?= on
+auto-sync:
+	@$(PY) -m $(SRC_PKG) --auto-sync $(ON)
 
 c-sync-setup:
 	@if [ -z "$(REPO)" ]; then \

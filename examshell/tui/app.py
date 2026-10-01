@@ -132,6 +132,7 @@ class MenuScreen(Screen):
         items.append(("switch", "🔀  Switch exam", "Python 03 · 04 · 05 or C 02 — now: %s"
                       % self.app.label()))
         items.append(("sync", "🔄  Sync", self.app.sync_hint()))
+        items.append(("feedback", "💬  Feedback", "differs from your real exam? a bug? an idea?"))
         items.append(("quit", "🚪  Quit", ""))
         menu = self.query_one("#menu", OptionList)
         highlighted = menu.highlighted
@@ -180,6 +181,11 @@ class MenuScreen(Screen):
             app.push_screen(ChoiceModal("Switch exam", app.exam_choices()), app.switch_exam)
         elif choice == "sync":
             app.start_sync()
+        elif choice == "feedback":
+            from .. import feedback
+            app.push_screen(ChoiceModal("Give feedback — opens a GitHub form, nothing is "
+                                        "sent until you submit it", list(feedback.KIND_LABELS)),
+                            app.open_feedback)
         elif choice == "quit":
             app.exit()
 
@@ -290,6 +296,7 @@ class PracticeScreen(SplitScreen):
     BINDINGS = [Binding("g", "grade", "grademe"),
                 Binding("w", "toggle_watch", "watch"),
                 Binding("t", "stub", "stub"),
+                Binding("f", "feedback", "differs from exam?"),
                 Binding("n", "next", "next", show=False),
                 Binding("escape", "app.pop_screen", "back")]
 
@@ -374,6 +381,9 @@ class PracticeScreen(SplitScreen):
         if mtime is not None and mtime != self.watch_mtime:
             self.watch_mtime = mtime
             self.action_grade()
+
+    def action_feedback(self):
+        self.app.open_feedback("exam", self.ex_name)
 
     def action_next(self):
         if self.queue and self.position + 1 < len(self.queue):
@@ -681,6 +691,23 @@ class ExamShellApp(App):
         self.sh = new_sh
         self.notify("Switched to %s" % self.label())
         self.screen.refresh_menu()
+
+    # ── feedback ──────────────────────────────────────────────────────
+    def open_feedback(self, kind, exercise=None):
+        """Open the prefilled issue form in a browser where one exists; the
+        link always goes to the clipboard too (OSC 52, works over ssh)."""
+        if not kind:
+            return
+        from .. import feedback
+        url = feedback.issue_url(kind, shell_common.tester_label(self.sh), exercise)
+        try:
+            self.copy_to_clipboard(url)
+        except Exception:
+            pass
+        if feedback.open_in_browser(url):
+            self.notify("Opened the form in your browser (link also copied).", timeout=6)
+        else:
+            self.notify("Link copied — paste it into a browser:\n" + url, timeout=15)
 
     # ── sync ──────────────────────────────────────────────────────────
     def sync_hint(self):

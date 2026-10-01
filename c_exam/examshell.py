@@ -106,6 +106,7 @@ PRACTICE_COMMANDS = [
     ("grademe", "compile & test your solution"),
     ("subject", "show the assignment again"),
     ("stub", "create an empty solution file for this exercise"),
+    ("feedback", "this exercise differs from your real exam? tell us"),
     ("back", "return to the menu"),
 ]
 
@@ -396,6 +397,13 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--feedback", nargs="?", const="idea", choices=("exam", "bug", "idea"),
+                      metavar="exam|bug|idea",
+                      help="open a prefilled GitHub issue form: an exercise that "
+                           "differs from your real exam, a bug, or an idea")
+    mode.add_argument("--auto-sync", choices=("on", "off"),
+                      help="remember: sync automatically at the start and end of "
+                           "every session (needs --sync-setup)")
     mode.add_argument("--doctor", action="store_true",
                       help="check this machine: Python, extras, C compiler, "
                            "valgrind, git, data folder, sync, updates")
@@ -544,6 +552,12 @@ def main(argv=None):
         readiness_mode(interactive=False)
         return 0
 
+    if args.feedback:
+        return shell_common.run_feedback(_SH, args.feedback)
+
+    if args.auto_sync:
+        return shell_common.set_auto_sync(args.auto_sync == "on")
+
     if args.doctor:
         return shell_common.run_doctor(_SH, cfg)
 
@@ -596,7 +610,18 @@ def main(argv=None):
         return 0 if grade_all(cfg) else 1
 
     os.makedirs(cfg.rendu, exist_ok=True)
+    # An interactive session: with auto-sync on (--auto-sync on), pull the
+    # other device's progress first and push this one's when it ends.
+    shell_common.auto_sync(_SH, cfg, "start")
+    try:
+        return run_interactive(args, cfg)
+    finally:
+        shell_common.auto_sync(_SH, cfg, "end")
 
+
+def run_interactive(args, cfg):
+    """The modes that keep the student in a session: full-screen app, exam,
+    practice, training, drill, or the menu."""
     if args.tui:
         code = shell_common.run_tui(_SH, cfg, args)
         if code is not None:

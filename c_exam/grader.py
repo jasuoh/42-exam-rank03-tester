@@ -572,12 +572,79 @@ def fuzz_argv(shape, rng):
     return argv
 
 
+# ── whole-case fuzzing · "function"-kind exercises with structured args ─
+# Linked lists of boxed ints, a char grid plus two points, … can't be
+# randomised one arg at a time (the args depend on each other: the start
+# point must lie on the grid, data_ref should usually match some element).
+# These exercises opt in with `"fuzz_cases": "<name>"` and get a generator
+# for WHOLE cases, aimed at the classic bugs of that exercise.
+def _fuzz_foreach_case(rng):
+    """ft_list_foreach: empty, single, long, negative, zeros."""
+    roll = rng.random()
+    if roll < 0.15:
+        return [[]]
+    if roll < 0.3:
+        return [[rng.randint(-50, 50)]]
+    return [[rng.randint(-50, 50) for _ in range(rng.randint(2, 9))]]
+
+
+def _fuzz_remove_if_case(rng):
+    """ft_list_remove_if: matches at the head (the head pointer must move),
+    at the tail, back to back, everywhere, nowhere — and the empty list."""
+    pool = [1, 2, 3]
+    values = [rng.choice(pool) for _ in range(rng.randint(0, 8))]
+    roll = rng.random()
+    if roll < 0.15 or not values:
+        ref = rng.choice(pool + [9])
+    elif roll < 0.35:
+        ref = values[0]                                     # head matches
+    elif roll < 0.5:
+        ref = values[-1]                                    # tail matches
+    elif roll < 0.65:
+        ref = values[0]
+        values = [ref] * len(values)                        # every node goes
+    elif roll < 0.8:
+        ref = 9                                             # nothing matches
+    else:
+        ref = rng.choice(values)
+    return [values, ref]
+
+
+def _fuzz_flood_fill_case(rng):
+    """flood_fill: random 1-6 x 1-6 grids of 2-3 symbols, starting in a
+    corner, on an edge or anywhere — sometimes on a 1-cell island, rarely
+    off the grid (curated cases already pin that down)."""
+    width, height = rng.randint(1, 6), rng.randint(1, 6)
+    symbols = rng.choice(("01", "012", "0"))
+    grid = ["".join(rng.choice(symbols) for _ in range(width)) for _ in range(height)]
+    roll = rng.random()
+    if roll < 0.3:
+        begin = (rng.choice((0, width - 1)), rng.choice((0, height - 1)))   # corner
+    elif roll < 0.5:
+        begin = (rng.randint(0, width - 1), rng.choice((0, height - 1)))    # edge
+    elif roll < 0.95:
+        begin = (rng.randint(0, width - 1), rng.randint(0, height - 1))
+    else:
+        begin = (width + rng.randint(0, 2), height + rng.randint(0, 2))     # off the grid
+    return [grid, (width, height), begin]
+
+
+CASE_FUZZERS = {
+    "list_foreach": _fuzz_foreach_case,
+    "list_remove_if": _fuzz_remove_if_case,
+    "flood_fill": _fuzz_flood_fill_case,
+}
+
+
 def is_fuzzable(ex):
     """True when this exercise can get random extra cases: every arg of a
-    "function"-kind exercise is safe to randomise, or a "program"-kind one
-    names its argv shape (see ARGV_SHAPES)."""
+    "function"-kind exercise is safe to randomise, it names a whole-case
+    generator (see CASE_FUZZERS), or a "program"-kind one names its argv
+    shape (see ARGV_SHAPES)."""
     if ex.get("kind") == "program":
         return ex.get("fuzz_argv") in ARGV_SHAPES
+    if ex.get("fuzz_cases") in CASE_FUZZERS:
+        return True
     return all(k in FUZZABLE_VALUE_KINDS or k in FIXED_CALLBACK_KINDS
                for k in ex.get("args", ()))
 
@@ -586,6 +653,9 @@ def build_fuzz_cases(ex, rng, n):
     """`n` extra random case tuples, shaped exactly like a hand-curated
     entry in ex["cases"] (one value per arg, fixed-callback args skipped —
     they consume no case value, see FIXED_CALLBACK_KINDS)."""
+    if ex.get("fuzz_cases") in CASE_FUZZERS:
+        make = CASE_FUZZERS[ex["fuzz_cases"]]
+        return [make(rng) for _ in range(n)]
     kinds = [k for k in ex["args"] if k not in FIXED_CALLBACK_KINDS]
     return [[_fuzz_value(k, rng) for k in kinds] for _ in range(n)]
 

@@ -175,6 +175,15 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             self.assertEqual(py_shell.RANK.id, "05")
         py_shell.use_rank("03")
 
+    async def test_feedback_from_practice_prefills_the_exercise(self):
+        from examshell import feedback
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start=("practice", "py_inter"))
+        with mock.patch.object(feedback, "open_in_browser", return_value=False) as opened:
+            async with app.run_test(size=(120, 36)) as pilot:
+                await pilot.press("f")
+                await pilot.pause()
+        self.assertIn("exercise=py_inter", opened.call_args[0][0])
+
     async def test_sync_without_setup_warns_instead_of_failing(self):
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         with mock.patch.object(tui_app.App, "notify") as notify:

@@ -171,7 +171,9 @@ def check_sync(data_dir=None):
     if not sync.is_configured(data_dir):
         return Check(WARN, "Sync", "not set up — progress stays on this device",
                      "make sync-setup REPO=<your private repo> (see docs/sync.md)")
-    return Check(OK, "Sync", "connected to %s" % (sync.remote_url(data_dir) or "?"))
+    auto = (" · auto-sync on" if settings.load_config().get("auto_sync")
+            else " · auto-sync off (`--auto-sync on`)")
+    return Check(OK, "Sync", "connected to %s%s" % (sync.remote_url(data_dir) or "?", auto))
 
 
 def run_checks(cc="cc", c_required=False, fetch=None):

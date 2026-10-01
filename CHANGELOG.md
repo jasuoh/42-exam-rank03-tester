@@ -7,6 +7,30 @@ Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
 version's section below as a GitHub Release (see
 `.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
+## 0.6.0 — 2026-10-01
+
+### Added
+- **Feedback in one step** — `examshell --feedback [exam|bug|idea]`,
+  `make feedback` / `make c-feedback`, `f · Give feedback` in both plain
+  menus, `feedback` in practice, "💬 Feedback" and `f` in the full-screen
+  app. Opens the matching issue form with version, exam, exercise and (for
+  bugs) OS/Python prefilled; never sends anything itself, and only starts a
+  browser where a graphical one can exist.
+- **Edge-case fuzzing for the last three C exercises** — `flood_fill`,
+  `ft_list_foreach`, `ft_list_remove_if` get whole-case generators
+  (`CASE_FUZZERS`): head / tail / every / no match and the empty list for
+  `remove_if`, corner / edge / island / off-grid starts for `flood_fill`.
+  Every exam exercise except `fizzbuzz` is now fuzzed.
+- **Auto-sync** — `examshell --auto-sync on` / `make auto-sync`: every
+  session pulls when it starts and pushes when it ends; offline it's only a
+  warning. Shown in `doctor`.
+- README: a short "practice tool, nothing more" note; `docs/repo-about.md`
+  with the description and topics for the GitHub "About" box.
+
+### Changed
+- `settings.update_config()` changes one saved preference without
+  touching the others.
+
 ## 0.5.0 — 2026-10-01
 
 ### Added

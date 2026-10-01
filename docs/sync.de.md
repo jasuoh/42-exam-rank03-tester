@@ -85,7 +85,7 @@ Auf dem zweiten Gerät dasselbe Kommando — dort kommt dann alles herunter
 | bevor du auf dem anderen Gerät anfängst | `make sync` |
 | mitten im Exam wechseln | im Exam `quit` (speichert), `make sync`, am anderen Gerät `make sync`, dann `make exam` → „Resume?“ mit `y` |
 
-Ein `make sync` nimmt **Python- und C-Tester** gleichzeitig mit.
+Ein `make sync` nimmt **Python- und C-Tester** gleichzeitig mit. Dasselbe geht mit `make c-sync`, mit `s` im Menü, mit „🔄 Sync“ in der Vollbild-App und — wenn du per `uv tool install` installiert hast — mit `examshell --sync` bzw. `examshell --sync-setup <adresse>` — immer aus dem Ordner, in dem deine `rendu/` und `c_rendu/` liegen.
 
 ---
 

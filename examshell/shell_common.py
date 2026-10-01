@@ -880,6 +880,17 @@ def drill_mode(sh, cfg, n=DRILL_SIZE):
 # ══════════════════════════════════════════════════════════════
 #  LINE-BASED UI  ·  main menu
 # ══════════════════════════════════════════════════════════════
+def with_sync_row(rows):
+    """The tester's menu rows plus the shared "s  Sync" entry, right before Quit."""
+    from . import settings, sync
+    hint = ("(with %s)" % sync.remote_url(settings.DATA_DIR)
+            if sync.is_configured(settings.DATA_DIR)
+            else "(not set up — see docs/sync.md)")
+    sync_row = ("s", "Sync progress", hint)
+    quit_rows = [r for r in rows if r[0] == "q"]
+    return [r for r in rows if r[0] != "q"] + [sync_row] + quit_rows
+
+
 def main_menu(sh, cfg):
     """Entries 1-4 and q are the same in both testers; anything else goes
     to the tester's own extra_menu_action() (rank switch, readiness, …)."""
@@ -890,7 +901,7 @@ def main_menu(sh, cfg):
         if update["notice"]:
             ui.note(update["notice"])
         print()
-        ui.menu(sh.menu_rows())
+        ui.menu(with_sync_row(sh.menu_rows()))
         try:
             choice = ui.ask("\n  Selection: ").lower()
         except ui.Abort:
@@ -911,6 +922,13 @@ def main_menu(sh, cfg):
             ui.info("Good luck on the real exam! 🍀")
             print()
             return
+        elif choice == "s":
+            print()
+            run_sync(sh, cfg)
+            try:
+                ui.pause("\n  Press Enter for the main menu…")
+            except ui.Abort:
+                return
         else:
             sh.extra_menu_action(choice, cfg)
 
@@ -993,3 +1011,36 @@ def sync_hint():
     if sync.is_configured(settings.DATA_DIR):
         return "continue on another device: `make sync` here, then `make sync` there"
     return None
+
+
+_DOCTOR_GLYPH = {"ok": ("✔", "GREEN"), "warn": ("⚠", "YELLOW"), "fail": ("✖", "RED")}
+
+
+def run_doctor(sh, cfg):
+    """--doctor: check this machine, print one line per check plus the fix
+    for anything that's off. Exit code 1 only when something is broken."""
+    from . import doctor
+    sh.banner()
+    print()
+    checks = doctor.run_checks(cc=getattr(cfg, "cc", "cc"),
+                               c_required=sh.SYNC_SLOT == "c_rendu")
+    width = max(len(c.name) for c in checks)
+    for check in checks:
+        glyph, colour = _DOCTOR_GLYPH[check.status]
+        print(ui.IND0 + ui.c(glyph, colour) + "  " + ui.c(check.name.ljust(width), "BOLD")
+              + "  " + check.detail)
+        if check.fix:
+            print(ui.IND0 + " " * (width + 5) + ui.c("→ " + check.fix, "GRAY"))
+    print()
+    failed = [c for c in checks if c.status == "fail"]
+    warned = [c for c in checks if c.status == "warn"]
+    if failed:
+        ui.error("%d problem%s to fix before this tester works fully"
+                 % (len(failed), "" if len(failed) == 1 else "s"))
+        return 1
+    if warned:
+        ui.success("ready — %d optional thing%s not set up (see → above)"
+                   % (len(warned), "" if len(warned) == 1 else "s"))
+    else:
+        ui.success("everything is ready")
+    return 0

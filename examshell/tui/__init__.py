@@ -24,7 +24,8 @@ def available():
 def why_unavailable():
     if sys.version_info < MIN_PYTHON:
         return "the full-screen UI needs Python 3.9+ (this is %d.%d)" % sys.version_info[:2]
-    return "the full-screen UI needs Textual — `pip install textual` (or `make install`)"
+    from ..doctor import extras_command
+    return "the full-screen UI needs Textual — `%s`" % extras_command()
 
 
 def run(sh, cfg, start=None):

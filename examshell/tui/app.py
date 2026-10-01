@@ -129,8 +129,9 @@ class MenuScreen(Screen):
                  ("drill", "🔁  Daily drill", "%d exercises from your gaps" % shell_common.DRILL_SIZE),
                  ("readiness", "📈  Exam readiness", "what you've passed, level by level"),
                  ("stats", "📊  Stats", "history, streak, pass rates")]
-        if hasattr(sh, "use_rank"):
-            items.append(("rank", "🪜  Switch rank", "currently %s" % sh.RANK.label))
+        items.append(("switch", "🔀  Switch exam", "Python 03 · 04 · 05 or C 02 — now: %s"
+                      % self.app.label()))
+        items.append(("sync", "🔄  Sync", self.app.sync_hint()))
         items.append(("quit", "🚪  Quit", ""))
         menu = self.query_one("#menu", OptionList)
         highlighted = menu.highlighted
@@ -175,8 +176,10 @@ class MenuScreen(Screen):
             app.push_screen(ReadinessScreen())
         elif choice == "stats":
             app.push_screen(StatsScreen())
-        elif choice == "rank":
-            app.push_screen(ChoiceModal("Switch exam rank", app.rank_choices()), app.switch_rank)
+        elif choice == "switch":
+            app.push_screen(ChoiceModal("Switch exam", app.exam_choices()), app.switch_exam)
+        elif choice == "sync":
+            app.start_sync()
         elif choice == "quit":
             app.exit()
 
@@ -649,13 +652,67 @@ class ExamShellApp(App):
         if queue:
             self.push_screen(PracticeScreen(queue[0], mode="drill", queue=queue, position=0))
 
-    def rank_choices(self):
+    # ── switching between the Python ranks and the C exam ─────────────
+    def exam_choices(self):
         from .. import ranks
-        return [(rid, "%s  ·  %d exercises · %d levels" % (label, count, levels))
-                for rid, label, count, levels in ranks.summary()]
+        from c_exam import examshell as c_shell
+        choices = [("py" + rid, "🐍 Python · %s  ·  %d exercises · %d levels"
+                    % (label, count, levels))
+                   for rid, label, count, levels in ranks.summary()]
+        choices.append(("c", "🔧 C · Exam Rank 02  ·  %d exercises · %d levels"
+                        % (len(c_shell.EXERCISES), c_shell.N_LEVELS)))
+        return choices
 
-    def switch_rank(self, rank_id):
-        if rank_id:
-            self.sh.use_rank(rank_id)
-            self.notify("Switched to %s" % self.sh.RANK.label)
+    def switch_exam(self, choice):
+        """Point the whole app at another tester (and rank). Exam-wide
+        choices made on the command line (--relaxed, --time-limit, --blind)
+        carry over; everything else comes from that tester's own defaults
+        and your saved settings."""
+        if not choice:
+            return
+        if choice == "c":
+            from c_exam import examshell as new_sh
+        else:
+            from .. import examshell as new_sh
+            new_sh.use_rank(choice[2:])
+        keep = {k: getattr(self.cfg, k, None)
+                for k in ("relaxed", "time_limit", "blind", "no_update_check")}
+        self.cfg = new_sh.default_config(**keep)
+        self.sh = new_sh
+        self.notify("Switched to %s" % self.label())
+        self.screen.refresh_menu()
+
+    # ── sync ──────────────────────────────────────────────────────────
+    def sync_hint(self):
+        from .. import settings, sync
+        if sync.is_configured(settings.DATA_DIR):
+            return "progress + solutions with %s" % sync.remote_url(settings.DATA_DIR)
+        return "not set up — make sync-setup REPO=… (docs/sync.md)"
+
+    def start_sync(self):
+        from .. import settings, sync
+        if not sync.is_configured(settings.DATA_DIR):
+            self.notify("Sync isn't set up on this device yet — run "
+                        "`make sync-setup REPO=<your private repo>` (see docs/sync.md).",
+                        severity="warning", timeout=8)
+            return
+        self.notify("Syncing with your repo …")
+        self.sync_worker()
+
+    @work(thread=True, exclusive=True, group="sync")
+    def sync_worker(self):
+        from .. import settings, sync
+        try:
+            result = sync.sync(settings.DATA_DIR, shell_common.sync_dirs(self.sh, self.cfg))
+        except sync.SyncError as exc:
+            self.call_from_thread(self.notify, str(exc), title="Sync failed",
+                                  severity="error", timeout=10)
+            return
+        self.call_from_thread(self.sync_done, result)
+
+    def sync_done(self, result):
+        self.notify(result.summary(), title="✔ Synced", timeout=8)
+        for backup in result.backups:
+            self.notify("older version kept at %s" % backup, timeout=10)
+        if isinstance(self.screen, MenuScreen):
             self.screen.refresh_menu()

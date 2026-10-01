@@ -12,7 +12,7 @@ import unittest
 from unittest import mock
 
 from examshell import examshell as py_shell
-from examshell import report_export, session_store, shell_common, stats, tui
+from examshell import report_export, session_store, settings, shell_common, stats, tui
 from examshell.grader import Report
 
 HAVE_TEXTUAL = tui.available()
@@ -43,7 +43,8 @@ class _Isolated(object):
                 (stats, "STATS_PATH", os.path.join(tmp.name, "stats.jsonl")),
                 (stats, "DATA_DIR", tmp.name),
                 (session_store, "DATA_DIR", tmp.name),
-                (report_export, "REPORTS_DIR", os.path.join(tmp.name, "reports"))):
+                (report_export, "REPORTS_DIR", os.path.join(tmp.name, "reports")),
+                (settings, "DATA_DIR", tmp.name)):
             patcher = mock.patch.object(module, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -143,6 +144,43 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             app.push_screen(tui_app.StatsScreen())
             await pilot.pause()
             self.assertIsInstance(app.screen, tui_app.StatsScreen)
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.isolate()
+
+    async def _open_menu_item(self, app, pilot, item_id):
+        menu = app.screen.query_one("#menu")
+        index = [menu.get_option_at_index(i).id for i in range(menu.option_count)].index(item_id)
+        menu.highlighted = index
+        await pilot.press("enter")
+        await pilot.pause()
+
+    async def test_switch_from_python_to_c_and_to_rank_05(self):
+        from c_exam import examshell as c_shell
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu, relaxed=True))
+        async with app.run_test(size=(120, 36)) as pilot:
+            await self._open_menu_item(app, pilot, "switch")
+            self.assertIsInstance(app.screen, tui_app.ChoiceModal)
+            app.screen.dismiss("c")
+            await pilot.pause()
+            self.assertIs(app.sh, c_shell)
+            self.assertEqual(app.cfg.rendu, "c_rendu")
+            self.assertTrue(app.cfg.relaxed)                # carried over
+            self.assertIn("C · Exam Rank 02", app.label())
+            app.switch_exam("py05")
+            self.assertIs(app.sh, py_shell)
+            self.assertEqual(py_shell.RANK.id, "05")
+        py_shell.use_rank("03")
+
+    async def test_sync_without_setup_warns_instead_of_failing(self):
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(tui_app.App, "notify") as notify:
+            async with app.run_test(size=(120, 36)) as pilot:
+                await self._open_menu_item(app, pilot, "sync")
+        self.assertTrue(any("sync-setup" in str(c) for c in notify.call_args_list))
 
 
 class TuiFallbackTests(unittest.TestCase):

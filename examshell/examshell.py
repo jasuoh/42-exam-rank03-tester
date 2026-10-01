@@ -478,6 +478,9 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--doctor", action="store_true",
+                      help="check this machine: Python, extras, C compiler, "
+                           "valgrind, git, data folder, sync, updates")
     mode.add_argument("--sync", action="store_true",
                       help="carry your progress and solutions to/from your own "
                            "private git repo (see --sync-setup)")
@@ -595,13 +598,29 @@ def check_banks(cfg, seed, rank_ids):
     return 0
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def apply_saved_settings(args):
+    """Fill every flag the student didn't pass from ~/.examshell/config.json,
+    then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
     args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(args, file_config, "timeout", grader.DEFAULT_TIMEOUT)
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
+    return args
+
+
+def default_config(**overrides):
+    """A Config as if started with no flags (saved settings applied), with
+    `overrides` on top — what the full-screen app uses when it switches to
+    this tester."""
+    args = apply_saved_settings(build_parser().parse_args([]))
+    for key, value in overrides.items():
+        setattr(args, key, value)
+    return Config(args)
+
+
+def main(argv=None):
+    args = apply_saved_settings(build_parser().parse_args(argv))
     ui.configure(rich=not args.no_rich, color=False if args.no_color else None,
                 theme=args.theme)
     cfg = Config(args)
@@ -640,6 +659,9 @@ def main(argv=None):
     if args.readiness:
         readiness_mode(interactive=False)
         return 0
+
+    if args.doctor:
+        return shell_common.run_doctor(_SH, cfg)
 
     if args.sync or args.sync_setup:
         return shell_common.run_sync(_SH, cfg, args.sync_setup)

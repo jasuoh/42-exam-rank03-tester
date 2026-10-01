@@ -82,7 +82,7 @@ Run the same command on the second device — there everything comes down
 | before you start on the other device | `make sync` |
 | switching in the middle of an exam | `quit` in the exam (it saves), `make sync`, `make sync` on the other device, then `make exam` → answer "Resume?" with `y` |
 
-One `make sync` covers **both the Python and the C tester**.
+One `make sync` covers **both the Python and the C tester**. The same works as `make c-sync`, `s` in the menu, "🔄 Sync" in the full-screen app, and — if you installed with `uv tool install` — `examshell --sync` / `examshell --sync-setup <address>` — always from the folder that holds your `rendu/` and `c_rendu/`.
 
 ---
 

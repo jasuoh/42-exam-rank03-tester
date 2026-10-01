@@ -35,6 +35,21 @@ Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
 ---
 
+## 0.5.0 — uv, Ein-Befehl-Installation, doctor, C im Sync & in der TUI · ✔ umgesetzt
+
+- Paket `src` → `examshell`; `uv tool install … examshell[tui]` liefert die
+  Befehle `examshell` und `examshell-c`.
+- `uv.lock` + `make install` über uv (pip als Fallback), CI über setup-uv.
+- `--doctor` / `make doctor`.
+- Sync auch über `make c-sync`, Menüpunkt `s` und „🔄 Sync“ in der TUI.
+- TUI: „🔀 Switch exam“ zwischen Python 03/04/05 und C 02.
+
+**Als Nächstes (Vorschlag):** Randfall-Tests für `flood_fill`,
+`ft_list_foreach`, `ft_list_remove_if`; Referenzlösung nach dem Bestehen;
+Feedback echter Nutzer einarbeiten.
+
+---
+
 ## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · ✔ umgesetzt
 
 Ziel: Fortschritt **und** Lösungen über ein eigenes, **privates** Git-Repo

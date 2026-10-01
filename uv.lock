@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "examshell"
-version = "0.4.0"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "rich", version = "14.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

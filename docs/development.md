@@ -6,6 +6,30 @@ Testing the tool itself, the code layout, and how releases are made.
 
 ---
 
+## 📦 Dependencies (uv)
+
+The tester itself needs **nothing** — `rich` (colours) and `textual` (the
+full-screen app, Python 3.9+) are optional. They are declared in
+`pyproject.toml` and pinned in `uv.lock`:
+
+```bash
+uv sync --extra tui          # what `make install` runs: .venv/ with rich, textual, ruff
+uv run examshell --doctor    # run anything inside that environment
+uv lock --upgrade            # bump the pinned versions (commit uv.lock)
+uv add --optional tui <pkg>  # a new optional dependency
+```
+
+Without uv, `make install` falls back to `venv/` + `pip install -r
+requirements.txt` — keep `requirements.txt` in step with `pyproject.toml`.
+The Makefile uses whichever of `.venv/` / `venv/` exists. CI installs the
+"rich" leg exactly like this (setup-uv + `make install`) and runs the other
+leg with no dependencies at all.
+
+The package is `examshell/` (the Python tester and everything shared) plus
+`c_exam/` (the C tester); `pyproject.toml` installs them with the
+`examshell` and `examshell-c` commands. `src/` is only a `python3 -m src`
+shim for old habits and is never installed.
+
 ## ✅ Testing this project
 
 Two independent safety nets, run separately because they check different

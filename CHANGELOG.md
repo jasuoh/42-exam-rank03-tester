@@ -7,6 +7,38 @@ Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
 version's section below as a GitHub Release (see
 `.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
+## 0.5.0 — 2026-10-01
+
+### Added
+- **Install with one command** — `uv tool install --python 3.12
+  "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"` puts
+  `examshell` (Python) and `examshell-c` (C) on your PATH; run them from
+  any folder (solutions go into `rendu/` / `c_rendu/` there). Update with
+  `uv tool upgrade examshell`.
+- **`examshell --doctor` / `make doctor` / `make c-doctor`** — checks
+  Python, how it's installed and whether an update is out, rich and
+  Textual, a C compiler that really compiles and runs a test program,
+  valgrind, git, the data folder and the sync setup, with the fix for
+  anything that's off.
+- **Switch exam in the full-screen app** — "🔀 Switch exam" moves between
+  Python Rank 03 / 04 / 05 and C Rank 02 without restarting; `make tui`
+  covers both testers now.
+- **Sync from everywhere** — `make c-sync` / `make c-sync-setup`, an
+  `s · Sync progress` entry in both plain menus and "🔄 Sync" in the
+  full-screen app (runs in the background).
+
+### Changed
+- **The Python tester's package is now `examshell`** (was `src`):
+  `python3 -m examshell`. `python3 -m src` still works and points at the
+  new name.
+- **Dependencies managed with uv** — `pyproject.toml` declares them,
+  `uv.lock` pins them, `make install` runs `uv sync --extra tui` when uv
+  is installed and falls back to venv + pip otherwise. CI installs the
+  "rich" leg exactly that way.
+- `--help`, `--version` and hints name the command you actually used
+  (`examshell`, `examshell-c` or `python3 -m …`); update notices say
+  `make update` or `uv tool upgrade examshell` depending on the install.
+
 ## 0.4.0 — 2026-09-30
 
 ### Added

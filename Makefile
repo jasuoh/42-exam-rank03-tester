@@ -28,7 +28,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
                $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(wildcard $(SRC_PKG)/tui/*.py) \
+               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(SRC_PKG)/doctor.py $(wildcard $(SRC_PKG)/tui/*.py) \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -63,7 +63,7 @@ OFF   := \033[0m
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
-        readiness drill c-readiness c-drill update tui c-tui sync sync-setup
+        readiness drill c-readiness c-drill update tui c-tui sync sync-setup c-sync c-sync-setup doctor c-doctor
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -102,6 +102,7 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make update" "pull the latest version of this tester (git pull)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make doctor" "is this machine ready? (Python, compiler, extras, sync …)"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)REPO=<url>$(OFF)\n" $(ROWW) "make sync-setup" "connect this device to your private git repo (once)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make sync" "carry progress + solutions to/from that repo (both testers)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make install" "create $(VENV)/ and install rich (nicer UI, optional)"
@@ -115,6 +116,7 @@ help:
 	@printf "\n$(BOLD)$(CYAN)▸ C$(OFF)  $(DIM)— Exam Rank 02, compile-based, separate $(C_RENDU)/$(OFF)\n"
 	@printf "  $(BOLD)Play$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-tui" "✨ full-screen app (needs make install, Python 3.9+)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-sync" "same as make sync — progress + solutions to/from your repo"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-run" "interactive menu (exam · practice · list)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-exam" "jump straight into the exam"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[EX=ft_atoi]$(OFF)\n" $(ROWW) "make c-practice" "drill a single exercise"
@@ -292,6 +294,9 @@ c-status:
 update:
 	@git pull --ff-only
 
+doctor:
+	@$(PY) -m $(SRC_PKG) --doctor
+
 # One `make sync` carries BOTH testers' progress and solutions (examshell/sync.py).
 REPO ?=
 sync:
@@ -302,6 +307,20 @@ sync-setup:
 		printf "usage: make sync-setup REPO=git@github.com:<you>/<private-repo>.git\n"; exit 2; \
 	fi
 	@$(PY) -m $(SRC_PKG) --sync-setup "$(REPO)"
+
+# Same sync as above (one call always carries both testers) — these just
+# keep the c- prefix consistent for people who only use the C tester.
+c-sync:
+	@$(PY) -m $(C_PKG) --sync
+
+c-sync-setup:
+	@if [ -z "$(REPO)" ]; then \
+		printf "usage: make c-sync-setup REPO=git@github.com:<you>/<private-repo>.git\n"; exit 2; \
+	fi
+	@$(PY) -m $(C_PKG) --sync-setup "$(REPO)"
+
+c-doctor:
+	@$(PY) -m $(C_PKG) --doctor
 
 install:
 ifneq ($(UV),)

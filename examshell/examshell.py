@@ -13,9 +13,9 @@ A practice tester in the style of the real examshell / moulinette.
   · you only move up at 100%
   · graded in a subprocess sandbox with a per-call timeout
 
-    python3 -m src                 # interactive menu (Rank 03)
-    python3 -m src --rank 04       # the Rank 04 pool instead
-    python3 -m src --help          # every flag
+    python3 -m examshell                 # interactive menu (Rank 03)
+    python3 -m examshell --rank 04       # the Rank 04 pool instead
+    python3 -m examshell --help          # every flag
 
 Put your solution in `rendu/<exercise_name>.py` and define the required
 function. The folder is created for you.
@@ -33,7 +33,7 @@ import sys
 import time
 
 from . import grader, ranks, settings, shell_common, ui
-# Used by the shared flow (src/shell_common.py), not here — kept reachable
+# Used by the shared flow (examshell/shell_common.py), not here — kept reachable
 # as examshell.<name> for callers and tests that patch them through it.
 from . import achievements, hints, report_export, session_store, stats  # noqa: F401
 from .bank_common import signature_for as _signature_for
@@ -99,12 +99,12 @@ class Config(object):
         self.no_update_check = getattr(args, "no_update_check", False)
 
 # ══════════════════════════════════════════════════════════════
-#  TESTER HOOKS  ·  what src/shell_common.py needs from this tester
+#  TESTER HOOKS  ·  what examshell/shell_common.py needs from this tester
 # ══════════════════════════════════════════════════════════════
 _SH = sys.modules[__name__]
 
-PROG = "python3 -m src"
-# which folder of the sync repo this tester's --rendu maps to (src/sync.py)
+PROG = shell_common.command_name("examshell", "examshell")
+# which folder of the sync repo this tester's --rendu maps to (examshell/sync.py)
 SYNC_SLOT = "rendu"
 SOURCE_EXT = ".py"
 EXAM_PROMPT = "exam"
@@ -152,7 +152,7 @@ def grading_notes(cfg):
 
 
 # ══════════════════════════════════════════════════════════════
-#  THE SHARED FLOW  ·  see src/shell_common.py
+#  THE SHARED FLOW  ·  see examshell/shell_common.py
 # ══════════════════════════════════════════════════════════════
 def grade_exercise(ex_name, rng, cfg, mode="practice"):
     """Grade one exercise, render the report, return True when it is 100%."""
@@ -443,18 +443,18 @@ def rank_menu():
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="python3 -m src",
+        prog=PROG,
         description="42 Exam Rank 03/04/05 (Python) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="examples:\n"
-               "  python3 -m src                       interactive menu (Rank 03)\n"
-               "  python3 -m src --rank 04             the Rank 04 pool instead\n"
-               "  python3 -m src --exam --seed 42      reproducible exam\n"
-               "  python3 -m src --practice py_inter   drill one exercise\n"
-               "  python3 -m src --train easy          drill an easy training exercise\n"
-               "  python3 -m src --grade py_inter      grade once, no UI\n"
-               "  python3 -m src --grade-all           grade every rendu/ solution\n"
-               "  python3 -m src --check               validate the banks\n")
+               "  python3 -m examshell                       interactive menu (Rank 03)\n"
+               "  python3 -m examshell --rank 04             the Rank 04 pool instead\n"
+               "  python3 -m examshell --exam --seed 42      reproducible exam\n"
+               "  python3 -m examshell --practice py_inter   drill one exercise\n"
+               "  python3 -m examshell --train easy          drill an easy training exercise\n"
+               "  python3 -m examshell --grade py_inter      grade once, no UI\n"
+               "  python3 -m examshell --grade-all           grade every rendu/ solution\n"
+               "  python3 -m examshell --check               validate the banks\n")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--exam", action="store_true",
                       help="start the exam directly, skipping the menu")
@@ -478,6 +478,9 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--doctor", action="store_true",
+                      help="check this machine: Python, extras, C compiler, "
+                           "valgrind, git, data folder, sync, updates")
     mode.add_argument("--sync", action="store_true",
                       help="carry your progress and solutions to/from your own "
                            "private git repo (see --sync-setup)")
@@ -562,7 +565,7 @@ def list_ranks():
              % (count, levels, "   ← active" if rank_id == RANK.id else ""))
             for rank_id, label, count, levels in ranks.summary()]
     ui.menu(rows)
-    ui.info("pick one with --rank, e.g. `python3 -m src --rank 04 --exam`")
+    ui.info("pick one with --rank, e.g. `python3 -m examshell --rank 04 --exam`")
 
 
 def check_banks(cfg, seed, rank_ids):
@@ -595,13 +598,29 @@ def check_banks(cfg, seed, rank_ids):
     return 0
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def apply_saved_settings(args):
+    """Fill every flag the student didn't pass from ~/.examshell/config.json,
+    then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
     args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(args, file_config, "timeout", grader.DEFAULT_TIMEOUT)
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
+    return args
+
+
+def default_config(**overrides):
+    """A Config as if started with no flags (saved settings applied), with
+    `overrides` on top — what the full-screen app uses when it switches to
+    this tester."""
+    args = apply_saved_settings(build_parser().parse_args([]))
+    for key, value in overrides.items():
+        setattr(args, key, value)
+    return Config(args)
+
+
+def main(argv=None):
+    args = apply_saved_settings(build_parser().parse_args(argv))
     ui.configure(rich=not args.no_rich, color=False if args.no_color else None,
                 theme=args.theme)
     cfg = Config(args)
@@ -640,6 +659,9 @@ def main(argv=None):
     if args.readiness:
         readiness_mode(interactive=False)
         return 0
+
+    if args.doctor:
+        return shell_common.run_doctor(_SH, cfg)
 
     if args.sync or args.sync_setup:
         return shell_common.run_sync(_SH, cfg, args.sync_setup)

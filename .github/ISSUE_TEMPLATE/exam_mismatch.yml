@@ -57,5 +57,5 @@ body:
     id: version
     attributes:
       label: Tester version
-      description: Output of `python3 -m src --version`
-      placeholder: python3 -m src 0.2.0
+      description: Output of `python3 -m examshell --version`
+      placeholder: python3 -m examshell 0.2.0

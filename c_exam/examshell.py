@@ -6,7 +6,7 @@
 ╚══════════════════════════════════════════════════════════════╝
 
 A practice tester for 42's C Exam Rank 02, in the style of the Python
-Exam Rank 03 tester this repo already has (`src/`). Same shape, different
+Exam Rank 03 tester this repo already has (`examshell/`). Same shape, different
 grading mechanism: your file is compiled — together with a generated
 main() — and run, and its output is compared against the same harness
 compiled with a reference implementation. See c_exam/grader.py.
@@ -25,19 +25,19 @@ import random
 import shlex
 import sys
 
-from src import settings, shell_common, ui
-# Used by the shared flow (src/shell_common.py), not here — kept reachable
+from examshell import settings, shell_common, ui
+# Used by the shared flow (examshell/shell_common.py), not here — kept reachable
 # as examshell.<name> for callers and tests that patch them through it.
-from src import achievements, hints, report_export, session_store, stats  # noqa: F401
-from src.shell_common import DRILL_SIZE, countdown, draw, fmt_duration, time_left  # noqa: F401
-from src.version import __version__
+from examshell import achievements, hints, report_export, session_store, stats  # noqa: F401
+from examshell.shell_common import DRILL_SIZE, countdown, draw, fmt_duration, time_left  # noqa: F401
+from examshell.version import __version__
 
 from . import grader
 from .bank import EXERCISES, LEVELS, N_LEVELS, STANDARD_LEVELS  # noqa: F401 (hooks, see shell_common)
 from .training_bank import DIFFICULTIES, TRAINING_BY_DIFFICULTY, TRAINING_EXERCISES
 
 RENDU_DIR = "c_rendu"
-TOOL = "c"               # tags saved config/stats/reports — "c" vs src's "py"
+TOOL = "c"               # tags saved config/stats/reports — "c" vs examshell's "py"
 
 # Every exercise from both pools, keyed by name — used wherever the code only
 # needs "the exercise dict for this name" and doesn't care which pool it is
@@ -79,12 +79,12 @@ class Config(object):
         self.no_update_check = getattr(args, "no_update_check", False)
 
 # ══════════════════════════════════════════════════════════════
-#  TESTER HOOKS  ·  what src/shell_common.py needs from this tester
+#  TESTER HOOKS  ·  what examshell/shell_common.py needs from this tester
 # ══════════════════════════════════════════════════════════════
 _SH = sys.modules[__name__]
 
-PROG = "python3 -m c_exam"
-# which folder of the sync repo this tester's --rendu maps to (src/sync.py)
+PROG = shell_common.command_name("examshell-c", "c_exam")
+# which folder of the sync repo this tester's --rendu maps to (examshell/sync.py)
 SYNC_SLOT = "c_rendu"
 SOURCE_EXT = ".c"
 EXAM_PROMPT = "c-exam"
@@ -138,7 +138,7 @@ def prepare_grading(ex_name, rng, cfg):
 
 
 # ══════════════════════════════════════════════════════════════
-#  THE SHARED FLOW  ·  see src/shell_common.py
+#  THE SHARED FLOW  ·  see examshell/shell_common.py
 # ══════════════════════════════════════════════════════════════
 def grade_exercise(ex_name, rng, cfg, mode="practice"):
     """Compile, grade and report one exercise; True when it is 100%."""
@@ -362,7 +362,7 @@ def extra_menu_action(choice, cfg):
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="python3 -m c_exam",
+        prog=PROG,
         description="42 Exam Rank 02 (C) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="examples:\n"
@@ -396,6 +396,9 @@ def build_parser():
                       help="self-test the exercise bank and exit")
     mode.add_argument("--stats", action="store_true",
                       help="show your local practice history and exit")
+    mode.add_argument("--doctor", action="store_true",
+                      help="check this machine: Python, extras, C compiler, "
+                           "valgrind, git, data folder, sync, updates")
     mode.add_argument("--sync", action="store_true",
                       help="carry your progress and solutions to/from your own "
                            "private git repo (see --sync-setup)")
@@ -483,8 +486,9 @@ def build_parser():
     return p
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def apply_saved_settings(args):
+    """Fill every flag the student didn't pass from ~/.examshell/config.json,
+    then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
     args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(args, file_config, "timeout", grader.DEFAULT_TIMEOUT)
@@ -493,6 +497,21 @@ def main(argv=None):
     args.cc = settings.merged(args, file_config, "cc", grader.DEFAULT_CC)
     if args.strict_valgrind:
         args.valgrind = True
+    return args
+
+
+def default_config(**overrides):
+    """A Config as if started with no flags (saved settings applied), with
+    `overrides` on top — what the full-screen app uses when it switches to
+    this tester."""
+    args = apply_saved_settings(build_parser().parse_args([]))
+    for key, value in overrides.items():
+        setattr(args, key, value)
+    return Config(args)
+
+
+def main(argv=None):
+    args = apply_saved_settings(build_parser().parse_args(argv))
     ui.configure(rich=not args.no_rich, color=False if args.no_color else None,
                 theme=args.theme)
     cfg = Config(args)
@@ -524,6 +543,9 @@ def main(argv=None):
     if args.readiness:
         readiness_mode(interactive=False)
         return 0
+
+    if args.doctor:
+        return shell_common.run_doctor(_SH, cfg)
 
     if args.sync or args.sync_setup:
         return shell_common.run_sync(_SH, cfg, args.sync_setup)

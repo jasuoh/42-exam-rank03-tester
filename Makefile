@@ -7,15 +7,18 @@
 # ══════════════════════════════════════════════════════════════
 
 PYTHON      ?= python3
-VENV        := venv
+# `make install` uses uv when it's installed (fast, locked versions from
+# uv.lock, its own .venv/), and plain venv + pip into venv/ otherwise.
+UV          := $(shell command -v uv 2>/dev/null)
+VENV        := $(if $(UV),.venv,venv)
 VENV_PYTHON := $(VENV)/bin/python
 SHELL       := /bin/sh
 
 # Prefer the project venv once it exists, fall back to the system python.
 # Recursively expanded on purpose: `make install run` must see the new venv.
-PY = $(shell [ -x $(VENV_PYTHON) ] && echo $(VENV_PYTHON) || echo $(PYTHON))
+PY = $(shell for p in .venv/bin/python venv/bin/python; do [ -x $$p ] && echo $$p && exit; done; echo $(PYTHON))
 
-SRC_PKG     := src
+SRC_PKG     := examshell
 C_PKG       := c_exam
 SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/grader.py $(SRC_PKG)/ui.py $(SRC_PKG)/bank_common.py \
@@ -25,7 +28,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
                $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(wildcard $(SRC_PKG)/tui/*.py) \
+               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(SRC_PKG)/doctor.py $(wildcard $(SRC_PKG)/tui/*.py) \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -60,7 +63,7 @@ OFF   := \033[0m
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
-        readiness drill c-readiness c-drill update tui c-tui sync sync-setup
+        readiness drill c-readiness c-drill update tui c-tui sync sync-setup c-sync c-sync-setup doctor c-doctor
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -99,6 +102,7 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make update" "pull the latest version of this tester (git pull)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make doctor" "is this machine ready? (Python, compiler, extras, sync …)"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)REPO=<url>$(OFF)\n" $(ROWW) "make sync-setup" "connect this device to your private git repo (once)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make sync" "carry progress + solutions to/from that repo (both testers)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make install" "create $(VENV)/ and install rich (nicer UI, optional)"
@@ -112,6 +116,7 @@ help:
 	@printf "\n$(BOLD)$(CYAN)▸ C$(OFF)  $(DIM)— Exam Rank 02, compile-based, separate $(C_RENDU)/$(OFF)\n"
 	@printf "  $(BOLD)Play$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-tui" "✨ full-screen app (needs make install, Python 3.9+)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-sync" "same as make sync — progress + solutions to/from your repo"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-run" "interactive menu (exam · practice · list)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make c-exam" "jump straight into the exam"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[EX=ft_atoi]$(OFF)\n" $(ROWW) "make c-practice" "drill a single exercise"
@@ -289,7 +294,10 @@ c-status:
 update:
 	@git pull --ff-only
 
-# One `make sync` carries BOTH testers' progress and solutions (src/sync.py).
+doctor:
+	@$(PY) -m $(SRC_PKG) --doctor
+
+# One `make sync` carries BOTH testers' progress and solutions (examshell/sync.py).
 REPO ?=
 sync:
 	@$(PY) -m $(SRC_PKG) --sync
@@ -300,7 +308,27 @@ sync-setup:
 	fi
 	@$(PY) -m $(SRC_PKG) --sync-setup "$(REPO)"
 
-install: venv deps
+# Same sync as above (one call always carries both testers) — these just
+# keep the c- prefix consistent for people who only use the C tester.
+c-sync:
+	@$(PY) -m $(C_PKG) --sync
+
+c-sync-setup:
+	@if [ -z "$(REPO)" ]; then \
+		printf "usage: make c-sync-setup REPO=git@github.com:<you>/<private-repo>.git\n"; exit 2; \
+	fi
+	@$(PY) -m $(C_PKG) --sync-setup "$(REPO)"
+
+c-doctor:
+	@$(PY) -m $(C_PKG) --doctor
+
+install:
+ifneq ($(UV),)
+	@uv sync --quiet --extra tui
+	@printf "$(GREEN)✔$(OFF) installed with uv into .venv/ — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+else
+	@$(MAKE) --no-print-directory deps
+endif
 
 venv: $(VENV_PYTHON)
 
@@ -309,23 +337,25 @@ $(VENV_PYTHON):
 	@$(PYTHON) -m venv $(VENV)
 	@$(VENV_PYTHON) -m pip install --quiet --upgrade pip
 
+# The no-uv path: plain venv + pip from requirements.txt.
 deps: $(VENV_PYTHON)
 	@$(VENV_PYTHON) -m pip install --quiet -r requirements.txt
-	@printf "$(GREEN)✔$(OFF) installed — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+	@printf "$(GREEN)✔$(OFF) installed into $(VENV)/ — run $(BOLD)make tui$(OFF) (full screen) or $(BOLD)make run$(OFF)\n"
+	@printf "$(DIM)tip: with uv (https://docs.astral.sh/uv/) installs are faster and pinned$(OFF)\n"
 
 # ── cleaning ──────────────────────────────────────────────────
 clean:
-	@find . -path ./$(VENV) -prune -o -name '__pycache__' -type d -print0 2>/dev/null \
+	@find . -path ./venv -prune -o -path ./.venv -prune -o -name '__pycache__' -type d -print0 2>/dev/null \
 		| xargs -0 rm -rf 2>/dev/null || true
-	@find . -path ./$(VENV) -prune -o -name '*.py[co]' -type f -print0 2>/dev/null \
+	@find . -path ./venv -prune -o -path ./.venv -prune -o -name '*.py[co]' -type f -print0 2>/dev/null \
 		| xargs -0 rm -f 2>/dev/null || true
 	@rm -rf .ruff_cache .pytest_cache
 	@rm -rf $${TMPDIR:-/tmp}/examshell-* $${TMPDIR:-/tmp}/c-exam-* 2>/dev/null || true
 	@printf "$(GREEN)✔$(OFF) caches removed\n"
 
 fclean: clean
-	@rm -rf $(VENV)
-	@printf "$(GREEN)✔$(OFF) $(VENV)/ removed\n"
+	@rm -rf .venv venv
+	@printf "$(GREEN)✔$(OFF) .venv/ and venv/ removed\n"
 
 # Never wired into clean/fclean: these are the student's own answers.
 rendu-clean:

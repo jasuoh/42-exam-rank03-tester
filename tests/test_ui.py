@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for src/ui.py — the parsing/escaping helpers that do not need
+"""Unit tests for examshell/ui.py — the parsing/escaping helpers that do not need
 an actual terminal. Rendering itself is checked by hand (see the README)."""
 
 import unittest
 
-from src import ui
+from examshell import ui
 
 
 class ColorTests(unittest.TestCase):
@@ -176,7 +176,7 @@ class _FakeCFailure(object):
 
 
 class _FakeFailure(object):
-    """Mimics src.grader.Failure's attribute shape (.args/.expected/.got)."""
+    """Mimics examshell.grader.Failure's attribute shape (.args/.expected/.got)."""
     def __init__(self, expected, got):
         self.args, self.expected, self.got = [], expected, got
 

@@ -35,6 +35,21 @@ Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
 ---
 
+## 0.5.0 — uv, Ein-Befehl-Installation, doctor, C im Sync & in der TUI · ✔ umgesetzt
+
+- Paket `src` → `examshell`; `uv tool install … examshell[tui]` liefert die
+  Befehle `examshell` und `examshell-c`.
+- `uv.lock` + `make install` über uv (pip als Fallback), CI über setup-uv.
+- `--doctor` / `make doctor`.
+- Sync auch über `make c-sync`, Menüpunkt `s` und „🔄 Sync“ in der TUI.
+- TUI: „🔀 Switch exam“ zwischen Python 03/04/05 und C 02.
+
+**Als Nächstes (Vorschlag):** Randfall-Tests für `flood_fill`,
+`ft_list_foreach`, `ft_list_remove_if`; Referenzlösung nach dem Bestehen;
+Feedback echter Nutzer einarbeiten.
+
+---
+
 ## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · ✔ umgesetzt
 
 Ziel: Fortschritt **und** Lösungen über ein eigenes, **privates** Git-Repo
@@ -69,12 +84,12 @@ einfachste Alternative ohne Git.
 
 ## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
 
-Heute: `src/examshell.py` und `c_exam/examshell.py` enthalten **je** den
+Heute: `examshell/examshell.py` und `c_exam/examshell.py` enthalten **je** den
 kompletten Ablauf (Exam, Practice, Training, Readiness, Drill, Menü) —
 ~900 identische Zeilen, und Logik und `print`/`input` sind verwoben. Eine
 TUI kann darauf nicht aufsetzen.
 
-1. **`src/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
+1. **`examshell/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
    Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf, Stubs,
    CLI-Flags, Menüpunkte) als „Hooks“.
 2. **`ExamRun`** — das Exam als reiner Zustand (Level, Aufgabe, Versuche,
@@ -91,7 +106,7 @@ bleiben (plus neue Tests für `ExamRun`/`grade()`).
 
 ## Phase B — App-Gerüst (0.4.0)
 
-`make tui` / `python3 -m src --tui` (später Default, wenn Textual da ist):
+`make tui` / `python3 -m examshell --tui` (später Default, wenn Textual da ist):
 Screens für Menü, Practice-Liste mit Suche, Training, Readiness, Stats;
 Tastaturkürzel, die drei Themes, Fallback-Erkennung.
 

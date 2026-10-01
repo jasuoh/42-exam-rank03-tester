@@ -1,6 +1,6 @@
 # 🐍 Python tester · Exam Ranks 03 / 04 / 05
 
-Everything about the Python tester (`python3 -m src`, `make …`).
+Everything about the Python tester (`python3 -m examshell`, `make …`).
 
 [← back to the README](../README.md)
 
@@ -125,7 +125,7 @@ format.
 
 </details>
 
-`python3 -m src --list` prints this pool with the exact function name for
+`python3 -m examshell --list` prints this pool with the exact function name for
 each exercise, ★/○ marking which pool each belongs to; the full signature
 and subject show up once you draw or practice it.
 
@@ -194,7 +194,7 @@ grew to fit them rather than the other way round:
 A second, completely separate pool of exercises for open-ended practice —
 grouped by **difficulty** instead of exam level, and **never** drawn into
 `make exam` or shown in `--list`. Reach it through the main menu's
-**Training mode**, `make train`, or `python3 -m src --train`.
+**Training mode**, `make train`, or `python3 -m examshell --train`.
 
 | Difficulty | Exercises |
 |---|---|
@@ -204,8 +204,8 @@ grouped by **difficulty** instead of exam level, and **never** drawn into
 
 These are graded through the exact same sandbox as the exam pool (same
 edge-case + fuzz testing, mutation/print detection, import checks), just
-picked and listed differently. `python3 -m src --list-training` prints the
-pool; `python3 -m src --train easy` opens the picker filtered to the easy
+picked and listed differently. `python3 -m examshell --list-training` prints the
+pool; `python3 -m examshell --train easy` opens the picker filtered to the easy
 exercises, `--train py_kth_largest` drills that one exercise directly.
 
 ## 🧪 How grading works
@@ -299,31 +299,31 @@ make grade EX=py_inter FLAGS=--strict-imports  # strict grading outside the exam
 The Makefile is a thin wrapper; everything is reachable directly:
 
 ```
-python3 -m src                       # interactive menu (Rank 03)
-python3 -m src --rank 04             # …the Rank 04 pool instead
-python3 -m src --rank 05 --exam      # straight into the Rank 05 exam
-python3 -m src --list-ranks          # which ranks exist, and what's in them
-python3 -m src --exam --seed 42      # reproducible exam
-python3 -m src --practice py_inter   # drill one exam exercise
-python3 -m src --train               # training mode (LeetCode-style, by difficulty)
-python3 -m src --train easy          # …filtered to easy exercises
-python3 -m src --train py_kth_largest  # …drill one training exercise directly
-python3 -m src --grade inter         # grade once (unique suffixes work)
-python3 -m src --grade-all           # grade every exam solution in rendu/
-python3 -m src --check               # validate every bank (add --rank for one)
-python3 -m src --stats               # your local practice history
-python3 -m src --readiness           # passed/failed/untried, level by level
-python3 -m src --drill 5             # a short session from your gaps
-python3 -m src --exam --time-limit 180   # exam with a 3-hour countdown
-python3 -m src --version
-python3 -m src --theme light --save-config   # remember a theme for next time
-python3 -m src --list
-python3 -m src --list-training
-python3 -m src --help
+python3 -m examshell                       # interactive menu (Rank 03)
+python3 -m examshell --rank 04             # …the Rank 04 pool instead
+python3 -m examshell --rank 05 --exam      # straight into the Rank 05 exam
+python3 -m examshell --list-ranks          # which ranks exist, and what's in them
+python3 -m examshell --exam --seed 42      # reproducible exam
+python3 -m examshell --practice py_inter   # drill one exam exercise
+python3 -m examshell --train               # training mode (LeetCode-style, by difficulty)
+python3 -m examshell --train easy          # …filtered to easy exercises
+python3 -m examshell --train py_kth_largest  # …drill one training exercise directly
+python3 -m examshell --grade inter         # grade once (unique suffixes work)
+python3 -m examshell --grade-all           # grade every exam solution in rendu/
+python3 -m examshell --check               # validate every bank (add --rank for one)
+python3 -m examshell --stats               # your local practice history
+python3 -m examshell --readiness           # passed/failed/untried, level by level
+python3 -m examshell --drill 5             # a short session from your gaps
+python3 -m examshell --exam --time-limit 180   # exam with a 3-hour countdown
+python3 -m examshell --version
+python3 -m examshell --theme light --save-config   # remember a theme for next time
+python3 -m examshell --list
+python3 -m examshell --list-training
+python3 -m examshell --help
 ```
 
-Run it from the repository root — `src/` is a package, not a standalone
-script, so `python3 src/examshell.py` will not work.
+Run it from the repository root — `examshell/` is a package, not a standalone
+script, so `python3 examshell/examshell.py` will not work.
 
 Useful flags: `--rank {03,04,05}`, `--rendu DIR`, `--timeout SEC`, `--fuzz N`, `--show-fails N`,
 `--strict-imports`, `--relaxed`, `--time-limit MIN`, `--theme {dark,light,highcontrast}`,

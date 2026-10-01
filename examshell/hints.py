@@ -41,7 +41,7 @@ _EMPTYISH_OBJECTS = (None, [], (), {})
 # The Python sandbox never appends a "crashed" warning like the C tester
 # does (see grade_exercise() below) — a raised exception is just a failing
 # case, recorded as "[ExceptionType] message" in that Failure's `got` (see
-# src/grader.py's RUNNER_TEMPLATE). Recognising that shape here is what
+# examshell/grader.py's RUNNER_TEMPLATE). Recognising that shape here is what
 # lets a Python crash reach the same CRASH category as a C one.
 _CRASH_MARKER_RE = re.compile(r"^\[[A-Za-z_]\w*\]")
 
@@ -90,7 +90,7 @@ def _as_number(value):
 def _is_emptyish(value):
     """True when `value` represents "nothing" — the real empty Python
     object (None, [], (), {}, "") when it's still typed (a Python
-    Report's f.expected is — see src/grader.py's Failure), a bare "" when
+    Report's f.expected is — see examshell/grader.py's Failure), a bare "" when
     it's already a string (a C tester's raw stdout diff always is, and so
     is a Python Report's f.got — see RUNNER_TEMPLATE's short_repr()).
     Deliberately NOT string-matching "None"/"[]"/"()"/"{}" the way an
@@ -106,7 +106,7 @@ def classify(report):
     """Which generic failure pattern `report` matches, as one of the
     category constants above, or None when nothing applies. `report` is
     a graded Report — Python's and the C tester's share the same shape
-    (see src/grader.py's Report, reused by c_exam/grader.py), so this
+    (see examshell/grader.py's Report, reused by c_exam/grader.py), so this
     works unmodified for both. Shared by diagnose() (the generic hint)
     and hint_for() (picking the right branch of a per-category curated
     hint)."""
@@ -133,7 +133,7 @@ def classify(report):
     # A per-case timeout (one case's alarm fires, the run keeps going) is
     # recorded as a plain failure rather than a fatal Report, on both
     # sides — c_exam/grader.py's _grade_program uses got="[TIMEOUT]",
-    # src/grader.py's RUNNER_TEMPLATE uses got="[TIMEOUT > Ns]" (the
+    # examshell/grader.py's RUNNER_TEMPLATE uses got="[TIMEOUT > Ns]" (the
     # per-call timeout is embedded in the message there). startswith()
     # catches both — special-cased ahead of the CRASH marker below, which
     # would otherwise also match "[TIMEOUT]" and misreport an infinite

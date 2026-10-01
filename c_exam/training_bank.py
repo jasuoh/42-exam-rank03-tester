@@ -4,7 +4,7 @@
 training_bank.py  ·  C Exam Rank 02 tester  ·  LeetCode-style training pool
 
 A second, independent exercise bank for open-ended practice — mirrors
-src/training_bank.py's role for the Python tester: exercises here are
+examshell/training_bank.py's role for the Python tester: exercises here are
 grouped by DIFFICULTY (easy / medium / hard) instead of exam level, and
 `c_exam/examshell.py` keeps this pool's index (TRAINING_BY_DIFFICULTY)
 completely separate from bank.py's LEVELS, so it is never drawn into

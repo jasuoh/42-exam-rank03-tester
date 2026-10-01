@@ -21,7 +21,7 @@ body:
     id: version
     attributes:
       label: Tester version
-      placeholder: output of `python3 -m src --version`
+      placeholder: output of `python3 -m examshell --version`
     validations:
       required: true
   - type: input

@@ -24,7 +24,7 @@ Real Exam Rank 02 subjects come in two shapes, and this bank has both:
 
 Both paths share compiling, running, and diffing — `grade()` just picks
 which one applies per exercise. `Report` is reused as-is from
-`src/grader.py` (plain bookkeeping, no Python-specific logic). A bank/
+`examshell/grader.py` (plain bookkeeping, no Python-specific logic). A bank/
 codegen bug (the reference itself fails to compile or crashes) is
 reported as a "BANK_ERROR" fatal Report rather than raised — a raw
 exception would crash a student's interactive session, and fuzzing
@@ -43,7 +43,7 @@ import subprocess
 import tempfile
 import time
 
-from src.grader import MAX_TIMEOUTS, Report
+from examshell.grader import MAX_TIMEOUTS, Report
 
 DEFAULT_TIMEOUT = 5        # seconds per case (program mode) / per whole run (function mode)
 DEFAULT_CC = "cc"
@@ -137,7 +137,7 @@ class CFailure(object):
         self.index, self.expected, self.got = index, expected, got
         # The case's own inputs — call values for a "function"-kind
         # exercise, argv for a "program"-kind one — so the report shows
-        # exactly what to rerun (and src/case_labels.py can name its edge
+        # exactly what to rerun (and examshell/case_labels.py can name its edge
         # case). None only for callers that don't know them.
         self.args, self.program = args, program
 
@@ -1177,7 +1177,7 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 # Appended before the strict_valgrind fail-out below too —
                 # ui.report() prints warnings even on a fatal Report, and
                 # hints.classify() detects LEAK by scanning report.warnings
-                # for the word (see src/hints.py), which needs it present
+                # for the word (see examshell/hints.py), which needs it present
                 # here regardless of strict/non-strict.
                 report.warnings.append(
                     "valgrind reported memory error(s) (leaks, invalid "
@@ -1270,7 +1270,7 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
             if ref_crash:
                 return report.fail("BANK_ERROR", "%s: reference program %s on case %d"
                                    % (ex_name, ref_crash, i))
-            # Same bail-out as the Python sandbox (src/grader.py's
+            # Same bail-out as the Python sandbox (examshell/grader.py's
             # MAX_TIMEOUTS): an infinite loop would otherwise cost the full
             # timeout on EVERY remaining case — 30s+ of staring at a spinner.
             if streak >= MAX_TIMEOUTS:

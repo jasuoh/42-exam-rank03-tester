@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""src/tui/render.py — the full-screen UI's rich renderables. Needs only
+"""examshell/tui/render.py — the full-screen UI's rich renderables. Needs only
 rich (not Textual), so these run wherever rich is installed."""
 
 import io
@@ -8,12 +8,12 @@ import unittest
 
 try:
     from rich.console import Console
-    from src.tui import render
+    from examshell.tui import render
     HAVE_RICH = True
 except ImportError:                                        # pragma: no cover
     HAVE_RICH = False
 
-from src.grader import Failure, Report
+from examshell.grader import Failure, Report
 
 
 def text_of(renderable, width=100):

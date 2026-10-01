@@ -13,9 +13,9 @@ import time
 import unittest
 from unittest.mock import patch
 
-from src import achievements, hints, report_export, session_store, settings, stats
-from src.examshell import Session
-from src.grader import Failure, Report
+from examshell import achievements, hints, report_export, session_store, settings, stats
+from examshell.examshell import Session
+from examshell.grader import Failure, Report
 
 
 def unwritable_dir(testcase):
@@ -577,7 +577,7 @@ class HintsTests(unittest.TestCase):
         self.assertIn("infinite loop", hints.diagnose(report))
 
     def test_timeout_hint_from_a_python_per_case_timeout(self):
-        # src/grader.py's RUNNER_TEMPLATE records a per-case timeout as a
+        # examshell/grader.py's RUNNER_TEMPLATE records a per-case timeout as a
         # non-fatal failure with got="[TIMEOUT > Ns]" (the per-call timeout
         # value is embedded in the message, unlike the C side's bare
         # "[TIMEOUT]") — must still get the TIMEOUT hint via the same
@@ -710,7 +710,7 @@ class HintForTests(unittest.TestCase):
 
 
 class VersionTests(unittest.TestCase):
-    """src/version.py is the single source of truth; pyproject.toml and
+    """examshell/version.py is the single source of truth; pyproject.toml and
     CHANGELOG.md must agree with it (the release workflow relies on both)."""
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -720,11 +720,11 @@ class VersionTests(unittest.TestCase):
             return fh.read()
 
     def test_pyproject_version_matches(self):
-        from src.version import __version__
+        from examshell.version import __version__
         self.assertIn('version = "%s"' % __version__, self._read("pyproject.toml"))
 
     def test_changelog_has_a_section_for_this_version(self):
-        from src.version import __version__
+        from examshell.version import __version__
         headings = [line for line in self._read("CHANGELOG.md").splitlines()
                     if line.startswith("## ")]
         self.assertTrue(any(h == "## " + __version__ or h.startswith("## %s " % __version__)
@@ -739,7 +739,7 @@ class CaseLabelTests(unittest.TestCase):
             self.args, self.program = args, program
 
     def _d(self, args, program=False):
-        from src import case_labels
+        from examshell import case_labels
         return case_labels.describe(self._F(args, program))
 
     def test_strings(self):
@@ -769,7 +769,7 @@ class CaseLabelTests(unittest.TestCase):
         self.assertEqual(self._d([" \ta  b ", "", 0]), "tabs · leading/trailing whitespace")
 
     def test_no_inputs_known(self):
-        from src import case_labels
+        from examshell import case_labels
         self.assertEqual(case_labels.describe(object()), "")
 
 
@@ -827,7 +827,7 @@ class ReadinessAndDrillTests(unittest.TestCase):
 
 class UpdateCheckTests(unittest.TestCase):
     def setUp(self):
-        from src import update_check
+        from examshell import update_check
         self.uc = update_check
         self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
@@ -910,7 +910,7 @@ class HistoryStatsTests(unittest.TestCase):
 
 class ReflowTests(unittest.TestCase):
     def test_joins_hard_wrapped_lines_and_keeps_paragraphs_and_lists(self):
-        from src import ui
+        from examshell import ui
         prose = "one\ntwo\n\nthree\n  - item\n  - item2\n"
         self.assertEqual(ui._reflow(prose), "one two\n\nthree\n  - item\n  - item2")
 

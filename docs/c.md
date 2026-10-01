@@ -274,21 +274,21 @@ Python tester — see
 | File | |
 |---|---|
 | `c_exam/__main__.py` | entry point for `python3 -m c_exam` |
-| `c_exam/examshell.py` | the C tester: its CLI, stubs, and the hooks the shared flow needs (see `src/shell_common.py`) |
+| `c_exam/examshell.py` | the C tester: its CLI, stubs, and the hooks the shared flow needs (see `examshell/shell_common.py`) |
 | `c_exam/grader.py` | harness codegen, the compile/run/diff sandbox, fuzzing, the self-test |
 | `c_exam/bank.py` | the exam exercise bank ⚠ **contains the answers** |
 | `c_exam/training_bank.py` | the LeetCode-style training bank ⚠ **contains the answers** |
 | `c_rendu/` | your solutions (git-ignored) |
 
 The whole exam/practice/training flow is **shared** with the Python tool
-(`src/shell_common.py`) — `c_exam/examshell.py` only supplies what is
+(`examshell/shell_common.py`) — `c_exam/examshell.py` only supplies what is
 C-specific. Rendering is shared too — `c_exam/examshell.py` uses
-`src/ui.py` directly, unchanged in behavior, including `exercise_table`/
-`training_table`. `src/grader.py`'s `Report` is reused too; only the
+`examshell/ui.py` directly, unchanged in behavior, including `exercise_table`/
+`training_table`. `examshell/grader.py`'s `Report` is reused too; only the
 grading mechanism itself (`c_exam/grader.py`) is new. Themes, saved
 config, local stats, exam save/resume, session reports and stuck-student
-hints (`src/settings.py`, `src/stats.py`, `src/session_store.py`,
-`src/report_export.py`, `src/hints.py`) are shared the same way — see
+hints (`examshell/settings.py`, `examshell/stats.py`, `examshell/session_store.py`,
+`examshell/report_export.py`, `examshell/hints.py`) are shared the same way — see
 [shared features](features.md).
 
 <br>

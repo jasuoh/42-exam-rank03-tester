@@ -1,17 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Entry point for `python3 -m src`."""
+"""`python3 -m src` → `python3 -m examshell` (the package was renamed in 0.5.0)."""
 
 import sys
 
-from . import ui
-from .examshell import main
+from examshell.__main__ import run
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print()
-        ui.info("See you! 🍀")
-        print()
-        sys.exit(130)
+    sys.stderr.write("note: `python3 -m src` is now `python3 -m examshell` "
+                     "(or just `examshell` once installed)\n")
+    sys.exit(run())

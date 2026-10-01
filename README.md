@@ -27,19 +27,36 @@ far more edge cases than you'd think to test yourself.
 
 ## ⚡ Quick start
 
+**Option A — one command, then `examshell` works from any folder** (needs
+[uv](https://docs.astral.sh/uv/getting-started/installation/)):
+
+```bash
+uv tool install --python 3.12 "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"
+
+examshell --tui     # ✨ the full-screen app — switch between Python 03/04/05 and C 02 inside it
+examshell           # 🐍 Python · Exam Rank 03 (--rank 04 / 05 for the others)
+examshell-c         # 🔧 C · Exam Rank 02 — needs a C compiler
+examshell --doctor  # is this machine ready? (compiler, extras, sync, updates)
+```
+
+Your solutions go into `rendu/` / `c_rendu/` in the folder you start it from.
+Update later with `uv tool upgrade examshell`.
+
+**Option B — clone and use `make`** (works on a bare exam machine with only
+Python 3.8+, no install at all):
+
 ```bash
 git clone https://github.com/jasuoh/42-exam-tester && cd 42-exam-tester
 
 make run            # 🐍 Python · Exam Rank 03 — interactive menu (RANK=04 / 05 for the others)
-make c-run          # 🔧 C · Exam Rank 02 — needs nothing but a C compiler
-
-make install        # optional: colours + the full-screen app (installs rich & textual into ./venv)
-make tui            # ✨ the full-screen app — make c-tui for C
+make c-run          # 🔧 C · Exam Rank 02
+make install        # optional: colours + the full-screen app (uv if you have it, pip otherwise)
+make tui            # ✨ full-screen app (make c-tui starts on the C exam)
+make doctor         # is this machine ready?
 ```
 
-No dependencies required — it runs on a bare exam machine with Python 3.8+.
-The full-screen app is an optional extra (Python 3.9+); without it everything
-works in the plain terminal UI.
+The full-screen app is an optional extra (Python 3.9+); without it
+everything works in the plain terminal UI.
 
 ## 🔁 A typical week
 
@@ -48,6 +65,7 @@ make c-readiness    # what could the exam still throw at you? (✔ passed · ✖
 make c-drill        # 5 exercises picked from your gaps
 make c-exam FLAGS="--time-limit 180"   # full rehearsal, as strict as the real one, clock running
 make sync           # take it all (progress, paused exam, solutions) to your other device
+                    #   — or "s" in the menu / "🔄 Sync" in the full-screen app
 ```
 
 When a test fails you see exactly why — and how to reproduce it:

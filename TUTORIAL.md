@@ -5,10 +5,10 @@ tool itself is working correctly (`make test`). Everything from step 3 on
 walks through the extras described in the README's
 [shared features](docs/features.md)
 section. Everything here applies to **both** testers — examples below use
-`python3 -m src` (or `make …`); swap in `python3 -m c_exam` (or `make
+`python3 -m examshell` (or `make …`); swap in `python3 -m c_exam` (or `make
 c-…`) for the C tester and it behaves identically, since both share the
-same `src/settings.py`, `src/stats.py`, `src/session_store.py`,
-`src/report_export.py` and `src/hints.py`.
+same `examshell/settings.py`, `examshell/stats.py`, `examshell/session_store.py`,
+`examshell/report_export.py` and `examshell/hints.py`.
 
 None of steps 3 onward is required. The exam and practice flow work
 exactly as they always have if you never touch any of it.
@@ -24,7 +24,7 @@ make run       # interactive menu: exam · practice · list · training · stats
 ```
 
 `make run` with no arguments drops you into the same menu you'd get from
-`python3 -m src` directly — pick a mode with a number, or `q` to quit. Once
+`python3 -m examshell` directly — pick a mode with a number, or `q` to quit. Once
 you know what you want, the other targets skip the menu:
 
 ```bash
@@ -107,14 +107,14 @@ deficiency).
 Try one for a single run:
 
 ```bash
-python3 -m src --theme light --list
+python3 -m examshell --theme light --list
 ```
 
 If you like it, save it so every future run picks it up automatically,
 without retyping `--theme` every time:
 
 ```bash
-python3 -m src --theme light --save-config
+python3 -m examshell --theme light --save-config
 ```
 
 This writes `~/.examshell/config.json`:
@@ -133,7 +133,7 @@ cat ~/.examshell/config.json
 ```
 
 An explicit `--theme` on the command line always overrides the saved one,
-so `python3 -m src --theme dark --exam` still works for a single run even
+so `python3 -m examshell --theme dark --exam` still works for a single run even
 after saving `light`.
 
 `--save-config` also remembers `--timeout`, `--fuzz`, `--show-fails`, and
@@ -141,7 +141,7 @@ after saving `light`.
 longer timeout on a slow machine, for example:
 
 ```bash
-python3 -m src --timeout 8 --fuzz 20 --save-config
+python3 -m examshell --timeout 8 --fuzz 20 --save-config
 ```
 
 `--fuzz` itself means slightly different things per tester: the Python
@@ -170,7 +170,7 @@ Then:
 
 ```bash
 make stats
-# or: python3 -m src --stats
+# or: python3 -m examshell --stats
 ```
 
 ```
@@ -362,7 +362,7 @@ can paste straight into your shell to reproduce it.
 ```bash
 make install               # once
 make test                  # confirm the tool + exercise banks are sound
-python3 -m src --theme highcontrast --timeout 6 --save-config
+python3 -m examshell --theme highcontrast --timeout 6 --save-config
 make run                   # or straight to: make exam
 # ... solve a couple of levels, then `quit` ...
 make exam                 # offers to resume

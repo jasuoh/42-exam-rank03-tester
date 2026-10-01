@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "42-exam-tester"
-version = "0.4.0"
+name = "examshell"
+version = "0.5.0"
 description = "A local practice tester for 42 School's Exam Ranks 03-05 (Python) and Rank 02 (C) — sandboxed grading, fuzzing, hints, and training pools."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -12,12 +16,27 @@ dependencies = ["rich>=13.0"]
 # the full-screen interface (--tui) — Python 3.9+
 tui = ["textual>=1.0,<9; python_version >= \"3.9\""]
 
+# `uv tool install "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"`
+# puts both commands on your PATH (see README "Install").
+[project.scripts]
+examshell = "examshell.__main__:run"
+examshell-c = "c_exam.__main__:run"
+
 [project.urls]
 Repository = "https://github.com/jasuoh/42-exam-tester"
 
+# Tools for working ON the tester (uv sync installs these by default).
+[dependency-groups]
+dev = ["ruff>=0.4"]
+
+[tool.setuptools]
+# `src/` is only a `python3 -m src` compatibility shim for a git checkout —
+# never installed.
+packages = ["examshell", "examshell.tui", "c_exam"]
+
 [tool.ruff]
 line-length = 100
-extend-exclude = ["venv"]
+extend-exclude = ["venv", ".venv"]
 
 [tool.ruff.lint]
 # Keep this to rules that catch real bugs (pyflakes, syntax errors, a

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for the pure logic in src/examshell.py — CLI plumbing,
+"""Unit tests for the pure logic in examshell/examshell.py — CLI plumbing,
 exercise resolution, formatting — not the interactive flow itself."""
 
 import argparse
@@ -13,11 +13,11 @@ import tempfile
 import unittest
 from unittest import mock
 
-from src import shell_common
+from examshell import shell_common
 
-from src import examshell, stats
-from src.exam_bank import EXERCISES, N_LEVELS
-from src.training_bank import DIFFICULTIES, TRAINING_EXERCISES
+from examshell import examshell, stats
+from examshell.exam_bank import EXERCISES, N_LEVELS
+from examshell.training_bank import DIFFICULTIES, TRAINING_EXERCISES
 
 
 def _cfg(rendu, **overrides):
@@ -111,7 +111,7 @@ class ExerciseEntriesTests(unittest.TestCase):
         # "standard": True must never silently become eligible for a real
         # `make exam` draw (see c_exam/bank.py's own copy of this test —
         # it used to default the opposite way there).
-        import src.exam_bank as bank_module
+        import examshell.exam_bank as bank_module
         src = inspect.getsource(bank_module)
         self.assertIn('_ex.setdefault("standard", False)', src)
 
@@ -233,7 +233,7 @@ class GradeAllTests(unittest.TestCase):
 
 
 class GradeExerciseHintTests(unittest.TestCase):
-    """grade_exercise()'s stuck-student nudge (see src/hints.py) — a
+    """grade_exercise()'s stuck-student nudge (see examshell/hints.py) — a
     generic diagnose() hint only appears after STUCK_THRESHOLD consecutive
     fails on the same exercise, and never during --exam."""
 

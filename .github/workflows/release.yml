@@ -2,7 +2,7 @@ name: Release
 
 # Push a tag like `v0.2.0` and this publishes a GitHub Release whose notes
 # are that version's section of CHANGELOG.md. It refuses to publish when
-# the tag doesn't match src/version.py (and so pyproject.toml — the unit
+# the tag doesn't match examshell/version.py (and so pyproject.toml — the unit
 # tests keep those two in sync), so a release can never claim a version
 # the code itself doesn't report via --version or the update check.
 
@@ -23,11 +23,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Tag must match src/version.py
+      - name: Tag must match examshell/version.py
         run: |
-          code_version=$(python3 -c 'from src.version import __version__; print(__version__)')
+          code_version=$(python3 -c 'from examshell.version import __version__; print(__version__)')
           if [ "v$code_version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match src/version.py ($code_version)"
+            echo "::error::tag $GITHUB_REF_NAME does not match examshell/version.py ($code_version)"
             exit 1
           fi
 

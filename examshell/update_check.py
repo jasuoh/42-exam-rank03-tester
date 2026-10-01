@@ -93,8 +93,9 @@ def notice_text(latest):
     """The one-line notice for `latest`, or None when it isn't newer."""
     if not latest or not is_newer(latest):
         return None
-    return ("update available: %s (you have %s) — run `make update` "
-            "or `git pull`" % (latest.lstrip("vV"), __version__))
+    from .doctor import upgrade_command
+    return ("update available: %s (you have %s) — run `%s`"
+            % (latest.lstrip("vV"), __version__, upgrade_command()))
 
 
 def start_background_check(opt_out_flag=False):

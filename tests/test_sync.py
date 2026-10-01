@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""src/sync.py — two "devices" (separate data dirs and solution folders)
+"""examshell/sync.py — two "devices" (separate data dirs and solution folders)
 syncing through a local bare git repository. Needs git."""
 
 import json
@@ -14,7 +14,7 @@ import time
 import unittest
 from unittest import mock
 
-from src import session_store, sync
+from examshell import session_store, sync
 
 HAVE_GIT = shutil.which("git") is not None
 
@@ -178,7 +178,7 @@ class DataDirTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, target)
         out = subprocess.run(
             [sys.executable, "-c",
-             "from src import settings, stats; print(settings.DATA_DIR); print(stats.STATS_PATH)"],
+             "from examshell import settings, stats; print(settings.DATA_DIR); print(stats.STATS_PATH)"],
             env=dict(os.environ, EXAMSHELL_HOME=target), stdout=subprocess.PIPE,
             universal_newlines=True, check=True,
             cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).stdout.split()

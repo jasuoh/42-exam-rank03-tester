@@ -18,13 +18,13 @@ Details: CHANGELOG.md.
 
 ---
 
-## ▶ 0.6.0 — „bereit für echte Nutzer“ · F1, F2, T1, S1 ✔ umgesetzt — R1 offen
+## ▶ 0.6.0 — „bereit für echte Nutzer“ · R1, F1, F2, T1, S1 ✔ umgesetzt
 
 Ziel: Das Tool ist technisch weit — jetzt soll es **bei Leuten ankommen**,
 **Feedback einsammeln** und **zuverlässig Updates ausliefern**. Dazu die
 letzten bekannten Test-Lücken schließen.
 
-### R1 · Releases automatisch veröffentlichen ⭐ — *noch offen*
+### R1 · Releases automatisch veröffentlichen ⭐ ✔
 **Problem:** Ein Release entsteht nur durch einen manuell gepushten Tag — das
 ist seit 0.2.0 jedes Mal liegen geblieben. Ohne Release funktionieren der
 Update-Hinweis im Menü und der Update-Check in `doctor` nicht.

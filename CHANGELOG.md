@@ -3,9 +3,9 @@
 Notable changes to this project, newest entries first. This tracks the
 *tester itself* (grading logic, exercise banks, UX) — not students'
 `rendu/` solutions. Loosely follows [Keep a Changelog](https://keepachangelog.com/).
-Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
-version's section below as a GitHub Release (see
-`.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
+Versions follow `examshell/version.py`; when a merge to `main` bumps it,
+`.github/workflows/release.yml` tags it and publishes that version's section
+below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
 ## 0.6.0 — 2026-10-01
 
@@ -30,6 +30,13 @@ version's section below as a GitHub Release (see
 ### Changed
 - `settings.update_config()` changes one saved preference without
   touching the others.
+
+### Release process
+- **Releases publish themselves.** A merge to `main` that changes
+  `examshell/version.py` runs the tests, tags `vX.Y.Z`, and creates the
+  GitHub Release with the CHANGELOG section as notes and the built
+  package (wheel + sdist) attached — no manual tag any more. "Run
+  workflow" on the Release action does the same by hand.
 
 ## 0.5.0 — 2026-10-01
 

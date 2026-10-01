@@ -257,9 +257,11 @@ one, the menu says so — `make update` (`git pull --ff-only`) gets it, and
 anonymous request for the latest release tag. Turn it off with
 `--no-update-check` or `EXAMSHELL_NO_UPDATE_CHECK=1`.
 
-Releases are cut by pushing a `vX.Y.Z` tag; `.github/workflows/release.yml`
-publishes that version's [CHANGELOG](../CHANGELOG.md) section as the release
-notes.
+Releases publish themselves: when a merge to `main` changes the version in
+`examshell/version.py`, `.github/workflows/release.yml` runs the tests,
+creates the tag `vX.Y.Z` and a GitHub Release with that version's
+[CHANGELOG](../CHANGELOG.md) section as notes and the package files
+attached.
 
 ### 🔎 Fuzzy search in the exercise picker
 

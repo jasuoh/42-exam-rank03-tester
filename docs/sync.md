@@ -1,131 +1,127 @@
-# 🔄 Sync einrichten — auf jedem Gerät mit deinem Stand weitermachen
+# 🔄 Setting up sync — continue on any device
 
-[← zurück zum README](../README.md)
+[← back to the README](../README.md) · 🇩🇪 [Deutsche Version](sync.de.md)
 
-Mit `make sync` nimmst du **deinen Fortschritt, ein pausiertes Exam und deine
-Lösungen** von einem Gerät aufs andere mit — z. B. morgens im Cluster, abends
-am eigenen Laptop. Alles läuft über **dein eigenes, privates Git-Repo**. Es
-gibt keinen Server von uns dazwischen.
+`make sync` carries **your progress, a paused exam and your solutions** from
+one device to another — say, the cluster in the morning and your own laptop
+in the evening. Everything goes through **your own private git repository**.
+There is no server of ours in between.
 
-## Kurzfassung
+## In short
 
 ```bash
-# 1× auf GitHub: leeres PRIVATES Repo anlegen, z. B. "examshell-progress"
-# 1× pro Gerät, im Ordner des Testers:
-make sync-setup REPO=git@github.com:<dein-name>/examshell-progress.git
+# once, on GitHub: create an empty PRIVATE repo, e.g. "examshell-progress"
+# once per device, in the tester's folder:
+make sync-setup REPO=git@github.com:<your-name>/examshell-progress.git
 
-# danach immer: beim Aufhören UND beim Weitermachen
+# from then on: when you stop AND when you start
 make sync
 ```
 
-Das ist alles. Die Schritte im Detail:
+That's all. The steps in detail:
 
 ---
 
-## 1. Privates Repo anlegen (einmalig)
+## 1. Create a private repo (once)
 
-1. Auf <https://github.com/new> gehen.
-2. Name z. B. `examshell-progress`.
-3. **Private** auswählen. ⚠️ Wichtig — dort liegen deine Lösungen, und
-   geteilte Lösungen können an der 42 als Schummeln gelten.
-4. **Keine** README, `.gitignore` oder Lizenz hinzufügen — das Repo soll leer sein.
-5. „Create repository“ klicken und die **SSH-Adresse** kopieren:
-   `git@github.com:<dein-name>/examshell-progress.git`
+1. Go to <https://github.com/new>.
+2. Name it, e.g. `examshell-progress`.
+3. Choose **Private**. ⚠️ Important — your solutions end up there, and
+   sharing solutions can count as cheating at 42.
+4. Do **not** add a README, `.gitignore` or license — the repo must be empty.
+5. Click "Create repository" and copy the **SSH address**:
+   `git@github.com:<your-name>/examshell-progress.git`
 
-> Geht auch mit GitLab, Codeberg oder jedem anderen Git-Server — Hauptsache
-> privat.
+> GitLab, Codeberg or any other git server works too — as long as it's private.
 
-## 2. Prüfen, ob Git dich einloggen kann (einmal pro Gerät)
+## 2. Check that git can log you in (once per device)
 
 ```bash
 ssh -T git@github.com
 ```
 
-- Kommt `Hi <dein-name>! You've successfully authenticated` → passt, weiter
-  mit Schritt 3.
-- Kommt `Permission denied (publickey)` → du brauchst auf diesem Gerät einen
-  SSH-Key:
+- `Hi <your-name>! You've successfully authenticated` → good, go on to step 3.
+- `Permission denied (publickey)` → this device needs an SSH key:
 
   ```bash
-  ssh-keygen -t ed25519 -C "deine@mail"      # 3× Enter reicht
-  cat ~/.ssh/id_ed25519.pub                  # Ausgabe kopieren
+  ssh-keygen -t ed25519 -C "you@mail"      # pressing Enter 3× is fine
+  cat ~/.ssh/id_ed25519.pub                # copy the output
   ```
 
-  Den kopierten Text auf <https://github.com/settings/keys> unter
-  „New SSH key“ einfügen, dann `ssh -T git@github.com` nochmal testen.
+  Paste it at <https://github.com/settings/keys> under "New SSH key", then
+  run `ssh -T git@github.com` again.
 
-> Lieber HTTPS statt SSH? Dann die `https://github.com/...`-Adresse nehmen.
-> Als Passwort will GitHub dann ein **Personal Access Token**, nicht dein
-> Login-Passwort.
+> Prefer HTTPS over SSH? Use the `https://github.com/...` address instead.
+> GitHub then wants a **personal access token** as the password, not your
+> login password.
 
-## 3. Gerät verbinden (einmal pro Gerät)
+## 3. Connect the device (once per device)
 
-Im Ordner, in dem der Tester liegt (`42-exam-tester/`):
+In the tester's folder (`42-exam-tester/`):
 
 ```bash
-make sync-setup REPO=git@github.com:<dein-name>/examshell-progress.git
+make sync-setup REPO=git@github.com:<your-name>/examshell-progress.git
 ```
 
-Das verbindet das Gerät und macht direkt den ersten Sync. Auf dem ersten
-Gerät siehst du z. B.:
+This connects the device and runs a first sync right away. On the first
+device you'll see something like:
 
 ```
-✔  this device is connected to git@github.com:<dein-name>/examshell-progress.git
+✔  this device is connected to git@github.com:<your-name>/examshell-progress.git
 ✔  ↓ from the repo: nothing new  ·  ↑ to the repo: 12 attempts, 3 solutions
 ```
 
-Auf dem zweiten Gerät dasselbe Kommando — dort kommt dann alles herunter
+Run the same command on the second device — there everything comes down
 (`↓ from the repo: …`).
 
-## 4. Im Alltag
+## 4. Day to day
 
-| Wann | Was |
+| When | What |
 |---|---|
-| bevor du aufhörst | `make sync` |
-| bevor du auf dem anderen Gerät anfängst | `make sync` |
-| mitten im Exam wechseln | im Exam `quit` (speichert), `make sync`, am anderen Gerät `make sync`, dann `make exam` → „Resume?“ mit `y` |
+| before you stop | `make sync` |
+| before you start on the other device | `make sync` |
+| switching in the middle of an exam | `quit` in the exam (it saves), `make sync`, `make sync` on the other device, then `make exam` → answer "Resume?" with `y` |
 
-Ein `make sync` nimmt **Python- und C-Tester** gleichzeitig mit.
+One `make sync` covers **both the Python and the C tester**.
 
 ---
 
-## Was wird mitgenommen?
+## What travels?
 
-| Was | Wenn beide Geräte etwas haben |
+| What | If both devices have something |
 |---|---|
-| Übungshistorie (Stats, Readiness, Streak) | alles von beiden — nichts geht verloren |
-| pausiertes Exam | das **neuere** gewinnt; ein beendetes Exam bleibt beendet |
-| Exam-Reports | alle |
-| Lösungen in `rendu/` und `c_rendu/` | pro Datei gewinnt die **neuere** Änderung — die ältere wird in `~/.examshell/sync-backup/` aufgehoben |
-| Einstellungen (Theme, Compiler, …) | **nicht** — die bleiben pro Gerät |
+| practice history (stats, readiness, streak) | everything from both — nothing is lost |
+| paused exam | the **newer** one wins; a finished exam stays finished |
+| exam reports | all of them |
+| solutions in `rendu/` and `c_rendu/` | per file the **newer** edit wins — the older one is kept in `~/.examshell/sync-backup/` |
+| settings (theme, compiler, …) | **not synced** — they stay per device |
 
-Du musst nie selbst Git-Konflikte lösen: Der Tester führt beide Stände
-selbst zusammen und pusht dann.
+You never have to resolve a git conflict yourself: the tester combines both
+sides on its own, then pushes.
 
-## Wenn etwas nicht klappt
+## When something goes wrong
 
-| Meldung | Lösung |
+| Message | Fix |
 |---|---|
-| `sync isn't set up on this device` | Auf diesem Gerät fehlt noch Schritt 3. |
-| `Permission denied (publickey)` | Schritt 2 — SSH-Key fehlt oder ist nicht bei GitHub hinterlegt. |
-| `Repository not found` | Adresse vertippt, oder das Repo gehört einem anderen Account. |
-| `git isn't installed` | Git installieren (`xcode-select --install` auf macOS, `sudo apt install git` auf Linux). |
-| „Meine Datei wurde überschrieben!“ | Auf dem anderen Gerät war sie neuer. Deine Version liegt in `~/.examshell/sync-backup/<Datum>/`. |
+| `sync isn't set up on this device` | Step 3 is still missing on this device. |
+| `Permission denied (publickey)` | Step 2 — no SSH key, or it isn't added to GitHub. |
+| `Repository not found` | Typo in the address, or the repo belongs to a different account. |
+| `git isn't installed` | Install git (`xcode-select --install` on macOS, `sudo apt install git` on Linux). |
+| "My file was overwritten!" | It was newer on the other device. Your version is in `~/.examshell/sync-backup/<date>/`. |
 
-**Anderes Repo verwenden:** einfach `make sync-setup REPO=<neue-adresse>`
-nochmal ausführen.
-**Sync auf einem Gerät abschalten:** den Ordner `~/.examshell/sync-repo/`
-löschen. Deine Daten und Lösungen bleiben dabei unangetastet.
+**Use a different repo:** just run `make sync-setup REPO=<new-address>`
+again.
+**Turn sync off on a device:** delete the folder `~/.examshell/sync-repo/`.
+Your data and solutions stay untouched.
 
-## Ohne Git: `EXAMSHELL_HOME`
+## Without git: `EXAMSHELL_HOME`
 
-Wenn du schon iCloud, Dropbox oder Nextcloud nutzt, kannst du den
-Datenordner einfach dorthin legen — dann wandern Historie, pausierte Exams
-und Reports automatisch mit:
+If you already use iCloud, Dropbox or Nextcloud, you can simply put the data
+folder there — history, paused exams and reports then travel automatically:
 
 ```bash
-export EXAMSHELL_HOME=~/Dropbox/examshell     # z. B. in ~/.zshrc eintragen
+export EXAMSHELL_HOME=~/Dropbox/examshell     # e.g. add this to ~/.zshrc
 ```
 
-Deine Lösungsordner (`rendu/`, `c_rendu/`) wandern so **nicht** mit — dafür
-ist `make sync` da.
+Your solution folders (`rendu/`, `c_rendu/`) do **not** travel this way —
+that's what `make sync` is for.

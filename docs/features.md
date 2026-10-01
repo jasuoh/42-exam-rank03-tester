@@ -41,7 +41,7 @@ practice history.
 
 ## 🔄 Continue on another device (`make sync`)
 
-**→ Step-by-step setup (German): [sync.md](sync.md)**
+**→ Step-by-step setup: [sync.md](sync.md) · 🇩🇪 [sync.de.md](sync.de.md)**
 
 Practise on campus, carry on at home — with the same history, the same
 paused exam and the same solution files. Everything goes through **your

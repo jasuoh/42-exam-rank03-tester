@@ -548,6 +548,9 @@ class SummaryScreen(Screen):
             pane.add_class("passed")
         for badge in self.result.badges:
             self.notify(badge, title="🏅", timeout=8)
+        hint = None if self.result.passed else shell_common.sync_hint()
+        if hint:
+            self.notify(hint, timeout=10)
 
 
 # ══════════════════════════════════════════════════════════════

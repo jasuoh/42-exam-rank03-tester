@@ -35,6 +35,38 @@ Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
 
 ---
 
+## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · ✔ umgesetzt
+
+Ziel: Fortschritt **und** Lösungen über ein eigenes, **privates** Git-Repo
+zwischen Geräten (Schule ↔ Laptop) mitnehmen — kein Server, kein Account
+bei uns, nichts verlässt die Rechner außer Richtung des eigenen Repos.
+
+```bash
+make sync-setup REPO=git@github.com:<du>/examshell-progress.git   # einmal pro Gerät
+make sync                                                         # vor und nach dem Üben
+```
+
+**Was synchronisiert wird** (Arbeitskopie in `~/.examshell/sync-repo/`):
+
+| Daten | Zusammenführen |
+|---|---|
+| `stats.jsonl` (alle Versuche) | Vereinigung aller Zeilen, nach Zeit sortiert — nichts geht verloren |
+| gespeichertes Exam (je Tester/Rank) | das **neuere** gewinnt; ein beendetes Exam hinterlässt einen Lösch-Marker, damit es nicht auf dem anderen Gerät wieder auftaucht |
+| Exam-Reports | Vereinigung (Dateinamen sind eindeutig) |
+| Lösungen `rendu/`, `c_rendu/` | pro Datei gewinnt die **neuere** Änderung; die ältere Version wird lokal in `~/.examshell/sync-backup/` aufgehoben — Code geht nie verloren |
+| `config.json` | **nicht** — Einstellungen wie Compiler sind pro Gerät |
+
+Kein `git merge`: der Tester holt den Remote-Stand, führt selbst nach den
+Regeln oben zusammen, schreibt das Ergebnis lokal und ins Repo, committet und
+pusht. Dadurch gibt es nie Git-Konflikte für den Nutzer.
+
+Dazu: `EXAMSHELL_HOME` verlegt den Datenordner (z. B. in iCloud/Dropbox) als
+einfachste Alternative ohne Git.
+
+**Aufwand:** ~500 Zeilen inkl. Tests · ~1 Tag.
+
+---
+
 ## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
 
 Heute: `src/examshell.py` und `c_exam/examshell.py` enthalten **je** den

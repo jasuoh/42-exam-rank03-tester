@@ -47,6 +47,7 @@ works in the plain terminal UI.
 make c-readiness    # what could the exam still throw at you? (✔ passed · ✖ failed · · never tried)
 make c-drill        # 5 exercises picked from your gaps
 make c-exam FLAGS="--time-limit 180"   # full rehearsal, as strict as the real one, clock running
+make sync           # take it all (progress, paused exam, solutions) to your other device
 ```
 
 When a test fails you see exactly why — and how to reproduce it:
@@ -68,6 +69,7 @@ When a test fails you see exactly why — and how to reproduce it:
 | 📈 **Knows your gaps** | readiness per level, a daily drill, stats, hints after 3 fails in a row (never during the exam) |
 | ⏸️ **Life happens** | `quit` saves the exam, the next start resumes it; every run writes a Markdown report |
 | 🧠 **Beyond the exam** | a separate LeetCode-style training pool per language |
+| 🔄 **Continue on any device** | `make sync` carries your progress, paused exam and solutions through your own private git repo — school in the morning, laptop at night (setup guide: [🇬🇧](docs/sync.md) · [🇩🇪](docs/sync.de.md)) |
 | ✨ **Full-screen app** | subject and results side by side, **watch mode** re-grades every time you save, level stepper and countdown in the exam, readiness heatmap, stats with your streak — [screenshots](docs/features.md#-the-full-screen-app) |
 
 | | 🐍 Python | 🔧 C |
@@ -83,6 +85,7 @@ When a test fails you see exactly why — and how to reproduce it:
 |---|---|
 | **[🐍 Python tester](docs/python.md)** | exam flow, the exercise pools per rank, how grading works, make targets, CLI |
 | **[🔧 C tester](docs/c.md)** | function vs program exercises, the pool, fuzzing, Valgrind, make targets, CLI |
+| **[🔄 Sync setup](docs/sync.md)** · [🇩🇪 Deutsch](docs/sync.de.md) | connect your devices with `make sync`, step by step |
 | **[🎛️ Shared features](docs/features.md)** | themes, stats, hints, readiness & drill, edge-case labels, reports, resume, updates |
 | **[🚶 Tutorial](TUTORIAL.md)** | a step-by-step first session with real output |
 | **[🛠️ Development](docs/development.md)** | testing the tool itself, code layout, releases |

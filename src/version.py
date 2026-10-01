@@ -8,7 +8,7 @@ pyproject.toml — tests/test_shared.py keeps the two in sync, and the
 release workflow refuses to publish a tag that doesn't match it.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 REPO = "jasuoh/42-exam-tester"
 REPO_URL = "https://github.com/" + REPO

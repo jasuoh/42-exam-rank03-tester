@@ -646,6 +646,9 @@ def exam_summary(sh, session, passed, timed_out=False):
     ui.summary(result.title, result.rows, result.passed)
     if result.report_path:
         ui.note("Session report saved to %s" % result.report_path)
+    hint = sync_hint() if not passed and not timed_out else None
+    if hint:
+        ui.note(hint)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -941,3 +944,42 @@ def run_tui(sh, cfg, args):
             return 2
         start = ("practice", name)
     return tui.run(sh, cfg, start)
+
+
+def sync_dirs(sh, cfg):
+    """{slot: local dir} for src/sync.py — this tester's own --rendu, the
+    other tester's default folder, so one `make sync` carries both."""
+    dirs = {"rendu": "rendu", "c_rendu": "c_rendu"}
+    dirs[sh.SYNC_SLOT] = cfg.rendu
+    return dirs
+
+
+def run_sync(sh, cfg, setup_url=None):
+    """--sync / --sync-setup URL. Returns a process exit code."""
+    from . import settings, sync
+    # No spinner: git may need to ask for a password / key passphrase.
+    ui.info("syncing with %s …" % (setup_url or sync.remote_url(settings.DATA_DIR)
+                                   or "your repo"))
+    try:
+        if setup_url:
+            result = sync.setup(setup_url, settings.DATA_DIR, sync_dirs(sh, cfg))
+        else:
+            result = sync.sync(settings.DATA_DIR, sync_dirs(sh, cfg))
+    except sync.SyncError as exc:
+        ui.error(str(exc))
+        return 1
+    if setup_url:
+        ui.success("this device is connected to %s" % setup_url)
+        ui.note("make sure that repository is PRIVATE — it holds your solutions")
+    ui.success(result.summary())
+    for backup in result.backups:
+        ui.note("a newer version came from the repo — your older one is kept at %s" % backup)
+    return 0
+
+
+def sync_hint():
+    """The line to show after an exam is paused, when sync is set up."""
+    from . import settings, sync
+    if sync.is_configured(settings.DATA_DIR):
+        return "continue on another device: `make sync` here, then `make sync` there"
+    return None

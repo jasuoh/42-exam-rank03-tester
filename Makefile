@@ -25,7 +25,7 @@ SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
                $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
                $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
                $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py $(wildcard $(SRC_PKG)/tui/*.py) \
+               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(wildcard $(SRC_PKG)/tui/*.py) \
                $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
                $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
                $(wildcard tests/*.py)
@@ -60,7 +60,7 @@ OFF   := \033[0m
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
-        readiness drill c-readiness c-drill update tui c-tui
+        readiness drill c-readiness c-drill update tui c-tui sync sync-setup
 
 # ── help ──────────────────────────────────────────────────────
 # Every "make X ..." row uses a real printf field width (%-21s) on the
@@ -99,6 +99,8 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make update" "pull the latest version of this tester (git pull)"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)REPO=<url>$(OFF)\n" $(ROWW) "make sync-setup" "connect this device to your private git repo (once)"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make sync" "carry progress + solutions to/from that repo (both testers)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make install" "create $(VENV)/ and install rich (nicer UI, optional)"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make clean" "remove caches and stray artefacts"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make fclean" "clean + remove $(VENV)/"
@@ -286,6 +288,17 @@ c-status:
 # ── environment ───────────────────────────────────────────────
 update:
 	@git pull --ff-only
+
+# One `make sync` carries BOTH testers' progress and solutions (src/sync.py).
+REPO ?=
+sync:
+	@$(PY) -m $(SRC_PKG) --sync
+
+sync-setup:
+	@if [ -z "$(REPO)" ]; then \
+		printf "usage: make sync-setup REPO=git@github.com:<you>/<private-repo>.git\n"; exit 2; \
+	fi
+	@$(PY) -m $(SRC_PKG) --sync-setup "$(REPO)"
 
 install: venv deps
 

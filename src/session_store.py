@@ -55,6 +55,8 @@ def save(tool, session, rng, current_ex, level_attempts=0, level_started=None):
         "elapsed_seconds": time.time() - session.start_time
                           if session.start_time else 0,
         "rng_state": _rng_to_json(rng),
+        # what src/sync.py compares when two devices both have a save
+        "saved_at": time.time(),
     }
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -83,8 +85,16 @@ def load(tool):
 
 
 def clear(tool):
+    """Forget the saved exam. Leaves a small tombstone instead of just
+    deleting the file: with `make sync`, a plain delete would look like
+    "this device never had one" and the other device's stale save would
+    come right back. load() ignores the tombstone (no required keys)."""
+    path = _path(tool)
+    if not os.path.exists(path):
+        return
     try:
-        os.remove(_path(tool))
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"cleared_at": time.time()}, fh)
     except OSError:
         pass
 

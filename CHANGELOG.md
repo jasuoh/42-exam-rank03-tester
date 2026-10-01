@@ -7,6 +7,26 @@ Versions follow `src/version.py`; pushing a `vX.Y.Z` tag publishes that
 version's section below as a GitHub Release (see
 `.github/workflows/release.yml`). Entries before 0.2.0 are grouped by date.
 
+## 0.4.0 — 2026-09-30
+
+### Added
+- **`make sync` — continue on another device.** Progress, the paused
+  exam, exam reports and your `rendu/` + `c_rendu/` solutions travel
+  through your own private git repository (`make sync-setup REPO=<url>`
+  once per device). The tester combines both sides itself — history is
+  unioned, the newer paused exam wins, the newer edit of a solution wins
+  with the older one backed up — so there are never git conflicts.
+  Settings stay per device. `src/sync.py`, docs/features.md.
+- **`EXAMSHELL_HOME`** moves the data folder, e.g. into a folder
+  iCloud/Dropbox already syncs.
+- After pausing an exam, the summary reminds you to `make sync` when sync
+  is set up (both interfaces).
+
+### Changed
+- A saved exam now records when it was saved, and finishing an exam
+  leaves a small "cleared" marker instead of deleting the file — so a
+  finished exam can't come back from another device.
+
 ## 0.3.0 — 2026-09-27
 
 ### Added

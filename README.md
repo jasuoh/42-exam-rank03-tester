@@ -21,6 +21,10 @@ Draw a random exercise per level, write your solution, type `grademe`, and
 only advance at **100 %** — graded as strictly as the real `examshell`, on
 far more edge cases than you'd think to test yourself.
 
+> **A practice tool, nothing more.** Nothing from it exists in the real
+> exam — no tester, no hints, no internet. It helps you train for the exam;
+> it doesn't replace learning to solve the exercises yourself.
+
 <p align="center">
   <img src="docs/img/tui-practice.svg" alt="ExamShell's full-screen app: the subject on the left, a failing first_word on the right — each failing case with its edge case and a command to reproduce it" width="880">
 </p>
@@ -112,6 +116,10 @@ When a test fails you see exactly why — and how to reproduce it:
 `make` alone prints every command.
 
 ## 🗣️ Help make it match the real exam
+
+**Fastest way:** `examshell --feedback exam` (or `make feedback`, or
+"💬 Feedback" in the menu) opens the right form with your version and
+system already filled in — nothing is sent until you submit it yourself.
 
 Exercise pools differ between campuses and change over time — this tester is
 only as good as the feedback it gets. If something here differs from your

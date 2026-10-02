@@ -163,9 +163,17 @@ tool, there is no per-exercise custom fuzzer: C has no oracle-only
 in-process check, so a fuzzed value can only be validated by actually
 compiling and running it, and a value the oracle doesn't expect could
 trigger undefined behaviour identically on both sides (a false failure
-that's nobody's fault). So exercises using a linked list, `t_point`,
-a char grid, or a fixed callback keep their curated cases only —
-`make c-check` marks which exercises got fuzzed with `(+fuzz)`.
+that's nobody's fault).
+
+**Structured exercises** — `flood_fill`, `ft_list_foreach` and
+`ft_list_remove_if` — get a hand-written generator for *whole* cases
+instead (`CASE_FUZZERS` in `c_exam/grader.py`), aimed at their classic
+bugs: for `remove_if` a match at the head (the head pointer must move), at
+the tail, on every node, on none, and the empty list; for `flood_fill`
+random grids with the start in a corner, on an edge, on a 1-cell island
+and occasionally off the grid. Every generated case is checked against the
+reference solution under valgrind in CI. Only `fizzbuzz` (no input at all)
+isn't fuzzed — `make c-check` marks fuzzed exercises with `(+fuzz)`.
 
 ```bash
 python3 -m c_exam --grade ft_atoi --fuzz 20

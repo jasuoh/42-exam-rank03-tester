@@ -71,7 +71,7 @@ class DoctorCheckTests(unittest.TestCase):
 class MenuAndConfigTests(unittest.TestCase):
     def test_sync_row_sits_right_before_quit(self):
         rows = shell_common.with_sync_row([("1", "Exam", ""), ("q", "Quit", "")])
-        self.assertEqual([r[0] for r in rows], ["1", "s", "q"])
+        self.assertEqual([r[0] for r in rows], ["1", "s", "f", "q"])
 
     def test_default_config_per_tester(self):
         self.assertEqual(py_shell.default_config().rendu, "rendu")

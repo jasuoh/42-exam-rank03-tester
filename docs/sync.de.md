@@ -89,6 +89,18 @@ Ein `make sync` nimmt **Python- und C-Tester** gleichzeitig mit. Dasselbe geht m
 
 ---
 
+## 5. Automatisch syncen (optional)
+
+```bash
+make auto-sync            # bzw. examshell --auto-sync on   (aus: make auto-sync ON=off)
+```
+
+Dann holt jede Sitzung (Menü, Exam, Practice, Training, Drill, Vollbild-App)
+beim Start den Stand vom Repo und lädt beim Beenden deinen Stand hoch — du
+musst nicht mehr an `make sync` denken. Bist du offline, kommt nur ein
+kurzer Hinweis; üben kannst du trotzdem, der Sync holt es beim nächsten Mal
+nach. `make doctor` zeigt, ob Auto-Sync an ist.
+
 ## Was wird mitgenommen?
 
 | Was | Wenn beide Geräte etwas haben |

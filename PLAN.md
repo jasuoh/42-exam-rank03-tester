@@ -1,144 +1,113 @@
-# PLAN — ExamShell 1.0: Vollbild-Terminal-App (TUI)
+# PLAN — ExamShell
 
-Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-09-27 · Vorgänger: 0.2.0 (#4)
-
-> **Stand 0.3.0:** Phase A (#5) und die TUI (Phasen B–D) sind umgesetzt.
-> Offen für 1.0: Feedback echter Nutzer einarbeiten (Issue-Vorlagen sind
-> da), danach entscheiden, ob die TUI Standard wird.
-
-Ziel: aus dem zeilenbasierten Tester eine **Vollbild-Terminal-App** machen —
-Aufgabe und Ergebnisse nebeneinander, Live-Grading beim Speichern,
-Exam-Fortschritt und Countdown immer sichtbar, Readiness als Heatmap,
-Stats mit Verlauf. Die heutige Oberfläche bleibt als Fallback erhalten.
-
-```
-┌─ ExamShell · Rank 02 · alice ──────────────── Level 2/4 ── ⏱ 02:41:07 ─┐
-│ ● ● ◐ ○   first_word ✔ · inter …                                        │
-├─ Subject: inter ─────────────────────┬─ grademe (watching inter.c) ────┤
-│ Assignment name : inter              │ ✔ padinton / paqefwt…    padinto│
-│ Expected files  : inter.c            │ ✖ ./inter "aaa" "a"             │
-│ Allowed functions: write             │   edge case: repeated chars     │
-│ Write a program that takes two …     │ ████████████░░░░  7/10   70%    │
-├──────────────────────────────────────┴─────────────────────────────────┤
-│ [g] grademe  [s] subject  [h] hint  [r] readiness  [q] quit            │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-## Rahmenbedingungen
-
-- **TUI-Bibliothek: Textual** (baut auf `rich` auf, das schon optional genutzt
-  wird). Aktuelle Textual-Version (8.x) braucht **Python ≥ 3.9**.
-- **Der Kern bleibt Python 3.8 + null Abhängigkeiten.** Die TUI ist ein
-  optionaler Aufsatz: ist Textual nicht installiert (oder Python 3.8), startet
-  automatisch die heutige Oberfläche. Kein Feature geht verloren.
-- Jede Phase ist ein eigener, lauffähiger PR/Release.
+Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-10-01 · aktuell auf `main`: **0.5.0** (dieser PR: **0.6.0**)
+(noch **kein** veröffentlichtes Release — es gibt keinen einzigen Tag)
 
 ---
 
-## 0.5.0 — uv, Ein-Befehl-Installation, doctor, C im Sync & in der TUI · ✔ umgesetzt
+## ✔ Erledigt (Kurzüberblick)
 
-- Paket `src` → `examshell`; `uv tool install … examshell[tui]` liefert die
-  Befehle `examshell` und `examshell-c`.
-- `uv.lock` + `make install` über uv (pip als Fallback), CI über setup-uv.
-- `--doctor` / `make doctor`.
-- Sync auch über `make c-sync`, Menüpunkt `s` und „🔄 Sync“ in der TUI.
-- TUI: „🔀 Switch exam“ zwischen Python 03/04/05 und C 02.
+| Version | Inhalt | PR |
+|---|---|---|
+| 0.2.0 | Bugfixes, strenges Exam, `--time-limit`, `inter`, Randfall-Fuzzing für C-Programme, Randfall-Labels, Readiness, Drill, Versionierung, Update-Hinweis | #4 |
+| 0.3.0 | Gemeinsame Engine für beide Tester (`ExamRun`, `grade()`), Vollbild-App (TUI), `--blind`, kurzes README + `docs/`, Issue-Vorlagen | #5, #6 |
+| 0.4.0 | `make sync` über eigenes privates Git-Repo, `EXAMSHELL_HOME`, Anleitung DE/EN | #7 |
+| 0.5.0 | Paket `examshell`, `uv tool install` → `examshell` / `examshell-c`, uv + Lockfile, `--doctor`, Sync im C-Tester und in den Menüs, Exam-Wechsel in der TUI | #8 |
 
-**Als Nächstes (Vorschlag):** Randfall-Tests für `flood_fill`,
-`ft_list_foreach`, `ft_list_remove_if`; Referenzlösung nach dem Bestehen;
-Feedback echter Nutzer einarbeiten.
+Details: CHANGELOG.md.
 
 ---
 
-## 0.4.0 — Git-Sync: auf jedem Gerät mit demselben Stand weitermachen · ✔ umgesetzt
+## ▶ 0.6.0 — „bereit für echte Nutzer“ · R1, F1, F2, T1, S1 ✔ umgesetzt
 
-Ziel: Fortschritt **und** Lösungen über ein eigenes, **privates** Git-Repo
-zwischen Geräten (Schule ↔ Laptop) mitnehmen — kein Server, kein Account
-bei uns, nichts verlässt die Rechner außer Richtung des eigenen Repos.
+Ziel: Das Tool ist technisch weit — jetzt soll es **bei Leuten ankommen**,
+**Feedback einsammeln** und **zuverlässig Updates ausliefern**. Dazu die
+letzten bekannten Test-Lücken schließen.
 
-```bash
-make sync-setup REPO=git@github.com:<du>/examshell-progress.git   # einmal pro Gerät
-make sync                                                         # vor und nach dem Üben
-```
+### R1 · Releases automatisch veröffentlichen ⭐ ✔
+**Problem:** Ein Release entsteht nur durch einen manuell gepushten Tag — das
+ist seit 0.2.0 jedes Mal liegen geblieben. Ohne Release funktionieren der
+Update-Hinweis im Menü und der Update-Check in `doctor` nicht.
+**Lösung:** Workflow auf `main`: Hat sich `examshell/version.py` geändert und
+gibt es den Tag noch nicht → Tests laufen → Tag `vX.Y.Z` + GitHub-Release mit
+dem passenden CHANGELOG-Abschnitt und Paket (wheel + sdist). Manuell
+nachholen: Actions → Release → „Run workflow“.
+**Einmalig:** 0.2–0.5 werden nicht nachträglich veröffentlicht — **v0.6.0 wird
+das erste Release** (entsteht automatisch beim Merge dieses PRs).
+**Aufwand:** ~30–45 min
 
-**Was synchronisiert wird** (Arbeitskopie in `~/.examshell/sync-repo/`):
+### F1 · Feedback mit einem Klick ✔
+- `examshell --feedback` / `examshell-c --feedback` und ein Menüpunkt
+  „Feedback geben“ (Terminal-Menü + TUI): öffnet die passende Issue-Vorlage
+  im Browser, **Version, Tester und Betriebssystem schon ausgefüllt**. Ohne
+  Browser wird der Link nur angezeigt.
+- Auswahl: „Aufgabe weicht vom echten Exam ab“ · „Bug“ · „Feedback“.
+- Nichts wird automatisch gesendet — der Nutzer sieht und schickt das Issue
+  selbst ab.
+**Aufwand:** ~45 min
 
-| Daten | Zusammenführen |
+### F2 · Richtige Haltung nach außen ✔
+- Kurzer Hinweis im README: *Übungstool — im echten Exam gibt es nichts davon;
+  es ersetzt nicht das eigene Lernen.* Signalisiert die richtige Absicht, falls
+  Staff/Bocal draufschaut.
+- GitHub-Repo: Beschreibung aktualisieren (nennt Rank 04/05 und die Vollbild-App
+  noch nicht) und Topics setzen (`42school`, `42-exam`, `exam-rank-02`,
+  `exam-rank-03`, `tester`, `tui`) — damit Suchende es finden.
+  *Das Setzen von Beschreibung/Topics machst du in den Repo-Einstellungen
+  (Zahnrad bei „About“) — ich liefere die Texte.*
+**Aufwand:** ~15 min
+
+### T1 · Randfall-Tests für die letzten 3 C-Aufgaben ✔
+`flood_fill`, `ft_list_foreach` und `ft_list_remove_if` werden bisher nur mit
+festen Fällen geprüft. Eigene Zufallsgeneratoren:
+- **Listen:** leer, ein Element, alle gleich, Treffer am Anfang / am Ende /
+  überall / nirgends — die klassischen `remove_if`-Bugs (Kopf nicht
+  umgehängt, Speicher nicht freigegeben, nach dem Löschen falsch weiter).
+- **flood_fill:** zufällige Grids, Start in Ecke / am Rand / in einer
+  1×1-Fläche, die ganze Fläche gleich, Zeichen, die nicht gefüllt werden
+  dürfen.
+- Alles auch unter valgrind im Bank-Selbsttest (keine Leaks in den Referenzlösungen).
+**Aufwand:** ~2 h
+
+### S1 · Optional: Auto-Sync ✔
+Einstellung (per `--save-config`): beim Start automatisch holen, beim Beenden
+automatisch hochladen — nur wenn Sync eingerichtet ist, Fehler (offline)
+werden nur als Hinweis gezeigt, nie als Abbruch.
+**Aufwand:** ~1 h
+
+**Gesamt 0.6.0:** ~5 h, ein PR, ein Commit pro Punkt.
+
+### Außerhalb des Codes (du)
+- [ ] Beim Staff/Bocal deines Campus kurz nachfragen, ob ein öffentlicher
+      Übungstester okay ist.
+- [ ] 2–3 Peers, die bald ins Exam gehen, direkt fragen (DM/Lerngruppe) —
+      Nachrichten-Vorlage siehe unten.
+- [ ] Erst danach ggf. ein passender Campus-Kanal, r/42school, Discord.
+
+**Vorlage (DM / Lerngruppe):**
+> Hey! Ich hab mir für die Exam-Vorbereitung einen Übungs-Tester gebaut (C Rank
+> 02 + Python Rank 03–05): zufällige Aufgabe pro Level, `grademe` wie im echten
+> Exam, testet viele Randfälle (Tabs, leere Strings, falsche argc …) und zeigt
+> dir, welches Level noch Lücken hat.
+> Falls du gerade aufs Exam lernst und Lust hast, es auszuprobieren:
+> https://github.com/jasuoh/42-exam-tester
+> Mich interessiert vor allem: **Weicht eine Aufgabe von deinem echten Exam ab?**
+> Dafür gibt's eine Issue-Vorlage — oder schreib mir einfach direkt 🙏
+
+---
+
+## ⏸ Bewusst zurückgestellt
+
+| Idee | Warum nicht jetzt |
 |---|---|
-| `stats.jsonl` (alle Versuche) | Vereinigung aller Zeilen, nach Zeit sortiert — nichts geht verloren |
-| gespeichertes Exam (je Tester/Rank) | das **neuere** gewinnt; ein beendetes Exam hinterlässt einen Lösch-Marker, damit es nicht auf dem anderen Gerät wieder auftaucht |
-| Exam-Reports | Vereinigung (Dateinamen sind eindeutig) |
-| Lösungen `rendu/`, `c_rendu/` | pro Datei gewinnt die **neuere** Änderung; die ältere Version wird lokal in `~/.examshell/sync-backup/` aufgehoben — Code geht nie verloren |
-| `config.json` | **nicht** — Einstellungen wie Compiler sind pro Gerät |
-
-Kein `git merge`: der Tester holt den Remote-Stand, führt selbst nach den
-Regeln oben zusammen, schreibt das Ergebnis lokal und ins Repo, committet und
-pusht. Dadurch gibt es nie Git-Konflikte für den Nutzer.
-
-Dazu: `EXAMSHELL_HOME` verlegt den Datenordner (z. B. in iCloud/Dropbox) als
-einfachste Alternative ohne Git.
-
-**Aufwand:** ~500 Zeilen inkl. Tests · ~1 Tag.
+| Referenzlösung nach dem Bestehen anzeigen | Macht das Tool beim Thema „Exam-Lösungen verbreiten“ angreifbarer — erst klären, wie der Campus dazu steht; niemand hat bisher danach gefragt |
+| Gestufte (konkretere) Hinweise | Sinnvoll, aber besser mit echtem Feedback, *welche* Hinweise fehlen |
+| Rank-04/05-Pools erweitern (je nur 7 Aufgaben) | Braucht verlässliche Quellen für echte Subjects — Feedback abwarten |
+| Editor direkt in der TUI | Beeindruckend, entfernt sich aber vom echten Exam (dort: vim/emacs im Terminal) |
+| Web-Dashboard | Erst wenn es Nutzer gibt, die danach fragen |
 
 ---
 
-## Phase A — Engine von Anzeige trennen (0.3.0) · *dieser PR*
+## 💡 Nächste Ideen (zum gemeinsamen Überlegen)
 
-Heute: `examshell/examshell.py` und `c_exam/examshell.py` enthalten **je** den
-kompletten Ablauf (Exam, Practice, Training, Readiness, Drill, Menü) —
-~900 identische Zeilen, und Logik und `print`/`input` sind verwoben. Eine
-TUI kann darauf nicht aufsetzen.
-
-1. **`examshell/shell_common.py`** — der gemeinsame Ablauf, einmal. Die beiden
-   Shells liefern nur noch ihre Unterschiede (Bank, Grader-Aufruf, Stubs,
-   CLI-Flags, Menüpunkte) als „Hooks“.
-2. **`ExamRun`** — das Exam als reiner Zustand (Level, Aufgabe, Versuche,
-   Uhr, RNGs, Speichern/Fortsetzen, Zeitlimit) ohne jede Ein-/Ausgabe. Die
-   heutige Oberfläche und später die TUI steuern beide dasselbe `ExamRun`.
-3. **`grade()` ohne Anzeige** — bewertet, zeichnet Stats auf und liefert
-   Report, neue Badges und Hinweis als Daten zurück; die Anzeige macht der
-   Aufrufer.
-
-Verhalten bleibt identisch — alle bestehenden Tests müssen unverändert grün
-bleiben (plus neue Tests für `ExamRun`/`grade()`).
-
-**~−600 / +700 Zeilen · ~1,5 Tage**
-
-## Phase B — App-Gerüst (0.4.0)
-
-`make tui` / `python3 -m examshell --tui` (später Default, wenn Textual da ist):
-Screens für Menü, Practice-Liste mit Suche, Training, Readiness, Stats;
-Tastaturkürzel, die drei Themes, Fallback-Erkennung.
-
-**~1.200 Zeilen · ~2 Tage**
-
-## Phase C — Exam-Screen (0.5.0)
-
-Split-View Aufgabe | Ergebnisse, Ergebnisse laufen live ein, **Watch-Modus**
-(grademe beim Speichern, im Practice), Level-Stepper, Countdown, Blind-Grading
-im Exam, Level-geschafft-/Badge-Animationen.
-
-**~800 Zeilen · ~1,5 Tage**
-
-## Phase D — Feinschliff → 1.0.0
-
-Readiness-Heatmap, Stats-Verlaufsdiagramme, Exam-Historie, TUI-Tests
-(Textual „Pilot“), animierte GIFs fürs README (aufgenommen mit `vhs`),
-Doku.
-
-**~600 Zeilen · ~1 Tag**
-
----
-
-## Danach (1.1)
-
-- **Lokales Web-Dashboard** (`make dashboard` → `localhost:4242`): Heatmap,
-  Diagramme, Exam-Historie im Browser.
-- `pipx install`-bar (Paket `src` umbenennen).
-
-## Risiken
-
-- Textual auf Schulrechnern nicht installierbar → Fallback ist Pflicht und
-  wird in CI mit *und* ohne Textual getestet.
-- Textual-API ändert sich zwischen Major-Versionen → Version in
-  `requirements` nach oben begrenzen.
+*Platz für das, was wir als Nächstes besprechen — über 0.6.0 hinaus.*

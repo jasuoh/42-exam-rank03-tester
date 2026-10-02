@@ -100,3 +100,16 @@ venv/bin/python tools/screenshots.py
 
 It runs the app headless against a throwaway `HOME` with a made-up practice
 history, so your own `~/.examshell/` is never touched.
+
+## 🚀 Releasing
+
+1. In the PR: bump `examshell/version.py` **and** `pyproject.toml` (a unit
+   test keeps them equal), run `uv lock`, and add a `## X.Y.Z — date`
+   section at the top of `CHANGELOG.md`.
+2. Merge it. `.github/workflows/release.yml` sees the new version on
+   `main`, runs the tests, tags `vX.Y.Z` and publishes the GitHub Release
+   (notes = that CHANGELOG section, package files attached).
+
+Nothing else to do — no manual tag. If the run failed (e.g. a missing
+CHANGELOG section), fix it on `main` and use **Actions → Release → Run
+workflow**. A version that's already tagged is skipped.

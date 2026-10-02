@@ -29,7 +29,7 @@ CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 # no way to represent "explicitly turn back on" from the CLI, which would
 # make a saved "off" sticky forever — everything below is instead a
 # value flag (or has an unambiguous None-means-unset CLI default).
-PERSISTABLE_KEYS = ("theme", "timeout", "fuzz", "show_fails", "cc")
+PERSISTABLE_KEYS = ("theme", "timeout", "fuzz", "show_fails", "cc", "auto_sync")
 
 
 def load_config():
@@ -54,6 +54,14 @@ def save_config(values):
         return True
     except OSError:
         return False
+
+
+def update_config(key, value):
+    """Change ONE saved preference, keeping every other one (save_config()
+    replaces the whole file). Best-effort, like the rest."""
+    data = load_config()
+    data[key] = value
+    return save_config(data)
 
 
 def merged(args, config, key, default):

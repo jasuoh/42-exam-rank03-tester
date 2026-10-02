@@ -3133,6 +3133,7 @@ EXERCISES = {
     },
     "ft_list_foreach": {
         "level": 4, "function": "ft_list_foreach",
+        "fuzz_cases": "list_foreach",
         "standard": True,
         "prototype": "void ft_list_foreach(t_list *begin_list, void (*f)(void *));",
         "args": ["voidlist", "cb_accumulate"], "returns": "foreach_sum",
@@ -3172,6 +3173,7 @@ EXERCISES = {
     },
     "ft_list_remove_if": {
         "level": 4, "function": "ft_list_remove_if",
+        "fuzz_cases": "list_remove_if",
         "standard": True,
         "prototype": "void ft_list_remove_if(t_list **begin_list, "
                      "void *data_ref, int (*cmp)(void *, void *));",
@@ -3244,6 +3246,7 @@ EXERCISES = {
     },
     "flood_fill": {
         "level": 4, "function": "flood_fill",
+        "fuzz_cases": "flood_fill",
         "standard": True,
         "prototype": "void flood_fill(char **tab, t_point size, "
                      "t_point begin);",

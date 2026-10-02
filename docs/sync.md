@@ -86,6 +86,18 @@ One `make sync` covers **both the Python and the C tester**. The same works as `
 
 ---
 
+## 5. Sync automatically (optional)
+
+```bash
+make auto-sync            # or examshell --auto-sync on   (off: make auto-sync ON=off)
+```
+
+Every session (menu, exam, practice, training, drill, full-screen app) then
+pulls the repo's state when it starts and pushes yours when it ends — no more
+remembering `make sync`. Offline, you only get a one-line note; you can still
+practise, and the next session catches up. `make doctor` shows whether
+auto-sync is on.
+
 ## What travels?
 
 | What | If both devices have something |

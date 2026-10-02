@@ -1,53 +1,103 @@
 name: Release
 
-# Push a tag like `v0.2.0` and this publishes a GitHub Release whose notes
-# are that version's section of CHANGELOG.md. It refuses to publish when
-# the tag doesn't match examshell/version.py (and so pyproject.toml — the unit
-# tests keep those two in sync), so a release can never claim a version
-# the code itself doesn't report via --version or the update check.
+# Publishes a GitHub Release automatically — nobody has to remember to push
+# a tag. Whenever a merge to main changes examshell/version.py (i.e. a PR
+# bumped the version), this:
+#
+#   1. reads the version, and stops quietly if vX.Y.Z already exists,
+#   2. runs the tests,
+#   3. takes that version's section of CHANGELOG.md as the release notes
+#      (and refuses to publish without one),
+#   4. builds the package (wheel + sdist) with uv,
+#   5. creates the tag vX.Y.Z on the merged commit + the GitHub Release,
+#      with the package files attached.
+#
+# "Run workflow" (workflow_dispatch) does the same for the current main —
+# e.g. to publish a version whose automatic run failed.
+# The release is what the in-app update notice and `--doctor` look for.
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["examshell/version.py"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # all tags, to see whether this one exists
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Tag must match examshell/version.py
+      - name: Version from examshell/version.py
+        id: version
         run: |
-          code_version=$(python3 -c 'from examshell.version import __version__; print(__version__)')
-          if [ "v$code_version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match examshell/version.py ($code_version)"
-            exit 1
+          version=$(python3 -c 'from examshell.version import __version__; print(__version__)')
+          tag="v$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$tag is already released — nothing to do"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Tests must pass
+        if: steps.version.outputs.exists == 'false'
         run: make test
 
-      - name: Extract release notes from CHANGELOG.md
+      - name: Release notes from CHANGELOG.md
+        if: steps.version.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
           # Everything from "## <version>" up to (not including) the next "## ".
-          awk -v v="$version" '
+          awk -v v="$VERSION" '
             /^## / { if (found) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { found = 1; next } }
             found { print }
           ' CHANGELOG.md > notes.md
           if [ ! -s notes.md ]; then
-            echo "::error::CHANGELOG.md has no '## $version' section"
+            echo "::error::CHANGELOG.md has no '## $VERSION' section — add one, then re-run"
             exit 1
           fi
+          {
+            echo
+            echo "---"
+            echo "**Install / update:**"
+            echo '```bash'
+            echo 'uv tool install --python 3.12 "examshell[tui] @ git+https://github.com/${{ github.repository }}"'
+            echo 'uv tool upgrade examshell          # if you already have it'
+            echo 'make update                        # in a git clone'
+            echo '```'
+          } >> notes.md
+
+      - uses: astral-sh/setup-uv@v6
+        if: steps.version.outputs.exists == 'false'
+
+      - name: Build the package
+        if: steps.version.outputs.exists == 'false'
+        run: uv build --out-dir dist
 
       - name: Publish the release
+        if: steps.version.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "ExamShell $TAG" \
+            --notes-file notes.md

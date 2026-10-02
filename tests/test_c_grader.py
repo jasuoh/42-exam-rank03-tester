@@ -766,5 +766,45 @@ class ProgramNewlineDisplayTests(unittest.TestCase):
         self.assertEqual((failure.expected, failure.got), ("a\n", "a"))
 
 
+class CaseFuzzerTests(unittest.TestCase):
+    """Whole-case generators for flood_fill / ft_list_foreach / ft_list_remove_if."""
+
+    def test_the_three_exercises_are_fuzzable_now(self):
+        from c_exam.bank import EXERCISES
+        for name in ("flood_fill", "ft_list_foreach", "ft_list_remove_if"):
+            with self.subTest(name=name):
+                self.assertTrue(grader.is_fuzzable(EXERCISES[name]))
+                cases = grader.build_fuzz_cases(EXERCISES[name], random.Random(1), 20)
+                self.assertEqual(len(cases), 20)
+                curated = len(EXERCISES[name]["cases"][0])
+                self.assertTrue(all(len(c) == curated for c in cases))
+
+    def test_remove_if_hits_head_tail_all_and_nothing(self):
+        rng = random.Random(3)
+        cases = [grader.CASE_FUZZERS["list_remove_if"](rng) for _ in range(400)]
+        nonempty = [(v, r) for v, r in cases if v]
+        self.assertTrue(any(v[0] == r for v, r in nonempty))                 # head
+        self.assertTrue(any(v[-1] == r and v[0] != r for v, r in nonempty))  # tail only
+        self.assertTrue(any(all(x == r for x in v) for v, r in nonempty))    # every node
+        self.assertTrue(any(r not in v for v, r in nonempty))                # nothing
+        self.assertTrue(any(not v for v, _ in cases))                        # empty list
+
+    def test_flood_fill_grids_are_rectangular_and_sized(self):
+        rng = random.Random(4)
+        on_grid = 0
+        for _ in range(300):
+            grid, (w, h), (x, y) = grader.CASE_FUZZERS["flood_fill"](rng)
+            self.assertEqual(len(grid), h)
+            self.assertTrue(all(len(row) == w for row in grid))
+            on_grid += 0 <= x < w and 0 <= y < h
+        self.assertGreater(on_grid, 250)                 # mostly a real start point
+
+    def test_foreach_covers_empty_and_single(self):
+        rng = random.Random(5)
+        lists = [grader.CASE_FUZZERS["list_foreach"](rng)[0] for _ in range(200)]
+        self.assertIn([], lists)
+        self.assertTrue(any(len(l) == 1 for l in lists))
+
+
 if __name__ == "__main__":
     unittest.main()

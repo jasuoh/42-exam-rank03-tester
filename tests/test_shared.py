@@ -346,6 +346,13 @@ class AchievementsTests(unittest.TestCase):
         stats.record("py", "py_inter", 1, True, 10, 10, "practice")
         self.assertIn("redemption", self._ids())
 
+    def test_redemption_needs_a_fail_to_redeem(self) -> None:
+        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
+        self.assertNotIn("redemption", self._ids())  # first try, no fail
+        stats.record("py", "py_hidenp", 1, False, 1, 6, "practice")
+        stats.record("py", "py_hidenp", 1, True, 6, 6, "practice")
+        self.assertIn("redemption", self._ids())
+
     def test_full_coverage_needs_a_pass_on_every_level(self) -> None:
         for level in range(1, self.N_LEVELS):
             stats.record("py", "ex%d" % level, level, True, 1, 1, "practice")
@@ -429,16 +436,16 @@ class AchievementsTests(unittest.TestCase):
         self.assertNotIn("night_owl", self._ids())  # ranges don't overlap
 
     def test_new_since_reports_only_the_freshly_unlocked_ones(self) -> None:
-        # A first-ever pass unlocks first_blood/perfectionist/redemption
-        # all at once (each is trivially true for "one pass, no history")
-        # — new_since() must report exactly those three, nothing stale.
+        # A first-ever pass unlocks first_blood/perfectionist at once
+        # (each is trivially true for "one pass, no history") — new_since()
+        # must report exactly those two, nothing stale.
         before = achievements.unlocked("py", self.N_LEVELS)
         stats.record("py", "py_inter", 1, True, 10, 10, "practice")
         after = achievements.unlocked("py", self.N_LEVELS)
         fresh = achievements.new_since(before, after)
         self.assertEqual(
             {b[0] for b in fresh},
-            {"first_blood", "perfectionist", "redemption"},
+            {"first_blood", "perfectionist"},
         )
 
     def test_new_since_is_empty_when_nothing_changed(self) -> None:

@@ -100,14 +100,19 @@ def _redemption(
     events: List[Event], _completions: List[Event], _n_levels: int
 ) -> bool:
     """Every exercise ever attempted has eventually been passed at least
-    once — no exercise permanently stuck at 0 passes."""
+    once — no exercise permanently stuck at 0 passes — and at least one of
+    them was failed before its first pass: there has to be something to
+    redeem, a clean first-try pass is Perfectionist's business."""
     ever_passed: Dict[str, bool] = {}
+    redeemed = False
     for e in events:
         name = e["exercise"]
+        failed_before = name in ever_passed and not ever_passed[name]
         ever_passed.setdefault(name, False)
         if e.get("ok"):
+            redeemed = redeemed or failed_before
             ever_passed[name] = True
-    return bool(ever_passed) and all(ever_passed.values())
+    return redeemed and all(ever_passed.values())
 
 
 def _century(
@@ -180,7 +185,8 @@ BADGES: Tuple[Tuple[str, str, str, str, BadgeCheck], ...] = (
         "redemption",
         "🎯",
         "Redemption",
-        "Every exercise you've ever attempted, you've eventually passed.",
+        "Fail an exercise, then pass it — with every exercise you've "
+        "ever attempted passed eventually.",
         _redemption,
     ),
     (

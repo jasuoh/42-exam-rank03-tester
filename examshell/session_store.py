@@ -13,29 +13,46 @@ Best-effort like the rest of this package: a save/load failure is a
 missed convenience, never a reason to crash the exam.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import random
 import time
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+
+from ._types import Event
 
 from .settings import DATA_DIR
 
+if TYPE_CHECKING:
+    from .shell_common import Session
 
-def _path(tool):
+
+def _path(tool: str) -> str:
     return os.path.join(DATA_DIR, "saved_exam_%s.json" % tool)
 
 
-def _rng_to_json(rng):
+def _rng_to_json(rng: random.Random) -> List[Any]:
     version, internal, gauss_next = rng.getstate()
     return [version, list(internal), gauss_next]
 
 
-def _rng_from_json(data):
+def _rng_from_json(
+    data: List[Any],
+) -> Tuple[Any, ...]:
     version, internal, gauss_next = data
     return (version, tuple(internal), gauss_next)
 
 
-def save(tool, session, rng, current_ex, level_attempts=0, level_started=None):
+def save(
+    tool: str,
+    session: Session,
+    rng: random.Random,
+    current_ex: Optional[str],
+    level_attempts: int = 0,
+    level_started: Optional[float] = None,
+) -> bool:
     """Persist enough state to resume exactly where the student left off.
 
     `level_started` is the wall-clock time.time() the CURRENT level began —
@@ -70,7 +87,7 @@ def save(tool, session, rng, current_ex, level_attempts=0, level_started=None):
         return False
 
 
-def load(tool):
+def load(tool: str) -> Optional[Event]:
     """The saved dict, or None if there is nothing (or nothing usable)
     to resume."""
     try:
@@ -95,7 +112,7 @@ def load(tool):
         return None
 
 
-def clear(tool):
+def clear(tool: str) -> None:
     """Forget the saved exam. Leaves a small tombstone instead of just
     deleting the file: with `make sync`, a plain delete would look like
     "this device never had one" and the other device's stale save would
@@ -110,7 +127,7 @@ def clear(tool):
         pass
 
 
-def rng_from_saved(data):
+def rng_from_saved(data: Event) -> random.Random:
     rng = random.Random()
     rng.setstate(_rng_from_json(data["rng_state"]))
     return rng

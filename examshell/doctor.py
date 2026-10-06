@@ -10,12 +10,15 @@ and the sync setup. Every check returns a status and, when something is
 off, the one command that fixes it.
 """
 
+from __future__ import annotations
+
 import importlib.util
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from typing import Callable, List, Optional
 
 from . import settings, sync, update_check
 from .version import __version__
@@ -29,7 +32,9 @@ HELLO_C = (
 
 
 class Check(object):
-    def __init__(self, status, name, detail, fix=""):
+    def __init__(
+        self, status: str, name: str, detail: str, fix: str = ""
+    ) -> None:
         self.status, self.name, self.detail, self.fix = (
             status,
             name,
@@ -38,7 +43,7 @@ class Check(object):
         )
 
 
-def is_git_checkout():
+def is_git_checkout() -> bool:
     """Running from a cloned repo (vs. installed with uv tool / pip)?"""
     return os.path.isdir(os.path.join(ROOT, ".git")) and os.path.isfile(
         os.path.join(ROOT, "Makefile")
@@ -51,20 +56,20 @@ TOOL_INSTALL = (
 )
 
 
-def upgrade_command():
+def upgrade_command() -> str:
     return "make update" if is_git_checkout() else "uv tool upgrade examshell"
 
 
-def extras_command():
+def extras_command() -> str:
     """How to get rich + Textual for THIS kind of install."""
     return "make install" if is_git_checkout() else TOOL_INSTALL
 
 
-def _has(module):
+def _has(module: str) -> bool:
     return importlib.util.find_spec(module) is not None
 
 
-def check_python():
+def check_python() -> Check:
     v = sys.version_info
     text = "%d.%d.%d" % v[:3]
     if v >= (3, 9):
@@ -81,7 +86,7 @@ def check_python():
     )
 
 
-def check_install():
+def check_install() -> Check:
     if is_git_checkout():
         return Check(
             OK, "ExamShell", "%s · git checkout at %s" % (__version__, ROOT)
@@ -89,7 +94,9 @@ def check_install():
     return Check(OK, "ExamShell", "%s · installed package" % __version__)
 
 
-def check_update(fetch=None):
+def check_update(
+    fetch: Optional[Callable[[], Optional[str]]] = None,
+) -> Check:
     if not update_check.enabled():
         return Check(
             OK, "Updates", "check turned off (%s)" % update_check.ENV_OPT_OUT
@@ -117,7 +124,7 @@ def check_update(fetch=None):
     return Check(OK, "Updates", "up to date")
 
 
-def check_extras():
+def check_extras() -> List[Check]:
     checks = []
     if _has("rich"):
         checks.append(Check(OK, "rich", "installed — colours and tables"))
@@ -145,7 +152,7 @@ def check_extras():
     return checks
 
 
-def check_compiler(cc="cc", required=False):
+def check_compiler(cc: str = "cc", required: bool = False) -> Check:
     """Compile and RUN a tiny program — a compiler that exists but can't
     link (missing Xcode command line tools, …) is the classic trap."""
     if not shutil.which(cc):
@@ -208,7 +215,7 @@ def check_compiler(cc="cc", required=False):
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def check_valgrind():
+def check_valgrind() -> Check:
     if shutil.which("valgrind"):
         return Check(
             OK, "valgrind", "installed — `--valgrind` leak checks work"
@@ -221,7 +228,7 @@ def check_valgrind():
     )
 
 
-def check_git():
+def check_git() -> Check:
     if shutil.which("git"):
         return Check(OK, "git", "installed")
     return Check(
@@ -232,7 +239,7 @@ def check_git():
     )
 
 
-def check_data_dir(data_dir=None):
+def check_data_dir(data_dir: Optional[str] = None) -> Check:
     data_dir = data_dir or settings.DATA_DIR
     try:
         os.makedirs(data_dir, exist_ok=True)
@@ -252,7 +259,7 @@ def check_data_dir(data_dir=None):
     return Check(OK, "Data folder", data_dir + moved)
 
 
-def check_sync(data_dir=None):
+def check_sync(data_dir: Optional[str] = None) -> Check:
     data_dir = data_dir or settings.DATA_DIR
     if not sync.is_configured(data_dir):
         return Check(
@@ -273,7 +280,11 @@ def check_sync(data_dir=None):
     )
 
 
-def run_checks(cc="cc", c_required=False, fetch=None):
+def run_checks(
+    cc: str = "cc",
+    c_required: bool = False,
+    fetch: Optional[Callable[[], Optional[str]]] = None,
+) -> List[Check]:
     """Every check, in display order."""
     checks = [check_python(), check_install(), check_update(fetch)]
     checks += check_extras()

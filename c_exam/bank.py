@@ -59,12 +59,17 @@ Common fields:
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
 import textwrap
+from typing import Dict, List
+
+from examshell._types import Exercise
 
 N_LEVELS = 4
 
 
-def _sub_c(name, prototype, allowed, body):
+def _sub_c(name: str, prototype: str, allowed: str, body: str) -> str:
     head = (
         "Assignment name  : " + name + "\n"
         "Expected files   : " + name + ".c\n"
@@ -77,7 +82,7 @@ def _sub_c(name, prototype, allowed, body):
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE BANK
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "ft_putstr": {
         "level": 1,
@@ -4284,7 +4289,7 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:

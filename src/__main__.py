@@ -1,6 +1,8 @@
 """`python3 -m src` → `python3 -m examshell` (the package was renamed in
 0.5.0)."""
 
+from __future__ import annotations
+
 import sys
 
 from examshell.__main__ import run

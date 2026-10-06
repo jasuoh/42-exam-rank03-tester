@@ -26,8 +26,14 @@ worked examples given there.
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+import random
+
 import string
 
+from ._types import Exercise
 from .bank_common import sub as _sub
 from .bank_common import signature_of as _signature_of
 
@@ -43,7 +49,7 @@ N_LEVELS = 3
 #  and grades it like a submission, which only works if it carries no free
 #  globals (see grader.oracle_free_globals).
 # ══════════════════════════════════════════════════════════════
-def _ref_compress(s):
+def _ref_compress(s: str) -> str:
     out = ""
     i = 0
     while i < len(s):
@@ -56,7 +62,7 @@ def _ref_compress(s):
     return out
 
 
-def _ref_decompress(s):
+def _ref_decompress(s: str) -> str:
     out = ""
     i = 0
     while i < len(s):
@@ -70,7 +76,7 @@ def _ref_decompress(s):
     return out
 
 
-def _ref_generate_spiral(n):
+def _ref_generate_spiral(n: int) -> List[List[int]]:
     if n <= 0:
         return []
     grid = [[0] * n for _ in range(n)]
@@ -98,7 +104,7 @@ def _ref_generate_spiral(n):
     return grid
 
 
-def _ref_graph_cycle_detector(graph):
+def _ref_graph_cycle_detector(graph: Dict[int, List[int]]) -> bool:
     # Iterative three-colour DFS (0 unvisited, 1 on the current path,
     # 2 finished). Iterative rather than recursive so a long chain cannot
     # blow the interpreter's stack inside the sandbox.
@@ -127,8 +133,10 @@ def _ref_graph_cycle_detector(graph):
     return False
 
 
-def _ref_schedule_meetings(intervals):
-    rooms = []
+def _ref_schedule_meetings(
+    intervals: List[Tuple[int, int]],
+) -> Tuple[int, List[Any]]:
+    rooms: List[List[Tuple[int, ...]]] = []
     for meeting in sorted(intervals, key=lambda m: m[0]):
         placed = False
         for room in rooms:
@@ -141,7 +149,7 @@ def _ref_schedule_meetings(intervals):
     return (len(rooms), rooms)
 
 
-def _ref_island_matrix_counter(matrix):
+def _ref_island_matrix_counter(matrix: List[List[str]]) -> int:
     # A visited set rather than sinking cells in place: the oracle is
     # graded like a submission and must not modify its input.
     seen = set()
@@ -168,7 +176,9 @@ def _ref_island_matrix_counter(matrix):
     return islands
 
 
-def _ref_prism_detector(grid, pattern):
+def _ref_prism_detector(
+    grid: List[str], pattern: str
+) -> List[Tuple[Any, ...]]:
     if not grid or not pattern:
         return []
     directions = (
@@ -199,14 +209,14 @@ def _ref_prism_detector(grid, pattern):
     return found
 
 
-def _ref_word_ladder(start, end, sentence):
+def _ref_word_ladder(start: str, end: str, sentence: List[str]) -> int:
     known = set(sentence)
     if end not in known:
         return 0
     if start == end:
         return 1
 
-    def one_letter_apart(a, b):
+    def one_letter_apart(a: str, b: str) -> bool:
         if len(a) != len(b):
             return False
         seen = 0
@@ -240,14 +250,14 @@ def _ref_word_ladder(start, end, sentence):
 # ══════════════════════════════════════════════════════════════
 #  FUZZERS  ·  callable(rng) -> args
 # ══════════════════════════════════════════════════════════════
-def _fuzz_compress(rng):
+def _fuzz_compress(rng: random.Random) -> List[Any]:
     text = ""
     for _ in range(rng.randint(0, 6)):
         text += rng.choice(string.ascii_lowercase[:5]) * rng.randint(1, 13)
     return [text]
 
 
-def _fuzz_decompress(rng):
+def _fuzz_decompress(rng: random.Random) -> List[Any]:
     text = ""
     for _ in range(rng.randint(0, 6)):
         run = rng.randint(1, 13)
@@ -256,13 +266,13 @@ def _fuzz_decompress(rng):
     return [text]
 
 
-def _fuzz_generate_spiral(rng):
+def _fuzz_generate_spiral(rng: random.Random) -> List[Any]:
     # The curated cases already cover 0..8 one by one, and build_tests()
     # drops a duplicate, so a narrow range here would add almost nothing.
     return [rng.randint(0, 16)]
 
 
-def _fuzz_graph_cycle_detector(rng):
+def _fuzz_graph_cycle_detector(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 6)
     graph = {}
     for node in range(n):
@@ -282,7 +292,7 @@ def _fuzz_graph_cycle_detector(rng):
     return [graph]
 
 
-def _fuzz_schedule_meetings(rng):
+def _fuzz_schedule_meetings(rng: random.Random) -> List[Any]:
     meetings = []
     for _ in range(rng.randint(0, 7)):
         start = rng.randint(0, 20)
@@ -290,13 +300,13 @@ def _fuzz_schedule_meetings(rng):
     return [meetings]
 
 
-def _fuzz_island_matrix_counter(rng):
+def _fuzz_island_matrix_counter(rng: random.Random) -> List[Any]:
     rows = rng.randint(0, 6)
     cols = rng.randint(1, 6)
     return [[[rng.choice("1100") for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_prism_detector(rng):
+def _fuzz_prism_detector(rng: random.Random) -> List[Any]:
     size = rng.randint(1, 5)
     grid = [
         "".join(rng.choice("CAT.") for _ in range(size)) for _ in range(size)
@@ -305,8 +315,8 @@ def _fuzz_prism_detector(rng):
     return [grid, pattern]
 
 
-def _fuzz_word_ladder(rng):
-    def word(rng_):
+def _fuzz_word_ladder(rng: random.Random) -> List[Any]:
+    def word(rng_: random.Random) -> str:
         return "".join(rng_.choice("abc") for _ in range(3))
 
     start = word(rng)
@@ -318,7 +328,7 @@ def _fuzz_word_ladder(rng):
 # ══════════════════════════════════════════════════════════════
 #  EXERCISES
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "py_compress_decompress": {
         "level": 1,
@@ -781,7 +791,7 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:
@@ -810,6 +820,6 @@ for _lvl, _pool in STANDARD_LEVELS.items():
         )
 
 
-def signature_of(name):
+def signature_of(name: str) -> Optional[str]:
     """The `def …:` line of an exercise, as shown in its subject."""
     return _signature_of(EXERCISES[name]["subject"])

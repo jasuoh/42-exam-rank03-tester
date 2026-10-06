@@ -14,8 +14,11 @@ have a read-only or missing $HOME, and a convenience feature must never
 be the reason grading breaks. Every read/write swallows OSError.
 """
 
+from __future__ import annotations
+
 import json
 import os
+from typing import Any, Dict, Mapping
 
 # EXAMSHELL_HOME moves everything (stats, saved exams, reports, config) —
 # e.g. into a folder iCloud/Dropbox already syncs, the zero-setup
@@ -40,7 +43,7 @@ PERSISTABLE_KEYS = (
 )
 
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     """Return the saved preferences dict, or {} if none / unreadable."""
     try:
         with open(CONFIG_PATH, encoding="utf-8") as fh:
@@ -50,7 +53,7 @@ def load_config():
         return {}
 
 
-def save_config(values):
+def save_config(values: Mapping[str, Any]) -> bool:
     """Persist `values` (only PERSISTABLE_KEYS, non-None). Best-effort."""
     data = {
         k: v
@@ -67,7 +70,7 @@ def save_config(values):
         return False
 
 
-def update_config(key, value):
+def update_config(key: str, value: Any) -> bool:
     """Change ONE saved preference, keeping every other one (save_config()
     replaces the whole file). Best-effort, like the rest."""
     data = load_config()
@@ -75,7 +78,9 @@ def update_config(key, value):
     return save_config(data)
 
 
-def merged(args, config, key, default):
+def merged(
+    args: object, config: Mapping[str, Any], key: str, default: Any
+) -> Any:
     """CLI flag (if the user actually passed it) > config file > default."""
     value = getattr(args, key, None)
     if value is not None:

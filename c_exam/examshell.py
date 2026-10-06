@@ -19,13 +19,17 @@ function (and ONLY that function — no main()). The folder is created for
 you.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import random
 import shlex
 import sys
+from typing import Any, Dict, List, Optional, Tuple
 
 from examshell import settings, shell_common, ui
+from examshell._types import Exercise
 
 # Used by the shared flow (examshell/shell_common.py), not here — kept
 # reachable as examshell.<name> for callers and tests that patch them through
@@ -44,6 +48,12 @@ from examshell.shell_common import (  # noqa: F401
     fmt_duration,
     time_left,
 )
+from examshell.shell_common import (
+    ExerciseEntry,
+    GradingJob,
+    TrainingEntry,
+)
+from examshell.shell_common import Session as _Session
 from examshell.version import __version__
 
 from . import grader
@@ -69,11 +79,11 @@ TOOL = "c"  # tags saved config/stats/reports — "c" vs examshell's "py"
 # from (resolving, grading, showing the subject, creating a stub). Exam-only
 # concerns (level draws, the 4-level progression) keep using EXERCISES/LEVELS
 # directly so the training pool can never be drawn into an exam run.
-ALL_EXERCISES = dict(EXERCISES)
+ALL_EXERCISES: Dict[str, Exercise] = dict(EXERCISES)
 ALL_EXERCISES.update(TRAINING_EXERCISES)
 
 
-def banner():
+def banner() -> None:
     """ui.banner() with this tool's own title — it defaults to the Python
     tool's "Exam Rank 03 · Python Edition" otherwise."""
     ui.banner(
@@ -83,30 +93,29 @@ def banner():
 
 
 class Config(object):
-    def __init__(self, args):
-        self.rendu = args.rendu
-        self.timeout = args.timeout
-        self.cc = args.cc
-        self.strict_norm = args.strict_norm or args.strict
-        self.show_fails = args.show_fails
-        self.diff = args.diff
-        self.seed = args.seed
-        self.fuzz = args.fuzz
+    def __init__(self, args: argparse.Namespace) -> None:
+        self.rendu: str = args.rendu
+        self.timeout: int = args.timeout
+        self.cc: str = args.cc
+        self.strict_norm: bool = args.strict_norm or args.strict
+        self.show_fails: int = args.show_fails
+        self.diff: bool = args.diff
+        self.seed: Optional[int] = args.seed
+        self.fuzz: int = args.fuzz
         # --strict implies --valgrind too, not just --strict-valgrind: the
         # latter only fails on what valgrind finds, so without turning
         # valgrind on itself "the harshest grading this tester can do"
         # would silently skip the leak/UB check entirely.
-        self.valgrind = args.valgrind or args.strict
-        self.strict_valgrind = args.strict_valgrind or args.strict
-        self.strict_forbidden = args.strict_forbidden or args.strict
+        self.valgrind: bool = args.valgrind or args.strict
+        self.strict_valgrind: bool = args.strict_valgrind or args.strict
+        self.strict_forbidden: bool = args.strict_forbidden or args.strict
         # Exam-only realism, see exam_config() / exam_commands().
-        self.relaxed = getattr(args, "relaxed", False)
-        self.time_limit = getattr(args, "time_limit", None)  # minutes
-        self.blind = getattr(args, "blind", False)
-        self.bare_stub = getattr(
-            args, "bare_stub", False
-        )  # forced on in the exam
-        self.no_update_check = getattr(args, "no_update_check", False)
+        self.relaxed: bool = getattr(args, "relaxed", False)
+        self.time_limit: Optional[int] = getattr(args, "time_limit", None)
+        self.blind: bool = getattr(args, "blind", False)
+        # forced on in the exam
+        self.bare_stub: bool = getattr(args, "bare_stub", False)
+        self.no_update_check: bool = getattr(args, "no_update_check", False)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -144,12 +153,12 @@ PRACTICE_COMMANDS = [
 ]
 
 
-def Session(login=None):
+def Session(login: Optional[str] = None) -> _Session:
     """A fresh exam session, scored against the 4 levels."""
     return shell_common.Session(login, N_LEVELS)
 
 
-def grading_notes(cfg):
+def grading_notes(cfg: Config) -> List[str]:
     """Warnings to show before grading."""
     if cfg.valgrind and not grader.have_valgrind():
         return [
@@ -160,7 +169,9 @@ def grading_notes(cfg):
     return []
 
 
-def prepare_grading(ex_name, rng, cfg):
+def prepare_grading(
+    ex_name: str, rng: random.Random, cfg: Config
+) -> GradingJob:
     """Compile-and-run grading for one exercise (curated + fuzz cases)."""
     ex = ALL_EXERCISES[ex_name]
     size = len(ex["cases"]) + (cfg.fuzz if grader.is_fuzzable(ex) else 0)
@@ -186,80 +197,92 @@ def prepare_grading(ex_name, rng, cfg):
 # ══════════════════════════════════════════════════════════════
 #  THE SHARED FLOW  ·  see examshell/shell_common.py
 # ══════════════════════════════════════════════════════════════
-def grade_exercise(ex_name, rng, cfg, mode="practice"):
+def grade_exercise(
+    ex_name: str, rng: random.Random, cfg: Config, mode: str = "practice"
+) -> bool:
     """Compile, grade and report one exercise; True when it is 100%."""
     return shell_common.grade_exercise(_SH, ex_name, rng, cfg, mode)
 
 
-def grade_all(cfg):
+def grade_all(cfg: Config) -> bool:
     return shell_common.grade_all(_SH, cfg)
 
 
-def exercise_entries():
+def exercise_entries() -> List[ExerciseEntry]:
     return shell_common.exercise_entries(_SH)
 
 
-def training_entries():
+def training_entries() -> List[TrainingEntry]:
     return shell_common.training_entries(_SH)
 
 
-def show_subject(ex_name, cfg, session=None):
+def show_subject(
+    ex_name: str, cfg: Config, session: Optional[_Session] = None
+) -> None:
     shell_common.show_subject(_SH, ex_name, cfg, session)
 
 
-def exam_config(cfg):
+def exam_config(cfg: Config) -> Config:
     return shell_common.exam_config(_SH, cfg)
 
 
-def exam_commands(cfg):
+def exam_commands(cfg: Config) -> List[Tuple[str, str]]:
     return shell_common.exam_commands(_SH, cfg)
 
 
-def exam_mode(cfg):
+def exam_mode(cfg: Config) -> None:
     shell_common.exam_mode(_SH, cfg)
 
 
-def exam_summary(session, passed, timed_out=False):
+def exam_summary(
+    session: _Session, passed: bool, timed_out: bool = False
+) -> None:
     shell_common.exam_summary(_SH, session, passed, timed_out)
 
 
-def practice_one(ex_name, cfg, rng, mode="practice"):
+def practice_one(
+    ex_name: str, cfg: Config, rng: random.Random, mode: str = "practice"
+) -> None:
     shell_common.practice_one(_SH, ex_name, cfg, rng, mode)
 
 
-def practice_mode(cfg, ex_name=None):
+def practice_mode(cfg: Config, ex_name: Optional[str] = None) -> None:
     shell_common.practice_mode(_SH, cfg, ex_name)
 
 
-def training_mode(cfg, ex_name=None, difficulty=None):
+def training_mode(
+    cfg: Config,
+    ex_name: Optional[str] = None,
+    difficulty: Optional[str] = None,
+) -> None:
     shell_common.training_mode(_SH, cfg, ex_name, difficulty)
 
 
-def list_mode(interactive=True):
+def list_mode(interactive: bool = True) -> None:
     shell_common.list_mode(_SH, interactive)
 
 
-def training_list_mode(interactive=True):
+def training_list_mode(interactive: bool = True) -> None:
     shell_common.training_list_mode(_SH, interactive)
 
 
-def show_stats():
+def show_stats() -> None:
     shell_common.show_stats(_SH)
 
 
-def readiness_mode(interactive=True):
+def readiness_mode(interactive: bool = True) -> None:
     shell_common.readiness_mode(_SH, interactive)
 
 
-def drill_mode(cfg, n=DRILL_SIZE):
+def drill_mode(cfg: Config, n: int = DRILL_SIZE) -> None:
     shell_common.drill_mode(_SH, cfg, n)
 
 
-def main_menu(cfg):
+def main_menu(cfg: Config) -> None:
     shell_common.main_menu(_SH, cfg)
 
 
-def resolve_exercise(name):
+def resolve_exercise(name: str) -> Optional[str]:
     """Accept the exact name, or a unique suffix like 'strlen'. Searches
     both the exam pool and the training pool."""
     return shell_common.resolve_exercise(_SH, name, "ft_")
@@ -340,12 +363,12 @@ int main(int argc, char **argv)
 """
 
 
-def _definition_header(prototype):
+def _definition_header(prototype: str) -> str:
     """'void ft_putstr(char *str);' -> 'void ft_putstr(char *str)' (no ';')."""
     return prototype.rstrip(";").rstrip()
 
 
-def write_stub(ex_name, cfg):
+def write_stub(ex_name: str, cfg: Config) -> Tuple[bool, str, str]:
     """Create c_rendu/<ex>.c (and list.h, if the exercise needs one). Never
     overwrites an existing file. Returns (ok, kind, message) — kind names
     the ui function to report it with; nothing is printed here."""
@@ -359,7 +382,7 @@ def write_stub(ex_name, cfg):
         if ex.get("kind") == "program" and bare:
             content = BARE_PROGRAM_STUB_TEMPLATE.format(name=ex_name)
         elif ex.get("kind") == "program":
-            first_case = next((c for c in ex["cases"] if c), [])
+            first_case: List[str] = next((c for c in ex["cases"] if c), [])
             example_args = "".join(" " + shlex.quote(a) for a in first_case)
             content = PROGRAM_STUB_TEMPLATE.format(
                 name=ex_name,
@@ -414,7 +437,7 @@ def write_stub(ex_name, cfg):
     )
 
 
-def make_stub(ex_name, cfg):
+def make_stub(ex_name: str, cfg: Config) -> bool:
     """write_stub(), reported through the line-based UI. True on success."""
     ok, kind, message = write_stub(ex_name, cfg)
     getattr(ui, kind)(message)
@@ -439,11 +462,11 @@ MENU = [
 ]
 
 
-def menu_rows():
+def menu_rows() -> List[Tuple[str, str, str]]:
     return MENU
 
 
-def extra_menu_action(choice, cfg):
+def extra_menu_action(choice: str, cfg: Config) -> bool:
     """Menu entries beyond the shared 1-4 (see shell_common.main_menu())."""
     if choice == "5":
         readiness_mode()
@@ -459,7 +482,7 @@ def extra_menu_action(choice, cfg):
 # ══════════════════════════════════════════════════════════════
 
 
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=PROG,
         description="42 Exam Rank 02 (C) practice tester.",
@@ -729,7 +752,7 @@ def build_parser():
     return p
 
 
-def apply_saved_settings(args):
+def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     """Fill every flag the student didn't pass from ~/.examshell/config.json,
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
@@ -745,7 +768,7 @@ def apply_saved_settings(args):
     return args
 
 
-def default_config(**overrides):
+def default_config(**overrides: Any) -> Config:
     """A Config as if started with no flags (saved settings applied), with
     `overrides` on top — what the full-screen app uses when it switches to
     this tester."""
@@ -755,7 +778,7 @@ def default_config(**overrides):
     return Config(args)
 
 
-def main(argv=None):
+def main(argv: Optional[List[str]] = None) -> int:
     args = apply_saved_settings(build_parser().parse_args(argv))
     ui.configure(
         rich=not args.no_rich,
@@ -894,7 +917,7 @@ def main(argv=None):
         shell_common.auto_sync(_SH, cfg, "end")
 
 
-def run_interactive(args, cfg):
+def run_interactive(args: argparse.Namespace, cfg: Config) -> int:
     """The modes that keep the student in a session: full-screen app, exam,
     practice, training, drill, or the menu."""
     if args.tui:

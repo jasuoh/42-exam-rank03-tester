@@ -32,11 +32,19 @@ practice/training modes are where this tool is supposed to build that
 muscle instead of short-circuiting it.
 """
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING, Optional, Tuple
+
+from ._types import Exercise
+
+if TYPE_CHECKING:
+    from .grader import Report
 
 STUCK_THRESHOLD = 3
 
-_EMPTYISH_OBJECTS = (None, [], (), {})
+_EMPTYISH_OBJECTS: Tuple[object, ...] = (None, [], (), {})
 
 # The Python sandbox never appends a "crashed" warning like the C tester
 # does (see grade_exercise() below) — a raised exception is just a failing
@@ -87,19 +95,19 @@ _GENERIC_HINTS = {
 }
 
 
-def _as_number(value):
+def _as_number(value: object) -> Optional[float]:
     """float(value), or None when it isn't numeric — including bools,
     which parse as 0.0/1.0 but would make a bool-logic bug look like an
     off-by-one, actively misleading rather than helpful."""
     if isinstance(value, bool):
         return None
     try:
-        return float(value)
+        return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
 
 
-def _is_emptyish(value):
+def _is_emptyish(value: object) -> bool:
     """True when `value` represents "nothing" — the real empty Python
     object (None, [], (), {}, "") when it's still typed (a Python
     Report's f.expected is — see examshell/grader.py's Failure), a bare "" when
@@ -114,7 +122,7 @@ def _is_emptyish(value):
     return value in _EMPTYISH_OBJECTS
 
 
-def classify(report):
+def classify(report: Report) -> Optional[str]:
     """Which generic failure pattern `report` matches, as one of the
     category constants above, or None when nothing applies. `report` is
     a graded Report — Python's and the C tester's share the same shape
@@ -165,14 +173,14 @@ def classify(report):
     return None
 
 
-def diagnose(report):
+def diagnose(report: Report) -> Optional[str]:
     """One short, hedged hint string, or None when nothing generic
     applies."""
     category = classify(report)
     return _GENERIC_HINTS.get(category) if category else None
 
 
-def hint_for(ex, report):
+def hint_for(ex: Exercise, report: Report) -> Optional[str]:
     """The hint text to show for a failing `report` on bank entry `ex`,
     or None. `ex.get("hint")` is either a plain string (used as-is) or a
     dict keyed by classify()'s categories plus an optional "default";

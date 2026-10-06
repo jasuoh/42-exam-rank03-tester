@@ -23,15 +23,33 @@ below wrap those two shapes in a tagged form so they survive the trip
 unchanged; everything else passes through as plain JSON.
 """
 
+from __future__ import annotations
+
 import copy
 import inspect
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Sequence,
+    Set,
+    Tuple,
+)
+
+from ._types import Exercise
 
 DEFAULT_TIMEOUT = 3  # seconds per test case
 DEFAULT_FUZZ = 30  # random extra tests per exercise
@@ -42,7 +60,9 @@ class BankError(Exception):
     """The exercise bank itself is inconsistent (an oracle blew up)."""
 
 
-def _free_globals(func, allow=()):
+def _free_globals(
+    func: Callable[..., Any], allow: Iterable[str] = ()
+) -> List[str]:
     """Module-level names `func` depends on, other than the names in `allow`.
 
     A function with free globals cannot be lifted out of this module and
@@ -61,7 +81,7 @@ def _free_globals(func, allow=()):
 #  same source text is spliced into the subprocess runner below, so there
 #  is only ever one implementation of the comparison logic.)
 # ══════════════════════════════════════════════════════════════
-def deep_eq(a, b):
+def deep_eq(a: object, b: object) -> bool:
     """Type-strict, recursive equality: True is not 1, (1,) is not [1]."""
     if isinstance(a, bool) or isinstance(b, bool):
         return a is b
@@ -86,7 +106,7 @@ def deep_eq(a, b):
     return a == b
 
 
-def short_repr(value, limit=150):
+def short_repr(value: object, limit: int = 150) -> str:
     """A repr() capped at `limit` characters. Never raises."""
     try:
         text = repr(value)
@@ -95,7 +115,7 @@ def short_repr(value, limit=150):
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def decode_value(value):
+def decode_value(value: Any) -> Any:
     """Rebuild what encode_value() below packed for the JSON trip.
 
     The "__examshell__" tag is spelled out rather than pulled from a
@@ -129,7 +149,7 @@ _RUNNER_HELPERS_SRC = "\n\n".join(
 del _helper, _extra
 
 
-def encode_value(value):
+def encode_value(value: Any) -> Any:
     """`value` in a form json can round-trip without losing its types.
 
     Plain JSON silently turns a tuple into a list and a non-string dict key
@@ -156,7 +176,7 @@ def encode_value(value):
     return value
 
 
-def json_stable(value):
+def json_stable(value: object) -> bool:
     """True when `value` survives the trip to the sandbox unchanged — what
     selftest() checks so a bank can never ship an expected value the
     grader could not compare faithfully."""
@@ -198,17 +218,43 @@ FATAL_TITLES = {
 }
 
 
+# One curated or fuzzed call: (arguments, expected return value).
+Test = Tuple[List[Any], Any]
+
+
+class FailureLike(Protocol):
+    """What a Report's failures share: this module's Failure and
+    c_exam/grader.py's CFailure."""
+
+    @property
+    def args(self) -> Any: ...
+
+    @property
+    def expected(self) -> Any: ...
+
+    @property
+    def got(self) -> Any: ...
+
+    def call(self, function: str) -> str: ...
+
+
 class Failure(object):
     __slots__ = ("args", "expected", "got", "function")
 
-    def __init__(self, args, expected, got, function=None):
+    def __init__(
+        self,
+        args: Sequence[Any],
+        expected: Any,
+        got: Any,
+        function: Optional[str] = None,
+    ) -> None:
         self.args, self.expected, self.got = args, expected, got
         # Which function this call was made against. None for the single-
         # function exercises that are the norm; set on a multi-function
         # one (see parts_of()) so the report says which half failed.
         self.function = function
 
-    def call(self, function):
+    def call(self, function: str) -> str:
         return "%s(%s)" % (
             self.function or function,
             ", ".join(repr(a) for a in self.args),
@@ -216,26 +262,26 @@ class Failure(object):
 
 
 class Report(object):
-    def __init__(self, exercise, function):
+    def __init__(self, exercise: str, function: str) -> None:
         self.exercise = exercise
         self.function = function
         self.passed = 0
         self.total = 0
-        self.failures = []
+        self.failures: List[FailureLike] = []
         self.fatal = ""
         self.detail = ""
-        self.warnings = []
+        self.warnings: List[str] = []
         self.duration = 0.0
 
     @property
-    def ok(self):
+    def ok(self) -> bool:
         return not self.fatal and self.total > 0 and self.passed == self.total
 
     @property
-    def fatal_title(self):
+    def fatal_title(self) -> str:
         return FATAL_TITLES.get(self.fatal, self.fatal)
 
-    def fail(self, code, detail=""):
+    def fail(self, code: str, detail: str = "") -> Report:
         self.fatal, self.detail = code, detail
         return self
 
@@ -243,7 +289,7 @@ class Report(object):
 # ══════════════════════════════════════════════════════════════
 #  TEST BUILDING
 # ══════════════════════════════════════════════════════════════
-def parts_of(ex):
+def parts_of(ex: Exercise) -> List[Exercise]:
     """The gradeable parts of an exercise, each a dict carrying its own
     "function"/"oracle"/"cases"/"fuzz".
 
@@ -254,10 +300,16 @@ def parts_of(ex):
     exercise is about" (the stub signature, the subject header, --diff's
     code panel) keeps working untouched.
     """
-    return ex.get("parts") or [ex]
+    parts: List[Exercise] = ex.get("parts") or [ex]
+    return parts
 
 
-def build_plan(ex_name, ex, rng, fuzz=DEFAULT_FUZZ):
+def build_plan(
+    ex_name: str,
+    ex: Exercise,
+    rng: Optional[random.Random],
+    fuzz: int = DEFAULT_FUZZ,
+) -> List[Tuple[str, List[Test]]]:
     """[(function, tests), …] — build_tests() once per part."""
     return [
         (part["function"], build_tests(ex_name, part, rng, fuzz))
@@ -265,17 +317,23 @@ def build_plan(ex_name, ex, rng, fuzz=DEFAULT_FUZZ):
     ]
 
 
-def plan_size(plan):
+def plan_size(plan: List[Tuple[str, List[Test]]]) -> int:
     """How many test cases a plan runs in total."""
     return sum(len(tests) for _, tests in plan)
 
 
-def build_tests(ex_name, ex, rng, fuzz=DEFAULT_FUZZ):
+def build_tests(
+    ex_name: str,
+    ex: Exercise,
+    rng: Optional[random.Random],
+    fuzz: int = DEFAULT_FUZZ,
+) -> List[Test]:
     """Curated cases + fuzz, with the expected values taken from the oracle."""
     oracle = ex["oracle"]
-    tests, seen = [], set()
+    tests: List[Test] = []
+    seen: Set[str] = set()
 
-    def add(args, curated):
+    def add(args: Sequence[Any], curated: bool) -> None:
         key = repr(args)
         if key in seen:
             return
@@ -308,7 +366,7 @@ def build_tests(ex_name, ex, rng, fuzz=DEFAULT_FUZZ):
 # ══════════════════════════════════════════════════════════════
 #  STATIC CHECK  ·  imports
 # ══════════════════════════════════════════════════════════════
-def find_imports(path):
+def find_imports(path: str) -> List[Tuple[int, str]]:
     """Real import statements only — strings and comments do not count."""
     import ast
 
@@ -317,7 +375,7 @@ def find_imports(path):
             tree = ast.parse(fh.read(), filename=path)
     except (OSError, SyntaxError, ValueError):
         return []  # the sandbox reports this properly
-    found = []
+    found: List[Tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             found.append(
@@ -336,7 +394,9 @@ def find_imports(path):
 # ══════════════════════════════════════════════════════════════
 #  STATIC CHECK  ·  forbidden calls
 # ══════════════════════════════════════════════════════════════
-def find_forbidden_calls(path, forbidden_names):
+def find_forbidden_calls(
+    path: str, forbidden_names: Iterable[str]
+) -> List[str]:
     """Calls to a banned name, as either a bare identifier (`sorted(x)`) or
     an attribute (`x.sort()`) — same spirit as c_exam's find_forbidden(),
     ast-based since Python has a real parser for it. A syntax error yields
@@ -351,7 +411,7 @@ def find_forbidden_calls(path, forbidden_names):
     except (OSError, SyntaxError, ValueError):
         return []
     names = set(forbidden_names)
-    found = set()
+    found: Set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -366,7 +426,9 @@ def find_forbidden_calls(path, forbidden_names):
 # ══════════════════════════════════════════════════════════════
 #  STATIC CHECK  ·  source display (--diff's inline code panel)
 # ══════════════════════════════════════════════════════════════
-def extract_function_source(filepath, function_name):
+def extract_function_source(
+    filepath: str, function_name: str
+) -> Optional[str]:
     """The student's own source text for one function (its `def` line
     through its full body), for --diff's inline code panel — read via
     `ast`, the same way find_imports()/find_forbidden_calls() above
@@ -386,7 +448,7 @@ def extract_function_source(filepath, function_name):
         tree = ast.parse(source, filename=filepath)
     except (OSError, SyntaxError, ValueError, UnicodeDecodeError):
         return None
-    match = None
+    match: Optional[ast.AST] = None
     for node in ast.walk(tree):
         if (
             isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -404,7 +466,8 @@ def extract_function_source(filepath, function_name):
 # ══════════════════════════════════════════════════════════════
 #  SANDBOX RUNNER  (executed in the subprocess)
 # ══════════════════════════════════════════════════════════════
-RUNNER_TEMPLATE = r"""
+RUNNER_TEMPLATE = r"""from __future__ import annotations
+
 import contextlib, copy, importlib.util, inspect, io, json, signal, sys, time
 
 sub_path, func_name, cases_path, out_path = sys.argv[1:5]
@@ -535,7 +598,12 @@ RUNNER_SRC = RUNNER_TEMPLATE.replace("{{HELPERS}}", _RUNNER_HELPERS_SRC)
 # ══════════════════════════════════════════════════════════════
 #  SANDBOX DRIVER
 # ══════════════════════════════════════════════════════════════
-def run_sandbox(filepath, function, tests, timeout=DEFAULT_TIMEOUT):
+def run_sandbox(
+    filepath: str,
+    function: str,
+    tests: Sequence[Test],
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
     """Run `tests` against `filepath` in a subprocess; return the raw
     payload."""
     workdir = tempfile.mkdtemp(prefix="examshell-")
@@ -593,14 +661,17 @@ def run_sandbox(filepath, function, tests, timeout=DEFAULT_TIMEOUT):
             }
         try:
             with open(result, encoding="utf-8") as fh:
-                return json.load(fh)
+                payload = json.load(fh)
         except (ValueError, OSError) as exc:
             return {"fatal": "BAD_RESULT", "detail": str(exc)[:200]}
+        if not isinstance(payload, dict):
+            return {"fatal": "BAD_RESULT", "detail": "not a JSON object"}
+        return payload
     finally:
         _rmtree(workdir)
 
 
-def _rmtree(path):
+def _rmtree(path: str) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
@@ -608,17 +679,17 @@ def _rmtree(path):
 #  GRADE
 # ══════════════════════════════════════════════════════════════
 def grade(
-    ex_name,
-    ex,
-    rendu_dir,
-    rng=None,
-    timeout=DEFAULT_TIMEOUT,
-    fuzz=DEFAULT_FUZZ,
-    strict_imports=False,
-    filepath=None,
-    tests=None,
-    plan=None,
-):
+    ex_name: str,
+    ex: Exercise,
+    rendu_dir: str,
+    rng: Optional[random.Random] = None,
+    timeout: int = DEFAULT_TIMEOUT,
+    fuzz: int = DEFAULT_FUZZ,
+    strict_imports: bool = False,
+    filepath: Optional[str] = None,
+    tests: Optional[List[Test]] = None,
+    plan: Optional[List[Tuple[str, List[Test]]]] = None,
+) -> Report:
     """Grade one exercise and return a Report.
 
     Pass `plan` (from build_plan()) when you already built it, so the count
@@ -662,8 +733,8 @@ def grade(
 
     multi = len(plan) > 1
     mutated, printed = False, 0
-    for function, tests in plan:
-        payload = run_sandbox(path, function, tests, timeout)
+    for function, part_tests in plan:
+        payload = run_sandbox(path, function, part_tests, timeout)
         if "fatal" in payload:
             report.duration = time.time() - started
             detail = payload.get("detail", "")
@@ -674,15 +745,16 @@ def grade(
             return report.fail(payload["fatal"], detail)
 
         results = payload.get("results", [])
-        if len(results) != len(tests):
+        if len(results) != len(part_tests):
             report.duration = time.time() - started
             return report.fail(
                 "BAD_RESULT",
-                "expected %d results, got %d" % (len(tests), len(results)),
+                "expected %d results, got %d"
+                % (len(part_tests), len(results)),
             )
 
-        report.total += len(tests)
-        for (args, expected), outcome in zip(tests, results):
+        report.total += len(part_tests)
+        for (args, expected), outcome in zip(part_tests, results):
             if outcome.get("ok"):
                 report.passed += 1
             else:
@@ -714,12 +786,16 @@ def grade(
 # ══════════════════════════════════════════════════════════════
 #  BANK SELF-TEST  (make check)
 # ══════════════════════════════════════════════════════════════
-def oracle_source(ex):
+def oracle_source(ex: Exercise) -> str:
     """Every one of the exercise's oracles, each renamed to the function
     the student must write — a standalone module that is, by definition,
     a perfect submission. One `def` for the usual single-function
-    exercise, one per part for a multi-function one (see parts_of())."""
-    chunks = []
+    exercise, one per part for a multi-function one (see parts_of()).
+
+    Starts with a __future__ import so the oracles' annotations (written
+    for this package's own type checking) are never evaluated in the
+    sandbox — `list[int]` would be a TypeError there on Python 3.8."""
+    chunks = ["from __future__ import annotations"]
     for part in parts_of(ex):
         src = inspect.getsource(part["oracle"])
         chunks.append(
@@ -730,23 +806,23 @@ def oracle_source(ex):
     return "\n\n".join(chunks)
 
 
-def oracle_free_globals(ex):
+def oracle_free_globals(ex: Exercise) -> List[str]:
     """Module-level names an oracle depends on — it must depend on none, or
     it cannot be extracted into a standalone file for the self-test."""
-    names = set()
+    names: Set[str] = set()
     for part in parts_of(ex):
         names.update(_free_globals(part["oracle"]))
     return sorted(names)
 
 
 def selftest(
-    exercises,
-    groups,
-    rng,
-    timeout=DEFAULT_TIMEOUT,
-    fuzz=DEFAULT_FUZZ,
-    log=print,
-):
+    exercises: Mapping[str, Exercise],
+    groups: Mapping[Any, Sequence[str]],
+    rng: random.Random,
+    timeout: int = DEFAULT_TIMEOUT,
+    fuzz: int = DEFAULT_FUZZ,
+    log: Callable[[str], None] = print,
+) -> int:
     """Validate a whole bank (exercises grouped by level or difficulty).
 
     `groups` maps each group key (a level number, a difficulty name, …) to
@@ -756,7 +832,7 @@ def selftest(
     """
     problems = 0
 
-    def bad(msg):
+    def bad(msg: str) -> None:
         nonlocal problems
         problems += 1
         log("  FAIL  " + msg)

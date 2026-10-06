@@ -34,15 +34,32 @@ cases always compiled cleanly.
 instead of call arguments.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import shlex
 import shutil
 import signal
 import subprocess
+import random
 import tempfile
 import time
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 
+from examshell._types import Exercise
 from examshell.grader import MAX_TIMEOUTS, Report
 
 DEFAULT_TIMEOUT = (
@@ -124,7 +141,7 @@ typedef struct s_point
 """
 
 
-def shell_arg(arg):
+def shell_arg(arg: str) -> str:
     """`arg` quoted so the whole command can be pasted into bash as-is —
     $'...' when it holds a tab/newline (they'd be invisible otherwise)."""
     if any(ch in arg for ch in "\t\n\r"):
@@ -142,7 +159,14 @@ def shell_arg(arg):
 class CFailure(object):
     __slots__ = ("index", "expected", "got", "args", "program")
 
-    def __init__(self, index, expected, got, args=None, program=False):
+    def __init__(
+        self,
+        index: int,
+        expected: str,
+        got: str,
+        args: Optional[Sequence[Any]] = None,
+        program: bool = False,
+    ) -> None:
         self.index, self.expected, self.got = index, expected, got
         # The case's own inputs — call values for a "function"-kind
         # exercise, argv for a "program"-kind one — so the report shows
@@ -150,7 +174,7 @@ class CFailure(object):
         # case). None only for callers that don't know them.
         self.args, self.program = args, program
 
-    def call(self, function):
+    def call(self, function: str) -> str:
         if self.args is None:
             return "%s()  [case %d]" % (function, self.index)
         if self.program:
@@ -163,7 +187,7 @@ class CFailure(object):
 # ══════════════════════════════════════════════════════════════
 #  C LITERAL ENCODING
 # ══════════════════════════════════════════════════════════════
-def c_char_literal(ch):
+def c_char_literal(ch: str) -> str:
     escapes = {
         "\\": "\\\\",
         "'": "\\'",
@@ -181,7 +205,7 @@ def c_char_literal(ch):
     return "'" + body + "'"
 
 
-def c_string_literal(s):
+def c_string_literal(s: str) -> str:
     escapes = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\t": "\\t", "\r": "\\r"}
     out = ['"']
     for ch in s:
@@ -461,13 +485,13 @@ _FUZZ_STR_ALPHABET = (
 )
 
 
-def _fuzz_str(rng, max_len):
+def _fuzz_str(rng: random.Random, max_len: int) -> str:
     return "".join(
         rng.choice(_FUZZ_STR_ALPHABET) for _ in range(rng.randint(0, max_len))
     )
 
 
-def _fuzz_value(kind, rng):
+def _fuzz_value(kind: str, rng: random.Random) -> Any:
     """One random value for a single "safe" arg kind (see
     FUZZABLE_VALUE_KINDS)."""
     if kind in ("int", "int_ptr"):
@@ -503,12 +527,14 @@ _PUNCT = ".,;:!?'-_()"
 _BLANKS = (" ", "  ", "\t", " \t ", "   ")
 
 
-def _fuzz_word(rng, max_len=8, punct=True):
+def _fuzz_word(
+    rng: random.Random, max_len: int = 8, punct: bool = True
+) -> str:
     chars = _WORD_CHARS + (_PUNCT if punct else "")
     return "".join(rng.choice(chars) for _ in range(rng.randint(1, max_len)))
 
 
-def _fuzz_sentence(rng):
+def _fuzz_sentence(rng: random.Random) -> str:
     """Words separated by random runs of spaces/tabs, sometimes with
     leading/trailing blanks, sometimes empty or blank-only."""
     roll = rng.random()
@@ -525,7 +551,7 @@ def _fuzz_sentence(rng):
     return text
 
 
-def _fuzz_small_alphabet(rng, max_len=12):
+def _fuzz_small_alphabet(rng: random.Random, max_len: int = 12) -> str:
     """A string over a tiny alphabet, so two of them actually overlap
     (union/inter) and repeat characters (the 'no doubles' traps)."""
     return "".join(
@@ -533,7 +559,7 @@ def _fuzz_small_alphabet(rng, max_len=12):
     )
 
 
-def _fuzz_subsequence_pair(rng):
+def _fuzz_subsequence_pair(rng: random.Random) -> List[str]:
     """(s1, s2) where s1 is hidden in s2 in order about half the time."""
     s1 = _fuzz_word(rng, 5, punct=False)
     noise = [_fuzz_word(rng, 3, punct=False) for _ in range(len(s1) + 1)]
@@ -544,7 +570,7 @@ def _fuzz_subsequence_pair(rng):
     return [s1, s2]
 
 
-def _fuzz_camel(rng):
+def _fuzz_camel(rng: random.Random) -> str:
     words = [
         "".join(
             rng.choice("abcdefghijklmnopqrstuvwxyz")
@@ -555,7 +581,7 @@ def _fuzz_camel(rng):
     return words[0] + "".join(w.capitalize() for w in words[1:])
 
 
-def _fuzz_snake(rng):
+def _fuzz_snake(rng: random.Random) -> str:
     return "_".join(
         "".join(
             rng.choice("abcdefghijklmnopqrstuvwxyz")
@@ -565,7 +591,7 @@ def _fuzz_snake(rng):
     )
 
 
-def _fuzz_do_op(rng):
+def _fuzz_do_op(rng: random.Random) -> List[str]:
     op = rng.choice("+-*/%")
     left = rng.randint(-1000, 1000)
     right = rng.randint(-1000, 1000)
@@ -574,7 +600,7 @@ def _fuzz_do_op(rng):
     return [str(left), op, str(right)]
 
 
-def _fuzz_search_and_replace(rng):
+def _fuzz_search_and_replace(rng: random.Random) -> List[str]:
     text = _fuzz_sentence(rng)
     pool = [c for c in text if c not in " \t"] or ["a"]
     search = (
@@ -587,7 +613,8 @@ def _fuzz_search_and_replace(rng):
 
 
 # shape -> (generator for the RIGHT argv, how many args that is)
-ARGV_SHAPES = {
+ArgvMaker = Callable[[random.Random], List[str]]
+ARGV_SHAPES: Dict[str, Tuple[ArgvMaker, Optional[int]]] = {
     "sentence": (lambda rng: [_fuzz_sentence(rng)], 1),
     "sentences": (
         lambda rng: [_fuzz_sentence(rng) for _ in range(rng.randint(1, 3))],
@@ -616,7 +643,7 @@ ARGV_SHAPES = {
 }
 
 
-def fuzz_argv(shape, rng):
+def fuzz_argv(shape: str, rng: random.Random) -> List[str]:
     """One random argv for `shape` — about 1 in 10 has the wrong argc
     (none at all, or one too many), the case every subject specifies and
     many solutions forget."""
@@ -633,7 +660,7 @@ def fuzz_argv(shape, rng):
 # point must lie on the grid, data_ref should usually match some element).
 # These exercises opt in with `"fuzz_cases": "<name>"` and get a generator
 # for WHOLE cases, aimed at the classic bugs of that exercise.
-def _fuzz_foreach_case(rng):
+def _fuzz_foreach_case(rng: random.Random) -> List[Any]:
     """ft_list_foreach: empty, single, long, negative, zeros."""
     roll = rng.random()
     if roll < 0.15:
@@ -643,7 +670,7 @@ def _fuzz_foreach_case(rng):
     return [[rng.randint(-50, 50) for _ in range(rng.randint(2, 9))]]
 
 
-def _fuzz_remove_if_case(rng):
+def _fuzz_remove_if_case(rng: random.Random) -> List[Any]:
     """ft_list_remove_if: matches at the head (the head pointer must move),
     at the tail, back to back, everywhere, nowhere — and the empty list."""
     pool = [1, 2, 3]
@@ -665,7 +692,7 @@ def _fuzz_remove_if_case(rng):
     return [values, ref]
 
 
-def _fuzz_flood_fill_case(rng):
+def _fuzz_flood_fill_case(rng: random.Random) -> List[Any]:
     """flood_fill: random 1-6 x 1-6 grids of 2-3 symbols, starting in a
     corner, on an edge or anywhere — sometimes on a 1-cell island, rarely
     off the grid (curated cases already pin that down)."""
@@ -696,7 +723,7 @@ def _fuzz_flood_fill_case(rng):
     return [grid, (width, height), begin]
 
 
-def _fuzz_atoi_base_case(rng):
+def _fuzz_atoi_base_case(rng: random.Random) -> List[Any]:
     """ft_atoi_base: a base the subject allows (2-16) and a number that fits
     in an int, written in that base in mixed case — sometimes negative,
     sometimes cut short by a digit too big for the base, a stray '-'/'+' or
@@ -728,7 +755,7 @@ def _fuzz_atoi_base_case(rng):
     return [digits, base]
 
 
-CASE_FUZZERS = {
+CASE_FUZZERS: Dict[str, Callable[[random.Random], List[Any]]] = {
     "atoi_base": _fuzz_atoi_base_case,
     "list_foreach": _fuzz_foreach_case,
     "list_remove_if": _fuzz_remove_if_case,
@@ -736,7 +763,7 @@ CASE_FUZZERS = {
 }
 
 
-def is_fuzzable(ex):
+def is_fuzzable(ex: Exercise) -> bool:
     """True when this exercise can get random extra cases: every arg of a
     "function"-kind exercise is safe to randomise, it names a whole-case
     generator (see CASE_FUZZERS), or a "program"-kind one names its argv
@@ -751,7 +778,9 @@ def is_fuzzable(ex):
     )
 
 
-def build_fuzz_cases(ex, rng, n):
+def build_fuzz_cases(
+    ex: Exercise, rng: random.Random, n: int
+) -> List[List[Any]]:
     """`n` extra random case tuples, shaped exactly like a hand-curated
     entry in ex["cases"] (one value per arg, fixed-callback args skipped —
     they consume no case value, see FIXED_CALLBACK_KINDS)."""
@@ -762,10 +791,14 @@ def build_fuzz_cases(ex, rng, n):
     return [[_fuzz_value(k, rng) for k in kinds] for _ in range(n)]
 
 
-def _emit_args(ex, args):
+def _emit_args(
+    ex: Exercise, args: Sequence[Any]
+) -> Tuple[List[str], List[str], Dict[int, Tuple[Any, ...]]]:
     """Build (decl lines, call-argument expressions,
     {arg_index: (kind, var)})."""
-    decls, call_args, refs = [], [], {}
+    decls: List[str] = []
+    call_args: List[str] = []
+    refs: Dict[int, Tuple[Any, ...]] = {}
     ai = 0
     for i, kind in enumerate(ex["args"]):
         name = "arg%d" % i
@@ -827,7 +860,7 @@ def _emit_args(ex, args):
             decls.append("t_point %s = {%d, %d};" % (name, x, y))
             call_args.append(name)
         elif kind == "char_grid":
-            row_names = []
+            row_names: List[str] = []
             for r, row in enumerate(value):
                 row_name = "%s_row%d" % (name, r)
                 decls.append(
@@ -842,13 +875,15 @@ def _emit_args(ex, args):
     return decls, call_args, refs
 
 
-def render_call(ex, args, index=None):
+def render_call(
+    ex: Exercise, args: Sequence[Any], index: Optional[int] = None
+) -> str:
     """One example call as a C block. Used both for the harness (with an
     index, so its output is delimited) and the stub's SELF_TEST snippet
     (without one — see examshell.make_stub). Only for "function"-kind
     exercises; "program"-kind ones have no call to render."""
     decls, call_args, refs = _emit_args(ex, args)
-    lines = []
+    lines: List[str] = []
     if index is not None:
         lines.append('printf("' + CASE_DELIM + str(index) + '===\\n");')
     lines.extend(decls)
@@ -925,21 +960,21 @@ def render_call(ex, args, index=None):
     return "    {\n        " + indented + "\n    }"
 
 
-def needs_list_h(ex):
+def needs_list_h(ex: Exercise) -> bool:
     return "int_list" in ex.get("args", ()) or ex.get("returns") == "int_list"
 
 
-def needs_ft_list_h(ex):
+def needs_ft_list_h(ex: Exercise) -> bool:
     return "voidlist" in ex.get("args", ()) or "voidlist_ptr" in ex.get(
         "args", ()
     )
 
 
-def needs_flood_fill_h(ex):
+def needs_flood_fill_h(ex: Exercise) -> bool:
     return "point" in ex.get("args", ()) or "char_grid" in ex.get("args", ())
 
 
-def header_filename(ex):
+def header_filename(ex: Exercise) -> Optional[str]:
     """Which shared header (if any) this exercise's args/return need."""
     if needs_list_h(ex):
         return "list.h"
@@ -950,7 +985,7 @@ def header_filename(ex):
     return None
 
 
-def header_content(filename):
+def header_content(filename: str) -> str:
     return {
         "list.h": LIST_H_CONTENT,
         "ft_list.h": FT_LIST_H_CONTENT,
@@ -958,7 +993,7 @@ def header_content(filename):
     }[filename]
 
 
-def needed_helpers_c(ex):
+def needed_helpers_c(ex: Exercise) -> str:
     """The C source of every codegen helper (print_int_array, the t_list
     build/print pair, print_str_array, ascending, ...) this exercise's
     calls actually use — shared by generate_harness() (the grading
@@ -995,7 +1030,9 @@ def needed_helpers_c(ex):
     return helpers
 
 
-def generate_harness(ex, cases=None):
+def generate_harness(
+    ex: Exercise, cases: Optional[Sequence[Sequence[Any]]] = None
+) -> str:
     """The full harness.c source: preamble + one main() looping every case.
 
     `cases` defaults to ex["cases"]; grade() passes curated + fuzz cases
@@ -1030,12 +1067,13 @@ def generate_harness(ex, cases=None):
 # ══════════════════════════════════════════════════════════════
 #  STATIC CHECKS  ·  forbidden calls (both kinds)
 # ══════════════════════════════════════════════════════════════
-def _strip_comments_and_strings(src):
+def _strip_comments_and_strings(src: str) -> str:
     """Best-effort scrub of comments and string/char literal contents, so a
     banned word inside a comment or a string doesn't false-positive. Not a
     real C parser — good enough for a lint-style scan, same spirit as the
     Python tool's ast-based `find_imports` but C has no stdlib parser."""
-    out, i, n = [], 0, len(src)
+    out: List[str] = []
+    i, n = 0, len(src)
     while i < n:
         pair_end = i + 2
         two = src[i:pair_end]
@@ -1057,7 +1095,7 @@ def _strip_comments_and_strings(src):
     return "".join(out)
 
 
-def _is_duplicate_main(link_error):
+def _is_duplicate_main(link_error: str) -> bool:
     """True for the linker error a student's own (unguarded) main() causes
     when it collides with the harness's — covers both ld64 ("duplicate
     symbol '_main'") and GNU ld ("multiple definition of `main'"). Only
@@ -1069,8 +1107,10 @@ def _is_duplicate_main(link_error):
     )
 
 
-def find_forbidden(stripped_src, forbidden_names):
-    found = []
+def find_forbidden(
+    stripped_src: str, forbidden_names: Iterable[str]
+) -> List[str]:
+    found: List[str] = []
     for name in forbidden_names:
         if re.search(r"\b" + re.escape(name) + r"\s*\(", stripped_src):
             found.append(name)
@@ -1083,7 +1123,7 @@ def find_forbidden(stripped_src, forbidden_names):
 _SIG_START_RE_TEMPLATE = r"(?m)^[^\n{}]*\b%s\s*\("
 
 
-def _real_chars(src):
+def _real_chars(src: str) -> Iterator[Tuple[int, str]]:
     """Yield (original_index, char) for every character of `src` that is
     NOT inside a comment or a string/char literal — same skip rules as
     _strip_comments_and_strings(), but yielding ORIGINAL offsets instead
@@ -1111,7 +1151,9 @@ def _real_chars(src):
             i += 1
 
 
-def extract_function_source(filepath, function_name):
+def extract_function_source(
+    filepath: str, function_name: str
+) -> Optional[str]:
     """Best-effort brace-matching extraction of one function's definition
     from the student's C file, for --diff's inline code panel — with the
     student's ORIGINAL formatting, comments and string literals intact
@@ -1148,7 +1190,7 @@ def extract_function_source(filepath, function_name):
     # report positions in the ORIGINAL source.
     tail = [(i, ch) for i, ch in real if i >= real[m.end() - 1][0]]
     depth = 0
-    body_start = None
+    body_start: Optional[int] = None
     for i, ch in tail:
         if ch == "{":
             if body_start is None:
@@ -1165,7 +1207,13 @@ def extract_function_source(filepath, function_name):
 # ══════════════════════════════════════════════════════════════
 #  COMPILE  ·  RUN
 # ══════════════════════════════════════════════════════════════
-def compile_c(sources, output, cc=DEFAULT_CC, extra_flags=(), include_dirs=()):
+def compile_c(
+    sources: Sequence[str],
+    output: str,
+    cc: str = DEFAULT_CC,
+    extra_flags: Sequence[str] = (),
+    include_dirs: Sequence[str] = (),
+) -> Tuple[bool, str]:
     cmd = [cc, "-Wall", "-Wextra"]
     for d in include_dirs:
         cmd += ["-I", d]
@@ -1183,7 +1231,11 @@ def compile_c(sources, output, cc=DEFAULT_CC, extra_flags=(), include_dirs=()):
     return proc.returncode == 0, proc.stderr
 
 
-def run_bin(path, timeout=DEFAULT_TIMEOUT, argv=None):
+def run_bin(
+    path: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    argv: Optional[Sequence[str]] = None,
+) -> Tuple[str, Optional[str]]:
     """Returns (stdout, crash_note). crash_note is None on a clean exit."""
     cmd = [path] + list(argv or ())
     try:
@@ -1207,11 +1259,15 @@ def run_bin(path, timeout=DEFAULT_TIMEOUT, argv=None):
     return proc.stdout, None
 
 
-def have_valgrind():
+def have_valgrind() -> bool:
     return shutil.which("valgrind") is not None
 
 
-def run_valgrind(path, timeout=DEFAULT_TIMEOUT, argv=None):
+def run_valgrind(
+    path: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    argv: Optional[Sequence[str]] = None,
+) -> Tuple[bool, str]:
     """Run `path` under valgrind's full leak checker.
 
     Returns (clean, detail): clean is True when valgrind reported zero
@@ -1264,10 +1320,10 @@ def run_valgrind(path, timeout=DEFAULT_TIMEOUT, argv=None):
     return True, ""
 
 
-def split_cases(output):
+def split_cases(output: str) -> Dict[int, str]:
     """{case_index: chunk_text} parsed from a harness run's stdout."""
     matches = list(_CASE_RE.finditer(output))
-    chunks = {}
+    chunks: Dict[int, str] = {}
     for i, m in enumerate(matches):
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(output)
@@ -1279,19 +1335,19 @@ def split_cases(output):
 #  GRADE
 # ══════════════════════════════════════════════════════════════
 def grade(
-    ex_name,
-    ex,
-    rendu_dir,
-    cc=DEFAULT_CC,
-    timeout=DEFAULT_TIMEOUT,
-    strict_norm=False,
-    filepath=None,
-    rng=None,
-    fuzz=0,
-    valgrind=False,
-    strict_valgrind=False,
-    strict_forbidden=False,
-):
+    ex_name: str,
+    ex: Exercise,
+    rendu_dir: str,
+    cc: str = DEFAULT_CC,
+    timeout: float = DEFAULT_TIMEOUT,
+    strict_norm: bool = False,
+    filepath: Optional[str] = None,
+    rng: Optional[random.Random] = None,
+    fuzz: int = 0,
+    valgrind: bool = False,
+    strict_valgrind: bool = False,
+    strict_forbidden: bool = False,
+) -> Report:
     """Grade one exercise. `rng`/`fuzz` only ever apply to "function"-kind
     exercises whose args are all "safe" to randomise (see is_fuzzable) —
     every other exercise is graded on its curated cases alone, same as
@@ -1333,19 +1389,19 @@ def grade(
 
 
 def _grade_function(
-    ex_name,
-    ex,
-    rendu_dir,
-    cc,
-    timeout,
-    strict_norm,
-    filepath,
-    rng=None,
-    fuzz=0,
-    valgrind=False,
-    strict_valgrind=False,
-    strict_forbidden=False,
-):
+    ex_name: str,
+    ex: Exercise,
+    rendu_dir: str,
+    cc: str,
+    timeout: float,
+    strict_norm: bool,
+    filepath: Optional[str],
+    rng: Optional[random.Random] = None,
+    fuzz: int = 0,
+    valgrind: bool = False,
+    strict_valgrind: bool = False,
+    strict_forbidden: bool = False,
+) -> Report:
     report = Report(ex_name, ex["function"])
     path = filepath or os.path.join(rendu_dir, ex_name + ".c")
     started = time.time()
@@ -1379,7 +1435,7 @@ def _grade_function(
 
     workdir = tempfile.mkdtemp(prefix="c-exam-")
     try:
-        include_dirs = []
+        include_dirs: List[str] = []
         header = header_filename(ex)
         if header:
             with open(
@@ -1521,19 +1577,19 @@ def _grade_function(
 
 
 def _grade_program(
-    ex_name,
-    ex,
-    rendu_dir,
-    cc,
-    timeout,
-    strict_norm,
-    filepath,
-    valgrind=False,
-    strict_valgrind=False,
-    strict_forbidden=False,
-    rng=None,
-    fuzz=0,
-):
+    ex_name: str,
+    ex: Exercise,
+    rendu_dir: str,
+    cc: str,
+    timeout: float,
+    strict_norm: bool,
+    filepath: Optional[str],
+    valgrind: bool = False,
+    strict_valgrind: bool = False,
+    strict_forbidden: bool = False,
+    rng: Optional[random.Random] = None,
+    fuzz: int = 0,
+) -> Report:
     """ "program"-kind exercises: the student's file compiles ALONE (it IS
     the main()), and is run once per case with that case's argv."""
     report = Report(ex_name, ex["function"])
@@ -1584,7 +1640,7 @@ def _grade_program(
             )
 
         run_valgrind_ok = valgrind and have_valgrind()
-        vg_issues = []
+        vg_issues: List[Tuple[int, str]] = []
         cases = list(ex["cases"])
         if fuzz and rng is not None and is_fuzzable(ex):
             cases += [fuzz_argv(ex["fuzz_argv"], rng) for _ in range(fuzz)]
@@ -1681,15 +1737,15 @@ def _grade_program(
 #  BANK SELF-TEST  (make c-check)
 # ══════════════════════════════════════════════════════════════
 def selftest(
-    exercises,
-    groups,
-    cc=DEFAULT_CC,
-    timeout=DEFAULT_TIMEOUT,
-    rng=None,
-    fuzz=0,
-    valgrind=False,
-    log=print,
-):
+    exercises: Mapping[str, Exercise],
+    groups: Mapping[Any, Sequence[str]],
+    cc: str = DEFAULT_CC,
+    timeout: float = DEFAULT_TIMEOUT,
+    rng: Optional[random.Random] = None,
+    fuzz: int = 0,
+    valgrind: bool = False,
+    log: Callable[[str], None] = print,
+) -> int:
     """Validate the whole C bank. Returns the number of problems found.
 
     `rng`/`fuzz` run every fuzzable exercise's oracle (as "student") against
@@ -1701,7 +1757,7 @@ def selftest(
     implementation is a bank bug, not a warning to shrug off."""
     problems = 0
 
-    def bad(msg):
+    def bad(msg: str) -> None:
         nonlocal problems
         problems += 1
         log("  FAIL  " + msg)
@@ -1719,13 +1775,14 @@ def selftest(
             if name not in ex["subject"]:
                 bad("%s: subject does not mention the exercise name" % name)
             prototype = ex.get("prototype", "")
-            if _KR_FUNC_PTR_RE.search(prototype):
+            kr_match = _KR_FUNC_PTR_RE.search(prototype)
+            if kr_match:
                 bad(
                     "%s: prototype declares a K&R-style empty-parens function "
                     "pointer (%s) — GCC's C23 default reads () as \"takes "
                     'no arguments", not "unspecified", so a real call to it '
                     "fails to compile; write out the parameter types instead"
-                    % (name, _KR_FUNC_PTR_RE.search(prototype).group())
+                    % (name, kr_match.group())
                 )
             if kind == "function":
                 for args in ex["cases"]:
@@ -1774,7 +1831,7 @@ def selftest(
                     % (
                         name,
                         "harness" if kind == "function" else "run",
-                        report.failures[0].index,
+                        cast(CFailure, report.failures[0]).index,
                     )
                 )
                 continue

@@ -13,10 +13,13 @@ Off with --no-update-check or EXAMSHELL_NO_UPDATE_CHECK=1. Never used by
 the one-shot CLI modes (--grade, --check, ...) or the tests.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import threading
 import time
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from .settings import DATA_DIR
 from .version import REPO, __version__
@@ -28,7 +31,7 @@ HTTP_TIMEOUT = 3  # seconds — runs in the background anyway
 ENV_OPT_OUT = "EXAMSHELL_NO_UPDATE_CHECK"
 
 
-def parse_version(text):
+def parse_version(text: object) -> Optional[Tuple[int, ...]]:
     """ "v1.2.3" / "1.2.3" -> (1, 2, 3); None when it isn't one."""
     parts = str(text).strip().lstrip("vV").split(".")
     try:
@@ -37,12 +40,12 @@ def parse_version(text):
         return None
 
 
-def is_newer(latest, current=__version__):
+def is_newer(latest: str, current: str = __version__) -> bool:
     a, b = parse_version(latest), parse_version(current)
     return a is not None and b is not None and a > b
 
 
-def _load_cache():
+def _load_cache() -> Dict[str, Any]:
     try:
         with open(CACHE_PATH, encoding="utf-8") as fh:
             data = json.load(fh)
@@ -51,7 +54,7 @@ def _load_cache():
         return {}
 
 
-def _save_cache(latest):
+def _save_cache(latest: Optional[str]) -> None:
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
         with open(CACHE_PATH, "w", encoding="utf-8") as fh:
@@ -60,7 +63,7 @@ def _save_cache(latest):
         pass
 
 
-def _fetch_latest():
+def _fetch_latest() -> Optional[str]:
     """The latest release tag from GitHub, or None on any failure."""
     import urllib.request
 
@@ -73,28 +76,33 @@ def _fetch_latest():
     )
     try:
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as resp:
-            return json.loads(resp.read().decode("utf-8")).get("tag_name")
+            tag = json.loads(resp.read().decode("utf-8")).get("tag_name")
+        return tag if isinstance(tag, str) else None
     except Exception:
         return None
 
 
-def latest_version(now=None, fetch=_fetch_latest):
+def latest_version(
+    now: Optional[float] = None,
+    fetch: Callable[[], Optional[str]] = _fetch_latest,
+) -> Optional[str]:
     """The latest known release tag — from the cache when it's fresh,
     otherwise fetched (and cached, even when the fetch failed)."""
     now = time.time() if now is None else now
     cache = _load_cache()
     if now - cache.get("checked", 0) < CHECK_EVERY:
-        return cache.get("latest")
+        cached = cache.get("latest")
+        return cached if isinstance(cached, str) else None
     latest = fetch()
     _save_cache(latest)
     return latest
 
 
-def enabled(opt_out_flag=False):
+def enabled(opt_out_flag: bool = False) -> bool:
     return not opt_out_flag and not os.environ.get(ENV_OPT_OUT)
 
 
-def notice_text(latest):
+def notice_text(latest: Optional[str]) -> Optional[str]:
     """The one-line notice for `latest`, or None when it isn't newer."""
     if not latest or not is_newer(latest):
         return None
@@ -107,14 +115,16 @@ def notice_text(latest):
     )
 
 
-def start_background_check(opt_out_flag=False):
+def start_background_check(
+    opt_out_flag: bool = False,
+) -> Dict[str, Optional[str]]:
     """Kick off the check without blocking. Returns a dict whose "notice"
     key gets filled in when (and if) a newer version turns up."""
-    result = {"notice": None}
+    result: Dict[str, Optional[str]] = {"notice": None}
     if not enabled(opt_out_flag):
         return result
 
-    def run():
+    def run() -> None:
         result["notice"] = notice_text(latest_version())
 
     threading.Thread(target=run, daemon=True).start()

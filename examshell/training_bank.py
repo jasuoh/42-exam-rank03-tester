@@ -17,8 +17,14 @@ Graded through the exact same sandbox as the exam pool.
      practice for real!
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Set
+import random
+
 import string
 
+from ._types import Exercise
 from .bank_common import sub as _sub
 
 DIFFICULTIES = ["easy", "medium", "hard"]
@@ -27,7 +33,7 @@ DIFFICULTIES = ["easy", "medium", "hard"]
 # ══════════════════════════════════════════════════════════════
 #  ORACLE  ·  verified reference implementations
 # ══════════════════════════════════════════════════════════════
-def _ref_fizzbuzz_list(n):
+def _ref_fizzbuzz_list(n: int) -> List[str]:
     res = []
     for i in range(1, n + 1):
         if i % 15 == 0:
@@ -41,8 +47,8 @@ def _ref_fizzbuzz_list(n):
     return res
 
 
-def _ref_first_unique_char(text):
-    counts = {}
+def _ref_first_unique_char(text: str) -> int:
+    counts: Dict[str, int] = {}
     for ch in text:
         counts[ch] = counts.get(ch, 0) + 1
     for i, ch in enumerate(text):
@@ -51,13 +57,14 @@ def _ref_first_unique_char(text):
     return -1
 
 
-def _ref_missing_number(lst):
+def _ref_missing_number(lst: List[int]) -> int:
     n = len(lst)
     return n * (n + 1) // 2 - sum(lst)
 
 
-def _ref_group_anagrams(words):
-    groups, order = {}, []
+def _ref_group_anagrams(words: List[str]) -> List[List[str]]:
+    groups: Dict[str, List[str]] = {}
+    order: List[str] = []
     for w in words:
         key = "".join(sorted(w))
         if key not in groups:
@@ -67,7 +74,7 @@ def _ref_group_anagrams(words):
     return [groups[k] for k in order]
 
 
-def _ref_product_except_self(lst):
+def _ref_product_except_self(lst: List[int]) -> List[int]:
     n = len(lst)
     res = [1] * n
     prefix = 1
@@ -81,11 +88,11 @@ def _ref_product_except_self(lst):
     return res
 
 
-def _ref_kth_largest(lst, k):
+def _ref_kth_largest(lst: List[int], k: int) -> int:
     return sorted(lst, reverse=True)[k - 1]
 
 
-def _ref_merge_intervals(intervals):
+def _ref_merge_intervals(intervals: List[List[int]]) -> List[List[int]]:
     if not intervals:
         return []
     ivs = sorted([list(iv) for iv in intervals], key=lambda x: x[0])
@@ -98,7 +105,7 @@ def _ref_merge_intervals(intervals):
     return merged
 
 
-def _ref_longest_increasing_subsequence(lst):
+def _ref_longest_increasing_subsequence(lst: List[int]) -> int:
     n = len(lst)
     if n == 0:
         return 0
@@ -110,7 +117,7 @@ def _ref_longest_increasing_subsequence(lst):
     return max(dp)
 
 
-def _ref_trapping_rain_water(heights):
+def _ref_trapping_rain_water(heights: List[int]) -> int:
     n = len(heights)
     if n == 0:
         return 0
@@ -125,18 +132,18 @@ def _ref_trapping_rain_water(heights):
     return sum(min(left_max[i], right_max[i]) - heights[i] for i in range(n))
 
 
-def _ref_contains_duplicate(lst):
+def _ref_contains_duplicate(lst: List[int]) -> bool:
     return len(set(lst)) != len(lst)
 
 
-def _ref_single_number(lst):
+def _ref_single_number(lst: List[int]) -> int:
     result = 0
     for x in lst:
         result ^= x
     return result
 
 
-def _ref_climbing_stairs(n):
+def _ref_climbing_stairs(n: int) -> int:
     if n <= 1:
         return 1
     a, b = 1, 1
@@ -145,7 +152,7 @@ def _ref_climbing_stairs(n):
     return b
 
 
-def _ref_three_sum(lst):
+def _ref_three_sum(lst: List[int]) -> List[List[int]]:
     nums = sorted(lst)
     n = len(nums)
     res = []
@@ -170,7 +177,7 @@ def _ref_three_sum(lst):
     return res
 
 
-def _ref_spiral_matrix(matrix):
+def _ref_spiral_matrix(matrix: List[List[int]]) -> List[int]:
     if not matrix or not matrix[0]:
         return []
     m = [row[:] for row in matrix]
@@ -188,7 +195,7 @@ def _ref_spiral_matrix(matrix):
     return res
 
 
-def _ref_container_with_most_water(heights):
+def _ref_container_with_most_water(heights: List[int]) -> int:
     lo, hi = 0, len(heights) - 1
     best = 0
     while lo < hi:
@@ -200,17 +207,17 @@ def _ref_container_with_most_water(heights):
     return best
 
 
-def _ref_coin_change(coins, amount):
+def _ref_coin_change(coins: List[int], amount: int) -> int:
     inf = float("inf")
-    dp = [0] + [inf] * amount
+    dp: List[float] = [0] + [inf] * amount
     for a in range(1, amount + 1):
         for coin in coins:
             if coin <= a and dp[a - coin] + 1 < dp[a]:
                 dp[a] = dp[a - coin] + 1
-    return dp[amount] if dp[amount] != inf else -1
+    return int(dp[amount]) if dp[amount] != inf else -1
 
 
-def _ref_edit_distance(s1, s2):
+def _ref_edit_distance(s1: str, s2: str) -> int:
     n, m = len(s1), len(s2)
     dp = [[0] * (m + 1) for _ in range(n + 1)]
     for i in range(n + 1):
@@ -228,7 +235,7 @@ def _ref_edit_distance(s1, s2):
     return dp[n][m]
 
 
-def _ref_string_compression(chars):
+def _ref_string_compression(chars: List[str]) -> str:
     if not chars:
         return ""
     res, prev, count = "", chars[0], 0
@@ -242,7 +249,7 @@ def _ref_string_compression(chars):
     return res
 
 
-def _ref_longest_common_subsequence(s1, s2):
+def _ref_longest_common_subsequence(s1: str, s2: str) -> int:
     n, m = len(s1), len(s2)
     dp = [[0] * (m + 1) for _ in range(n + 1)]
     for i in range(1, n + 1):
@@ -254,8 +261,8 @@ def _ref_longest_common_subsequence(s1, s2):
     return dp[n][m]
 
 
-def _ref_largest_rectangle_histogram(heights):
-    stack = []
+def _ref_largest_rectangle_histogram(heights: List[int]) -> int:
+    stack: List[int] = []
     best = 0
     n = len(heights)
     for i in range(n + 1):
@@ -271,24 +278,35 @@ def _ref_largest_rectangle_histogram(heights):
 # ══════════════════════════════════════════════════════════════
 #  FUZZERS  ·  generate random valid inputs per exercise
 # ══════════════════════════════════════════════════════════════
-def _rand_word(rng, lo=0, hi=8, alphabet=None):
+def _rand_word(
+    rng: random.Random,
+    lo: int = 0,
+    hi: int = 8,
+    alphabet: Optional[str] = None,
+) -> str:
     alphabet = alphabet or string.ascii_letters
     return "".join(rng.choice(alphabet) for _ in range(rng.randint(lo, hi)))
 
 
-def _rand_intlist(rng, lo=0, hi=8, vmin=-10, vmax=10):
+def _rand_intlist(
+    rng: random.Random,
+    lo: int = 0,
+    hi: int = 8,
+    vmin: int = -10,
+    vmax: int = 10,
+) -> List[int]:
     return [rng.randint(vmin, vmax) for _ in range(rng.randint(lo, hi))]
 
 
-def _fuzz_fizzbuzz_list(rng):
+def _fuzz_fizzbuzz_list(rng: random.Random) -> List[Any]:
     return [rng.randint(0, 60)]
 
 
-def _fuzz_first_unique_char(rng):
+def _fuzz_first_unique_char(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 14, "aabbccdd")]
 
 
-def _fuzz_missing_number(rng):
+def _fuzz_missing_number(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 15)
     full = list(range(n + 1))
     del full[rng.randrange(len(full))]
@@ -296,23 +314,23 @@ def _fuzz_missing_number(rng):
     return [full]
 
 
-def _fuzz_group_anagrams(rng):
+def _fuzz_group_anagrams(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 8)
     return [[_rand_word(rng, 0, 4, "abc") for _ in range(n)]]
 
 
-def _fuzz_product_except_self(rng):
+def _fuzz_product_except_self(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 8)
     return [[rng.randint(-6, 6) for _ in range(n)]]
 
 
-def _fuzz_kth_largest(rng):
+def _fuzz_kth_largest(rng: random.Random) -> List[Any]:
     n = rng.randint(1, 10)
     lst = [rng.randint(-20, 20) for _ in range(n)]
     return [lst, rng.randint(1, n)]
 
 
-def _fuzz_merge_intervals(rng):
+def _fuzz_merge_intervals(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 6)
     intervals = []
     for _ in range(n):
@@ -321,23 +339,23 @@ def _fuzz_merge_intervals(rng):
     return [intervals]
 
 
-def _fuzz_longest_increasing_subsequence(rng):
+def _fuzz_longest_increasing_subsequence(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 12)
     return [[rng.randint(-10, 10) for _ in range(n)]]
 
 
-def _fuzz_trapping_rain_water(rng):
+def _fuzz_trapping_rain_water(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 15)
     return [[rng.randint(0, 8) for _ in range(n)]]
 
 
-def _fuzz_contains_duplicate(rng):
+def _fuzz_contains_duplicate(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 10, vmin=-5, vmax=5)]
 
 
-def _fuzz_single_number(rng):
+def _fuzz_single_number(rng: random.Random) -> List[Any]:
     n = rng.randint(1, 6)
-    used = set()
+    used: Set[int] = set()
     vals = []
     while len(used) < n:
         v = rng.randint(-15, 15)
@@ -353,52 +371,52 @@ def _fuzz_single_number(rng):
     return [vals]
 
 
-def _fuzz_climbing_stairs(rng):
+def _fuzz_climbing_stairs(rng: random.Random) -> List[Any]:
     return [rng.randint(0, 30)]
 
 
-def _fuzz_three_sum(rng):
+def _fuzz_three_sum(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 9, vmin=-8, vmax=8)]
 
 
-def _fuzz_spiral_matrix(rng):
+def _fuzz_spiral_matrix(rng: random.Random) -> List[Any]:
     rows, cols = rng.randint(0, 5), rng.randint(0, 5)
     if rows == 0 or cols == 0:
         return [[]]
     return [[[rng.randint(-9, 9) for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_container_with_most_water(rng):
+def _fuzz_container_with_most_water(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 12, vmin=0, vmax=10)]
 
 
-def _fuzz_coin_change(rng):
+def _fuzz_coin_change(rng: random.Random) -> List[Any]:
     n_coins = rng.randint(1, 4)
     coins = sorted(set(rng.randint(1, 12) for _ in range(n_coins))) or [1]
     return [coins, rng.randint(0, 40)]
 
 
-def _fuzz_edit_distance(rng):
+def _fuzz_edit_distance(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 8, "abc"), _rand_word(rng, 0, 8, "abc")]
 
 
-def _fuzz_largest_rectangle_histogram(rng):
+def _fuzz_largest_rectangle_histogram(rng: random.Random) -> List[Any]:
     return [[rng.randint(0, 10) for _ in range(rng.randint(0, 10))]]
 
 
-def _fuzz_string_compression(rng):
+def _fuzz_string_compression(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 14)
     return [list(rng.choice("aabbccdd") for _ in range(n))]
 
 
-def _fuzz_longest_common_subsequence(rng):
+def _fuzz_longest_common_subsequence(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 9, "abc"), _rand_word(rng, 0, 9, "abc")]
 
 
 # ══════════════════════════════════════════════════════════════
 #  TRAINING BANK
 # ══════════════════════════════════════════════════════════════
-TRAINING_EXERCISES = {
+TRAINING_EXERCISES: Dict[str, Exercise] = {
     # ── EASY ───────────────────────────────────────────────────
     "py_fizzbuzz_list": {
         "difficulty": "easy",
@@ -1217,7 +1235,7 @@ TRAINING_EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from TRAINING_EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-TRAINING_BY_DIFFICULTY = {d: [] for d in DIFFICULTIES}
+TRAINING_BY_DIFFICULTY: Dict[str, List[str]] = {d: [] for d in DIFFICULTIES}
 for _name, _ex in TRAINING_EXERCISES.items():
     _d = _ex["difficulty"]
     if _d not in TRAINING_BY_DIFFICULTY:

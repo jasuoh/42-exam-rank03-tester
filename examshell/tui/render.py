@@ -8,19 +8,37 @@ objects — no Textual in here, so all of it is unit-testable with rich
 alone. The app (app.py) only decides where each one goes on screen.
 """
 
+from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Sequence,
+    Tuple,
+)
+
 from rich import box
+from rich.console import RenderableType
 from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
 from .. import case_labels, ui
+from .._types import Event
+
+if TYPE_CHECKING:
+    from ..grader import Report
+    from ..shell_common import ExamResult, Session
 
 OK, KO, TODO = "green", "red", "grey50"
 SPARKS = "▁▂▃▄▅▆▇█"
 
 
-def bar(done, total, width=20, style=OK):
+def bar(done: float, total: float, width: int = 20, style: str = OK) -> Text:
     """A thin progress bar as Text — coloured part done, dim part to go."""
     filled = int(round(width * done / float(total))) if total else 0
     text = Text("━" * filled, style=style)
@@ -28,15 +46,17 @@ def bar(done, total, width=20, style=OK):
     return text
 
 
-def percent(done, total):
+def percent(done: float, total: float) -> int:
     return int(round(100.0 * done / total)) if total else 0
 
 
 # ── grading ──────────────────────────────────────────────────────────
-def report_view(report, function, show_fails=6, blind=False):
+def report_view(
+    report: Report, function: str, show_fails: int = 6, blind: bool = False
+) -> Group:
     """A graded Report: verdict bar first (what you look at), then fatal
     error / failing cases / warnings."""
-    blocks = []
+    blocks: List[RenderableType] = []
     ok = report.ok
     verdict = Text()
     verdict.append(
@@ -108,18 +128,18 @@ def report_view(report, function, show_fails=6, blind=False):
     return Group(*blocks)
 
 
-def hint_view(hint):
+def hint_view(hint: str) -> Panel:
     return Panel(
         Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED
     )
 
 
-def waiting_view(message):
+def waiting_view(message: str) -> Text:
     return Text(message, style="dim italic")
 
 
 # ── exam ─────────────────────────────────────────────────────────────
-def stepper(session, n_levels):
+def stepper(session: Session, n_levels: int) -> Text:
     """● cleared · ◉ current · ○ ahead."""
     text = Text()
     for level in range(1, n_levels + 1):
@@ -132,7 +152,9 @@ def stepper(session, n_levels):
     return text
 
 
-def exam_status(session, n_levels, countdown="", attempts=0):
+def exam_status(
+    session: Session, n_levels: int, countdown: str = "", attempts: int = 0
+) -> Text:
     text = Text()
     text.append(" %s " % session.login, style="bold reverse")
     text.append(
@@ -148,13 +170,13 @@ def exam_status(session, n_levels, countdown="", attempts=0):
     return text
 
 
-def exam_result_view(result):
+def exam_result_view(result: ExamResult) -> Group:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="cyan", justify="right")
     table.add_column()
     for key, value in result.rows:
         table.add_row(str(key), str(value))
-    blocks = [
+    blocks: List[RenderableType] = [
         Text(
             result.title, style="bold green" if result.passed else "bold red"
         ),
@@ -170,10 +192,12 @@ def exam_result_view(result):
 
 
 # ── readiness · stats ────────────────────────────────────────────────
-def readiness_view(levels):
+def readiness_view(
+    levels: Sequence[Tuple[int, int, int, List[Tuple[str, Dict[str, Any]]]]],
+) -> Group:
     """levels as returned by stats.readiness(): one row of chips per level
     — green passed, red tried-but-never-passed, grey never tried."""
-    blocks = []
+    blocks: List[RenderableType] = []
     done = sum(p for _, p, _, _ in levels)
     total = sum(t for _, _, t, _ in levels)
     head = Text("Overall  ", style="bold")
@@ -209,7 +233,7 @@ CHIP_COLOURS = {
 }
 
 
-def chip(label, status):
+def chip(label: str, status: str) -> Text:
     """A pill-shaped label — half-blocks instead of padding spaces, so a
     line of chips only ever wraps BETWEEN chips, never inside one."""
     colour, fg = CHIP_COLOURS[status]
@@ -219,7 +243,7 @@ def chip(label, status):
     return text
 
 
-def sparkline(values):
+def sparkline(values: Sequence[float]) -> Text:
     """One block character per value, scaled to the largest."""
     top = max(values) if values else 0
     if not top:
@@ -231,14 +255,20 @@ def sparkline(values):
     return text
 
 
-def stats_view(summary, activity, streak, history, fmt_duration):
+def stats_view(
+    summary: Dict[str, Any],
+    activity: Sequence[Tuple[int, int]],
+    streak: int,
+    history: Sequence[Event],
+    fmt_duration: Callable[[float], str],
+) -> Group:
     """The stats screen: headline numbers, a 4-week activity chart, recent
     exams and the per-exercise pass rates (worst first)."""
     head = Table.grid(padding=(0, 3))
     for _ in range(4):
         head.add_column(justify="center")
 
-    def tile(value, label):
+    def tile(value: object, label: str) -> Text:
         t = Text(str(value), style="bold cyan", justify="center")
         t.append("\n" + label, style="dim")
         return t
@@ -257,7 +287,7 @@ def stats_view(summary, activity, streak, history, fmt_duration):
             "best exam time",
         ),
     )
-    blocks = [head, Text("")]
+    blocks: List[RenderableType] = [head, Text("")]
 
     chart = Text("last 4 weeks  ", style="bold")
     chart.append_text(sparkline([a for a, _ in activity]))
@@ -315,7 +345,7 @@ def stats_view(summary, activity, streak, history, fmt_duration):
     return Group(*blocks)
 
 
-def logo(subtitle):
+def logo(subtitle: str) -> Text:
     """The menu's title block."""
     text = Text(justify="center")
     word = "E X A M S H E L L"

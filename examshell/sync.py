@@ -28,6 +28,8 @@ A solution file's edit time can't live in git (a checkout resets it), so
 the repo keeps a small manifest.json of them.
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -35,6 +37,7 @@ import shutil
 import socket
 import subprocess
 import time
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
 
 REPO_DIRNAME = "sync-repo"
 BACKUP_DIRNAME = "sync-backup"
@@ -64,14 +67,26 @@ class SyncError(Exception):
 class SyncResult(object):
     """What one sync moved, for the one-line summary."""
 
-    def __init__(self):
-        self.pulled = {"attempts": 0, "solutions": 0, "reports": 0, "exams": 0}
-        self.pushed = {"attempts": 0, "solutions": 0, "reports": 0, "exams": 0}
-        self.backups = []  # local files replaced by a newer remote version
+    def __init__(self) -> None:
+        self.pulled: Dict[str, int] = {
+            "attempts": 0,
+            "solutions": 0,
+            "reports": 0,
+            "exams": 0,
+        }
+        self.pushed: Dict[str, int] = {
+            "attempts": 0,
+            "solutions": 0,
+            "reports": 0,
+            "exams": 0,
+        }
+        self.backups: List[
+            str
+        ] = []  # local files replaced by a newer remote version
         self.committed = False
 
-    def summary(self):
-        def part(counts):
+    def summary(self) -> str:
+        def part(counts: Dict[str, int]) -> str:
             bits = [
                 "%d %s" % (n, what if n != 1 else what.rstrip("s"))
                 for what, n in counts.items()
@@ -88,15 +103,17 @@ class SyncResult(object):
 # ══════════════════════════════════════════════════════════════
 #  GIT
 # ══════════════════════════════════════════════════════════════
-def repo_dir(data_dir):
+def repo_dir(data_dir: str) -> str:
     return os.path.join(data_dir, REPO_DIRNAME)
 
 
-def is_configured(data_dir):
+def is_configured(data_dir: str) -> bool:
     return os.path.isdir(os.path.join(repo_dir(data_dir), ".git"))
 
 
-def _git(repo, *args, check=True):
+def _git(
+    repo: str, *args: str, check: bool = True
+) -> subprocess.CompletedProcess[str]:
     try:
         proc = subprocess.run(
             ["git", "-C", repo] + list(args),
@@ -117,14 +134,19 @@ def _git(repo, *args, check=True):
     return proc
 
 
-def remote_url(data_dir):
+def remote_url(data_dir: str) -> Optional[str]:
     if not is_configured(data_dir):
         return None
     proc = _git(repo_dir(data_dir), "remote", "get-url", "origin", check=False)
     return proc.stdout.strip() or None
 
 
-def setup(url, data_dir, solution_dirs, device=None):
+def setup(
+    url: str,
+    data_dir: str,
+    solution_dirs: Mapping[str, str],
+    device: Optional[str] = None,
+) -> SyncResult:
     """Connect this device to `url` (clone it, or re-point an existing
     setup), then run a first sync. Returns that sync's SyncResult."""
     repo = repo_dir(data_dir)
@@ -141,7 +163,11 @@ def setup(url, data_dir, solution_dirs, device=None):
     return sync(data_dir, solution_dirs, device)
 
 
-def sync(data_dir, solution_dirs, device=None):
+def sync(
+    data_dir: str,
+    solution_dirs: Mapping[str, str],
+    device: Optional[str] = None,
+) -> SyncResult:
     """Pull, combine, push. `solution_dirs` maps a slot name ("rendu",
     "c_rendu") to that local directory. Returns a SyncResult."""
     if not is_configured(data_dir):
@@ -194,7 +220,7 @@ def sync(data_dir, solution_dirs, device=None):
 
     _git(repo, "add", "-A")
     if _git(repo, "diff", "--cached", "--quiet", check=False).returncode != 0:
-        identity = []
+        identity: List[str] = []
         if not _git(repo, "config", "user.email", check=False).stdout.strip():
             identity = [
                 "-c",
@@ -243,7 +269,7 @@ def sync(data_dir, solution_dirs, device=None):
 # ══════════════════════════════════════════════════════════════
 #  MERGE RULES
 # ══════════════════════════════════════════════════════════════
-def _read_lines(path):
+def _read_lines(path: str) -> List[str]:
     try:
         with open(path, encoding="utf-8") as fh:
             return [line.strip() for line in fh if line.strip()]
@@ -251,7 +277,7 @@ def _read_lines(path):
         return []
 
 
-def _canonical(line):
+def _canonical(line: str) -> Optional[Tuple[Any, str]]:
     """(ts, canonical json) for a stats line, or None when it's torn."""
     try:
         entry = json.loads(line)
@@ -262,7 +288,9 @@ def _canonical(line):
     return entry.get("ts", 0), json.dumps(entry, sort_keys=True)
 
 
-def _merge_stats(local_path, remote_path, result):
+def _merge_stats(
+    local_path: str, remote_path: str, result: SyncResult
+) -> None:
     local = {c for c in map(_canonical, _read_lines(local_path)) if c}
     remote = {c for c in map(_canonical, _read_lines(remote_path)) if c}
     merged = sorted(local | remote)
@@ -276,7 +304,7 @@ def _merge_stats(local_path, remote_path, result):
                 fh.write(text)
 
 
-def _exam_stamp(path):
+def _exam_stamp(path: str) -> float:
     """When a saved-exam file was last written: its saved_at / cleared_at,
     or (a save from before sync existed) the file's own mtime."""
     try:
@@ -286,13 +314,15 @@ def _exam_stamp(path):
         return -1
     if isinstance(data, dict):
         stamp = data.get("saved_at") or data.get("cleared_at")
-        if stamp:
-            return stamp
+        if isinstance(stamp, (int, float)) and stamp:
+            return float(stamp)
     return os.path.getmtime(path)
 
 
-def _merge_saved_exams(local_dir, remote_dir, result):
-    names = set()
+def _merge_saved_exams(
+    local_dir: str, remote_dir: str, result: SyncResult
+) -> None:
+    names: Set[str] = set()
     for folder in (local_dir, remote_dir):
         if os.path.isdir(folder):
             names.update(
@@ -316,8 +346,10 @@ def _merge_saved_exams(local_dir, remote_dir, result):
             result.pushed["exams"] += 1
 
 
-def _merge_reports(local_dir, remote_dir, result):
-    def listing(folder):
+def _merge_reports(
+    local_dir: str, remote_dir: str, result: SyncResult
+) -> None:
+    def listing(folder: str) -> Set[str]:
         return set(os.listdir(folder)) if os.path.isdir(folder) else set()
 
     local, remote = listing(local_dir), listing(remote_dir)
@@ -335,12 +367,12 @@ def _merge_reports(local_dir, remote_dir, result):
         result.pushed["reports"] += 1
 
 
-def _sha(path):
+def _sha(path: str) -> str:
     with open(path, "rb") as fh:
         return hashlib.sha256(fh.read()).hexdigest()
 
 
-def _solution_files(folder):
+def _solution_files(folder: str) -> Set[str]:
     if not os.path.isdir(folder):
         return set()
     return {
@@ -352,14 +384,21 @@ def _solution_files(folder):
     }
 
 
-def _merge_solutions(repo, solution_dirs, backup_root, result):
+def _merge_solutions(
+    repo: str,
+    solution_dirs: Mapping[str, str],
+    backup_root: str,
+    result: SyncResult,
+) -> None:
     manifest_path = os.path.join(repo, MANIFEST)
     try:
         with open(manifest_path, encoding="utf-8") as fh:
             manifest = json.load(fh)
     except (OSError, ValueError):
         manifest = {}
-    mtimes = manifest.setdefault("solutions", {})
+    if not isinstance(manifest, dict):
+        manifest = {}
+    mtimes: Dict[str, float] = manifest.setdefault("solutions", {})
     stamp = time.strftime("%Y%m%d_%H%M%S")
 
     for slot, local_dir in sorted(solution_dirs.items()):

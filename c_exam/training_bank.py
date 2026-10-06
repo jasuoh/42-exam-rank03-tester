@@ -22,7 +22,12 @@ scope choice for a first pool, not a rule for future additions.
      practice for real!
 """
 
+from __future__ import annotations
+
 import textwrap
+from typing import Dict, List
+
+from examshell._types import Exercise
 
 from .bank import _sub_c
 
@@ -32,7 +37,7 @@ DIFFICULTIES = ["easy", "medium", "hard"]
 # ══════════════════════════════════════════════════════════════
 #  TRAINING BANK
 # ══════════════════════════════════════════════════════════════
-TRAINING_EXERCISES = {
+TRAINING_EXERCISES: Dict[str, Exercise] = {
     # ── EASY ─────────────────────────────────────────────────
     "array_sum": {
         "difficulty": "easy",
@@ -651,7 +656,7 @@ TRAINING_EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from TRAINING_EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-TRAINING_BY_DIFFICULTY = {d: [] for d in DIFFICULTIES}
+TRAINING_BY_DIFFICULTY: Dict[str, List[str]] = {d: [] for d in DIFFICULTIES}
 for _name, _ex in TRAINING_EXERCISES.items():
     _d = _ex["difficulty"]
     if _d not in TRAINING_BY_DIFFICULTY:

@@ -9,9 +9,12 @@ feedback takes seconds. Nothing is ever sent from here: it only builds a
 link; the student reads the form and submits it (or doesn't) themselves.
 """
 
+from __future__ import annotations
+
 import os
 import platform
 import sys
+from typing import Dict, Optional
 from urllib.parse import urlencode
 
 from .version import REPO_URL, __version__
@@ -31,7 +34,7 @@ KIND_LABELS = (
 )
 
 
-def environment():
+def environment() -> str:
     """'Linux 6.8 · Python 3.12.3 · cc' — the bug form's env field."""
     return "%s %s · Python %s" % (
         platform.system(),
@@ -40,11 +43,16 @@ def environment():
     )
 
 
-def issue_url(kind, tester_label="", exercise=None):
+def issue_url(
+    kind: str, tester_label: str = "", exercise: Optional[str] = None
+) -> str:
     """The prefilled issue-form link. GitHub fills a form field from a query
     parameter named after that field's `id`."""
     template, prefix = KINDS[kind]
-    params = {"template": template, "title": prefix + (exercise or "")}
+    params: Dict[str, str] = {
+        "template": template,
+        "title": prefix + (exercise or ""),
+    }
     version = "examshell %s" % __version__
     if kind == "exam":
         params.update(tester=tester_label, version=version)
@@ -55,7 +63,7 @@ def issue_url(kind, tester_label="", exercise=None):
     return ISSUES_URL + "?" + urlencode(params)
 
 
-def can_open_browser():
+def can_open_browser() -> bool:
     """Only hand the link to a browser where a graphical one can exist — on
     a bare Linux console `webbrowser` would start a text browser (lynx, w3m)
     right inside the terminal session."""
@@ -64,7 +72,7 @@ def can_open_browser():
     return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
 
-def open_in_browser(url):
+def open_in_browser(url: str) -> bool:
     """True when a browser was asked to open `url`."""
     if not can_open_browser():
         return False

@@ -56,3 +56,7 @@ ignore = [
     "E702",  # multiple statements via ';' — used deliberately for compact tables
     "E741",  # ambiguous variable name (l) — used for "level" in a couple of tight scopes
 ]
+
+[tool.mypy]
+strict = true
+files = ["examshell", "c_exam", "src", "tools", "tests"]

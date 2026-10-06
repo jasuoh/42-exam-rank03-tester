@@ -18,8 +18,14 @@ Each exercise provides:
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+import random
+
 import string
 
+from ._types import Exercise
 from .bank_common import sub as _sub
 from .bank_common import signature_of as _signature_of
 
@@ -29,7 +35,7 @@ N_LEVELS = 6
 # ══════════════════════════════════════════════════════════════
 #  ORACLE  ·  verified reference implementations
 # ══════════════════════════════════════════════════════════════
-def _ref_cryptic_sorter(strings):
+def _ref_cryptic_sorter(strings: List[str]) -> List[str]:
     return sorted(
         strings,
         key=lambda w: (
@@ -40,7 +46,7 @@ def _ref_cryptic_sorter(strings):
     )
 
 
-def _ref_inter(s1, s2):
+def _ref_inter(s1: str, s2: str) -> str:
     res = ""
     for ch in s1:
         if ch not in res and ch in s2:
@@ -48,18 +54,18 @@ def _ref_inter(s1, s2):
     return res
 
 
-def _ref_echo_validator(text):
+def _ref_echo_validator(text: str) -> bool:
     clean = "".join(ch.lower() for ch in text if ch.isalpha())
     if clean == "":
         return False
     return clean == clean[::-1]
 
 
-def _ref_mirror_matrix(matrix):
+def _ref_mirror_matrix(matrix: List[List[int]]) -> List[List[int]]:
     return [list(reversed(row)) for row in matrix]
 
 
-def _ref_hidenp(small, big):
+def _ref_hidenp(small: str, big: str) -> bool:
     it = iter(big)
     return all(ch in it for ch in small)
 
@@ -67,7 +73,9 @@ def _ref_hidenp(small, big):
 _DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
-def _ref_number_base_converter(number, from_base, to_base):
+def _ref_number_base_converter(
+    number: str, from_base: int, to_base: int
+) -> str:
     # Deliberately does NOT use int(number, base): that would also accept
     # "+10", " 10 " and "1_0", which the subject says nothing about.
     # Every oracle must be self-contained (see grader.oracle_source), so the
@@ -98,7 +106,7 @@ def _ref_number_base_converter(number, from_base, to_base):
     return ("-" + res) if neg else res
 
 
-def _ref_pattern_tracker(text):
+def _ref_pattern_tracker(text: str) -> int:
     cnt = 0
     for i in range(len(text) - 1):
         a, b = text[i], text[i + 1]
@@ -107,21 +115,21 @@ def _ref_pattern_tracker(text):
     return cnt
 
 
-def _ref_anagram(s1, s2):
+def _ref_anagram(s1: str, s2: str) -> bool:
     a = sorted(s1.lower().replace(" ", ""))
     b = sorted(s2.lower().replace(" ", ""))
     return a == b
 
 
-def _ref_shadow_merge(l1, l2):
+def _ref_shadow_merge(l1: List[int], l2: List[int]) -> List[int]:
     return sorted(l1 + l2)
 
 
-def _ref_string_permutation_checker(s1, s2):
+def _ref_string_permutation_checker(s1: str, s2: str) -> bool:
     return sorted(s1) == sorted(s2)
 
 
-def _ref_string_sculptor(text):
+def _ref_string_sculptor(text: str) -> str:
     to_low = True
     res = ""
     for ch in text:
@@ -135,14 +143,14 @@ def _ref_string_sculptor(text):
     return res
 
 
-def _ref_twist_sequence(arr, k):
+def _ref_twist_sequence(arr: List[int], k: int) -> List[int]:
     if not arr:
         return []
     k %= len(arr)
     return arr[-k:] + arr[:-k] if k else list(arr)
 
 
-def _ref_bracket_validator(s):
+def _ref_bracket_validator(s: str) -> bool:
     stack = []
     pairs = {"(": ")", "[": "]", "{": "}"}
     for br in s:
@@ -154,7 +162,7 @@ def _ref_bracket_validator(s):
     return not stack
 
 
-def _ref_whisper_cipher(text, shift):
+def _ref_whisper_cipher(text: str, shift: int) -> str:
     res = ""
     for ch in text:
         if "a" <= ch <= "z":
@@ -166,42 +174,42 @@ def _ref_whisper_cipher(text, shift):
     return res
 
 
-def _ref_vowel_counter(text):
+def _ref_vowel_counter(text: str) -> int:
     return sum(1 for ch in text if ch.lower() in "aeiou")
 
 
-def _ref_capitalizer(text):
+def _ref_capitalizer(text: str) -> str:
     return " ".join(w[:1].upper() + w[1:].lower() for w in text.split(" "))
 
 
-def _ref_digit_extractor(text):
+def _ref_digit_extractor(text: str) -> List[int]:
     return [int(ch) for ch in text if ch in "0123456789"]
 
 
-def _ref_case_counter(text):
+def _ref_case_counter(text: str) -> List[int]:
     upper = sum(1 for ch in text if ch.isupper())
     lower = sum(1 for ch in text if ch.islower())
     return [upper, lower]
 
 
-def _ref_word_reverser(text):
+def _ref_word_reverser(text: str) -> str:
     return " ".join(w[::-1] for w in text.split(" "))
 
 
-def _ref_unique_elements(lst):
-    counts = {}
+def _ref_unique_elements(lst: List[int]) -> List[int]:
+    counts: Dict[int, int] = {}
     for item in lst:
         counts[item] = counts.get(item, 0) + 1
     return [item for item in lst if counts[item] == 1]
 
 
-def _ref_matrix_transposer(matrix):
+def _ref_matrix_transposer(matrix: List[List[int]]) -> List[List[int]]:
     if not matrix:
         return []
     return [list(row) for row in zip(*matrix)]
 
 
-def _ref_longest_word(text):
+def _ref_longest_word(text: str) -> str:
     words = [w for w in text.split(" ") if w]
     if not words:
         return ""
@@ -212,13 +220,13 @@ def _ref_longest_word(text):
     return best
 
 
-def _ref_matrix_rotator(matrix):
+def _ref_matrix_rotator(matrix: List[List[int]]) -> List[List[int]]:
     if not matrix:
         return []
     return [list(row) for row in zip(*matrix[::-1])]
 
 
-def _ref_prime_finder(n):
+def _ref_prime_finder(n: int) -> bool:
     if not isinstance(n, int) or isinstance(n, bool) or n < 2:
         return False
     if n < 4:
@@ -233,7 +241,7 @@ def _ref_prime_finder(n):
     return True
 
 
-def _ref_leet_speak(text):
+def _ref_leet_speak(text: str) -> str:
     table = {
         "a": "4",
         "A": "4",
@@ -247,10 +255,10 @@ def _ref_leet_speak(text):
     return "".join(table.get(ch, ch) for ch in text)
 
 
-def _ref_char_frequency(text):
+def _ref_char_frequency(text: str) -> str:
     if not text:
         return ""
-    counts = {}
+    counts: Dict[str, int] = {}
     for ch in text:
         counts[ch] = counts.get(ch, 0) + 1
     best_ch, best_n = text[0], 0
@@ -260,7 +268,7 @@ def _ref_char_frequency(text):
     return best_ch
 
 
-def _ref_run_length_encoder(text):
+def _ref_run_length_encoder(text: str) -> str:
     if not text:
         return ""
     res, prev, count = "", text[0], 0
@@ -274,12 +282,12 @@ def _ref_run_length_encoder(text):
     return res
 
 
-def _ref_second_largest(lst):
+def _ref_second_largest(lst: List[int]) -> Optional[int]:
     uniq = sorted(set(lst), reverse=True)
     return uniq[1] if len(uniq) >= 2 else None
 
 
-def _ref_run_length_decoder(text):
+def _ref_run_length_decoder(text: str) -> str:
     res, i = "", 0
     while i < len(text):
         ch = text[i]
@@ -292,19 +300,19 @@ def _ref_run_length_decoder(text):
     return res
 
 
-def _ref_binary_gap(n):
+def _ref_binary_gap(n: int) -> int:
     bits = bin(n)[2:]
     segments = bits.split("1")
     middle = segments[1:-1]
     return max((len(s) for s in middle), default=0)
 
 
-def _ref_pangram_checker(text):
+def _ref_pangram_checker(text: str) -> bool:
     letters = set(ch.lower() for ch in text if ch.isalpha())
     return len(letters) == 26
 
 
-def _ref_max_subarray_sum(lst):
+def _ref_max_subarray_sum(lst: List[int]) -> int:
     if not lst:
         return 0
     best = cur = lst[0]
@@ -314,26 +322,26 @@ def _ref_max_subarray_sum(lst):
     return best
 
 
-def _ref_zigzag_flatten(matrix):
+def _ref_zigzag_flatten(matrix: List[List[int]]) -> List[int]:
     res = []
     for i, row in enumerate(matrix):
         res.extend(row if i % 2 == 0 else row[::-1])
     return res
 
 
-def _ref_pascals_triangle_row(n):
+def _ref_pascals_triangle_row(n: int) -> List[int]:
     row = [1]
     for _ in range(n):
         row = [1] + [row[i] + row[i + 1] for i in range(len(row) - 1)] + [1]
     return row
 
 
-def _ref_longest_palindromic_substring(text):
+def _ref_longest_palindromic_substring(text: str) -> str:
     if not text:
         return ""
     start, max_len = 0, 1
 
-    def expand(lo, r):
+    def expand(lo: int, r: int) -> Tuple[int, int]:
         while lo >= 0 and r < len(text) and text[lo] == text[r]:
             lo -= 1
             r += 1
@@ -350,7 +358,7 @@ def _ref_longest_palindromic_substring(text):
     return text[start:end]
 
 
-def _ref_two_sum_indices(lst, target):
+def _ref_two_sum_indices(lst: List[int], target: int) -> List[int]:
     for i in range(len(lst)):
         for j in range(i + 1, len(lst)):
             if lst[i] + lst[j] == target:
@@ -358,11 +366,11 @@ def _ref_two_sum_indices(lst, target):
     return []
 
 
-def _ref_string_reverser(text):
+def _ref_string_reverser(text: str) -> str:
     return text[::-1]
 
 
-def _ref_char_counter(text, ch):
+def _ref_char_counter(text: str, ch: str) -> int:
     count = 0
     for c in text:
         if c == ch:
@@ -370,19 +378,19 @@ def _ref_char_counter(text, ch):
     return count
 
 
-def _ref_even_odd_counter(lst):
+def _ref_even_odd_counter(lst: List[int]) -> List[int]:
     even = sum(1 for x in lst if x % 2 == 0)
     return [even, len(lst) - even]
 
 
-def _ref_sum_of_squares(lst):
+def _ref_sum_of_squares(lst: List[int]) -> int:
     total = 0
     for x in lst:
         total += x * x
     return total
 
 
-def _ref_longest_common_prefix(strings):
+def _ref_longest_common_prefix(strings: List[str]) -> str:
     if not strings:
         return ""
     prefix = strings[0]
@@ -394,7 +402,7 @@ def _ref_longest_common_prefix(strings):
     return prefix
 
 
-def _ref_camel_to_snake_converter(text):
+def _ref_camel_to_snake_converter(text: str) -> str:
     res = ""
     for ch in text:
         if ch.isupper():
@@ -404,13 +412,13 @@ def _ref_camel_to_snake_converter(text):
     return res
 
 
-def _ref_string_rotation_checker(s1, s2):
+def _ref_string_rotation_checker(s1: str, s2: str) -> bool:
     if len(s1) != len(s2):
         return False
     return s2 in (s1 + s1)
 
 
-def _ref_roman_numeral(n):
+def _ref_roman_numeral(n: int) -> str:
     values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
     symbols = [
         "M",
@@ -438,26 +446,37 @@ def _ref_roman_numeral(n):
 # ══════════════════════════════════════════════════════════════
 #  FUZZERS  ·  generate random valid inputs per exercise
 # ══════════════════════════════════════════════════════════════
-def _rand_word(rng, lo=0, hi=8, alphabet=None):
+def _rand_word(
+    rng: random.Random,
+    lo: int = 0,
+    hi: int = 8,
+    alphabet: Optional[str] = None,
+) -> str:
     alphabet = alphabet or string.ascii_letters
     return "".join(rng.choice(alphabet) for _ in range(rng.randint(lo, hi)))
 
 
-def _rand_intlist(rng, lo=0, hi=8, vmin=-20, vmax=20):
+def _rand_intlist(
+    rng: random.Random,
+    lo: int = 0,
+    hi: int = 8,
+    vmin: int = -20,
+    vmax: int = 20,
+) -> List[int]:
     return [rng.randint(vmin, vmax) for _ in range(rng.randint(lo, hi))]
 
 
-def _fuzz_cryptic_sorter(rng):
+def _fuzz_cryptic_sorter(rng: random.Random) -> List[Any]:
     alpha = string.ascii_letters + "  !?"
     return [[_rand_word(rng, 0, 6, alpha) for _ in range(rng.randint(0, 8))]]
 
 
-def _fuzz_inter(rng):
+def _fuzz_inter(rng: random.Random) -> List[Any]:
     a = string.ascii_lowercase[:8]
     return [_rand_word(rng, 0, 12, a), _rand_word(rng, 0, 12, a)]
 
 
-def _fuzz_echo_validator(rng):
+def _fuzz_echo_validator(rng: random.Random) -> List[Any]:
     base = _rand_word(rng, 1, 5, "abcde")
     if rng.random() < 0.5:
         mid = rng.choice(["", rng.choice("abcde")])
@@ -471,12 +490,12 @@ def _fuzz_echo_validator(rng):
     return [raw]
 
 
-def _fuzz_mirror_matrix(rng):
+def _fuzz_mirror_matrix(rng: random.Random) -> List[Any]:
     rows, cols = rng.randint(1, 4), rng.randint(1, 5)
     return [[[rng.randint(-9, 9) for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_hidenp(rng):
+def _fuzz_hidenp(rng: random.Random) -> List[Any]:
     big = _rand_word(rng, 0, 14, "abcABC123")
     if big and rng.random() < 0.6:
         idx = sorted(rng.sample(range(len(big)), rng.randint(0, len(big))))
@@ -486,7 +505,7 @@ def _fuzz_hidenp(rng):
     return [small, big]
 
 
-def _fuzz_number_base_converter(rng):
+def _fuzz_number_base_converter(rng: random.Random) -> List[Any]:
     fb, tb = rng.randint(2, 36), rng.randint(2, 36)
     v = rng.randint(0, 100000)
     s = "0" if v == 0 else ""
@@ -504,11 +523,11 @@ def _fuzz_number_base_converter(rng):
     return [s, fb, tb]
 
 
-def _fuzz_pattern_tracker(rng):
+def _fuzz_pattern_tracker(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 14, "0123456789abc")]
 
 
-def _fuzz_anagram(rng):
+def _fuzz_anagram(rng: random.Random) -> List[Any]:
     a = _rand_word(rng, 0, 8, "abcde ")
     if rng.random() < 0.5:
         lst = list(a)
@@ -521,11 +540,11 @@ def _fuzz_anagram(rng):
     return [a, b]
 
 
-def _fuzz_shadow_merge(rng):
+def _fuzz_shadow_merge(rng: random.Random) -> List[Any]:
     return [sorted(_rand_intlist(rng, 0, 7)), sorted(_rand_intlist(rng, 0, 7))]
 
 
-def _fuzz_string_permutation_checker(rng):
+def _fuzz_string_permutation_checker(rng: random.Random) -> List[Any]:
     a = _rand_word(rng, 0, 8, "abAB 12")
     if rng.random() < 0.5:
         lst = list(a)
@@ -536,97 +555,97 @@ def _fuzz_string_permutation_checker(rng):
     return [a, b]
 
 
-def _fuzz_string_sculptor(rng):
+def _fuzz_string_sculptor(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 14, string.ascii_letters + "  123.!")]
 
 
-def _fuzz_twist_sequence(rng):
+def _fuzz_twist_sequence(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 9), rng.randint(0, 20)]
 
 
-def _fuzz_bracket_validator(rng):
+def _fuzz_bracket_validator(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 12, "()[]{}ab")]
 
 
-def _fuzz_whisper_cipher(rng):
+def _fuzz_whisper_cipher(rng: random.Random) -> List[Any]:
     return [
         _rand_word(rng, 0, 14, string.ascii_letters + " 12!"),
         rng.choice([-52, -30, -3, -1, 0, 1, 3, 13, 25, 26, 27, 52, 100]),
     ]
 
 
-def _fuzz_vowel_counter(rng):
+def _fuzz_vowel_counter(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + "  123!?")]
 
 
-def _fuzz_capitalizer(rng):
+def _fuzz_capitalizer(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + "   ")]
 
 
-def _fuzz_digit_extractor(rng):
+def _fuzz_digit_extractor(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + "0123456789 !?")]
 
 
-def _fuzz_case_counter(rng):
+def _fuzz_case_counter(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + "  123!?")]
 
 
-def _fuzz_word_reverser(rng):
+def _fuzz_word_reverser(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 20, string.ascii_letters + "   ")]
 
 
-def _fuzz_unique_elements(rng):
+def _fuzz_unique_elements(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 10, vmin=-5, vmax=5)]
 
 
-def _fuzz_matrix_transposer(rng):
+def _fuzz_matrix_transposer(rng: random.Random) -> List[Any]:
     rows, cols = rng.randint(1, 4), rng.randint(1, 4)
     return [[[rng.randint(-9, 9) for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_longest_word(rng):
+def _fuzz_longest_word(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 24, string.ascii_letters + "   ")]
 
 
-def _fuzz_matrix_rotator(rng):
+def _fuzz_matrix_rotator(rng: random.Random) -> List[Any]:
     rows, cols = rng.randint(1, 4), rng.randint(1, 4)
     return [[[rng.randint(-9, 9) for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_prime_finder(rng):
+def _fuzz_prime_finder(rng: random.Random) -> List[Any]:
     if rng.random() < 0.3:
         return [rng.randint(-10, 1)]
     return [rng.randint(2, 500)]
 
 
-def _fuzz_leet_speak(rng):
+def _fuzz_leet_speak(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 20, string.ascii_letters + " !?0123")]
 
 
-def _fuzz_char_frequency(rng):
+def _fuzz_char_frequency(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, "aabbccdd 123!")]
 
 
-def _fuzz_run_length_encoder(rng):
+def _fuzz_run_length_encoder(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 12)
     return ["".join(rng.choice("abc") for _ in range(n))]
 
 
-def _fuzz_second_largest(rng):
+def _fuzz_second_largest(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 8, vmin=-10, vmax=10)]
 
 
-def _fuzz_run_length_decoder(rng):
+def _fuzz_run_length_decoder(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 5)
     parts = [rng.choice("abcdef") + str(rng.randint(1, 20)) for _ in range(n)]
     return ["".join(parts)]
 
 
-def _fuzz_binary_gap(rng):
+def _fuzz_binary_gap(rng: random.Random) -> List[Any]:
     return [rng.randint(0, 5000)]
 
 
-def _fuzz_pangram_checker(rng):
+def _fuzz_pangram_checker(rng: random.Random) -> List[Any]:
     if rng.random() < 0.5:
         letters = list(string.ascii_lowercase)
         rng.shuffle(letters)
@@ -635,11 +654,11 @@ def _fuzz_pangram_checker(rng):
     return [_rand_word(rng, 0, 30, string.ascii_letters + "   .")]
 
 
-def _fuzz_max_subarray_sum(rng):
+def _fuzz_max_subarray_sum(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 10, vmin=-10, vmax=10)]
 
 
-def _fuzz_zigzag_flatten(rng):
+def _fuzz_zigzag_flatten(rng: random.Random) -> List[Any]:
     rows = rng.randint(0, 5)
     return [
         [
@@ -649,16 +668,16 @@ def _fuzz_zigzag_flatten(rng):
     ]
 
 
-def _fuzz_pascals_triangle_row(rng):
+def _fuzz_pascals_triangle_row(rng: random.Random) -> List[Any]:
     return [rng.randint(0, 15)]
 
 
-def _fuzz_longest_palindromic_substring(rng):
+def _fuzz_longest_palindromic_substring(rng: random.Random) -> List[Any]:
     alphabet = "ab" if rng.random() < 0.4 else string.ascii_lowercase
     return [_rand_word(rng, 0, 14, alphabet)]
 
 
-def _fuzz_two_sum_indices(rng):
+def _fuzz_two_sum_indices(rng: random.Random) -> List[Any]:
     lst = _rand_intlist(rng, 0, 8, vmin=-10, vmax=10)
     if len(lst) >= 2 and rng.random() < 0.5:
         i, j = rng.sample(range(len(lst)), 2)
@@ -668,24 +687,24 @@ def _fuzz_two_sum_indices(rng):
     return [lst, target]
 
 
-def _fuzz_string_reverser(rng):
+def _fuzz_string_reverser(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + " 123!?")]
 
 
-def _fuzz_char_counter(rng):
+def _fuzz_char_counter(rng: random.Random) -> List[Any]:
     alphabet = "aabbccdd 123!"
     return [_rand_word(rng, 0, 20, alphabet), rng.choice(alphabet)]
 
 
-def _fuzz_even_odd_counter(rng):
+def _fuzz_even_odd_counter(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 12, vmin=-15, vmax=15)]
 
 
-def _fuzz_sum_of_squares(rng):
+def _fuzz_sum_of_squares(rng: random.Random) -> List[Any]:
     return [_rand_intlist(rng, 0, 10, vmin=-10, vmax=10)]
 
 
-def _fuzz_longest_common_prefix(rng):
+def _fuzz_longest_common_prefix(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 6)
     if n == 0:
         return [[]]
@@ -701,11 +720,11 @@ def _fuzz_longest_common_prefix(rng):
     return [strings]
 
 
-def _fuzz_camel_to_snake_converter(rng):
+def _fuzz_camel_to_snake_converter(rng: random.Random) -> List[Any]:
     return [_rand_word(rng, 0, 16, string.ascii_letters + "0123456789")]
 
 
-def _fuzz_string_rotation_checker(rng):
+def _fuzz_string_rotation_checker(rng: random.Random) -> List[Any]:
     alphabet = string.ascii_lowercase[:6]
     base = _rand_word(rng, 0, 10, alphabet)
     if base and rng.random() < 0.6:
@@ -721,14 +740,14 @@ def _fuzz_string_rotation_checker(rng):
     return [base, rotated]
 
 
-def _fuzz_roman_numeral(rng):
+def _fuzz_roman_numeral(rng: random.Random) -> List[Any]:
     return [rng.randint(1, 3999)]
 
 
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE BANK
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "py_cryptic_sorter": {
         "level": 1,
@@ -2671,7 +2690,7 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:
@@ -2701,6 +2720,6 @@ for _lvl, _pool in STANDARD_LEVELS.items():
         raise ValueError("exam_bank: level %d has no standard exercise" % _lvl)
 
 
-def signature_of(name):
+def signature_of(name: str) -> Optional[str]:
     """The `def …:` line of an exercise, as shown in its subject."""
     return _signature_of(EXERCISES[name]["subject"])

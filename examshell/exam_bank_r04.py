@@ -23,8 +23,14 @@ behaviour re-derived from the worked examples given there.
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+import random
+
 import string
 
+from ._types import Exercise
 from .bank_common import sub as _sub
 from .bank_common import signature_of as _signature_of
 
@@ -40,7 +46,7 @@ N_LEVELS = 4
 #  which only works if it carries no free globals (see
 #  grader.oracle_free_globals).
 # ══════════════════════════════════════════════════════════════
-def _ref_array_rotation_detector(arr1, arr2):
+def _ref_array_rotation_detector(arr1: List[Any], arr2: List[Any]) -> bool:
     if len(arr1) != len(arr2):
         return False
     n = len(arr1)
@@ -52,7 +58,9 @@ def _ref_array_rotation_detector(arr1, arr2):
     return False
 
 
-def _ref_constellation_mapper(stars, dim):
+def _ref_constellation_mapper(
+    stars: List[Tuple[int, int]], dim: int
+) -> List[str]:
     if dim <= 0:
         return []
     grid = [["." for _ in range(dim)] for _ in range(dim)]
@@ -62,7 +70,7 @@ def _ref_constellation_mapper(stars, dim):
     return ["".join(cells) for cells in grid]
 
 
-def _ref_list_intersection_finder(lists):
+def _ref_list_intersection_finder(lists: List[List[int]]) -> List[int]:
     if not lists:
         return []
     common = set(lists[0])
@@ -71,7 +79,7 @@ def _ref_list_intersection_finder(lists):
     return sorted(common)
 
 
-def _ref_merge_sorted_lists(lists):
+def _ref_merge_sorted_lists(lists: List[List[int]]) -> List[int]:
     # A k-way merge by hand: repeatedly take the smallest head. Deliberately
     # not sorted(l1 + l2) — that is exactly what the subject forbids.
     heads = [0] * len(lists)
@@ -89,7 +97,7 @@ def _ref_merge_sorted_lists(lists):
     return merged
 
 
-def _ref_palindrome_partitioner(text):
+def _ref_palindrome_partitioner(text: str) -> int:
     n = len(text)
     if n == 0:
         return 0
@@ -111,7 +119,9 @@ def _ref_palindrome_partitioner(text):
     return cuts[n - 1]
 
 
-def _ref_package_dependency_resolver(packages):
+def _ref_package_dependency_resolver(
+    packages: Dict[str, List[str]],
+) -> List[str]:
     # Kahn's algorithm, one whole ready-layer at a time with each layer
     # sorted — that (not a global min-heap) is what reproduces the order
     # the published examples show, e.g. web/api/frontend/backend ->
@@ -123,7 +133,7 @@ def _ref_package_dependency_resolver(packages):
             if dep in packages and dep not in wanted:
                 wanted.append(dep)
         deps[name] = wanted
-    dependents = {name: [] for name in packages}
+    dependents: Dict[str, List[str]] = {name: [] for name in packages}
     indegree = {name: len(deps[name]) for name in packages}
     for name in packages:
         for dep in deps[name]:
@@ -144,7 +154,7 @@ def _ref_package_dependency_resolver(packages):
     return order
 
 
-def _ref_sliding_window_maximum(nums, k):
+def _ref_sliding_window_maximum(nums: List[int], k: int) -> List[int]:
     if k <= 0 or not nums or k > len(nums):
         return []
     maxima = []
@@ -160,7 +170,7 @@ def _ref_sliding_window_maximum(nums, k):
 # ══════════════════════════════════════════════════════════════
 #  FUZZERS  ·  callable(rng) -> args
 # ══════════════════════════════════════════════════════════════
-def _fuzz_array_rotation_detector(rng):
+def _fuzz_array_rotation_detector(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 7)
     arr = [rng.randint(-5, 5) for _ in range(n)]
     kind = rng.random()
@@ -172,7 +182,7 @@ def _fuzz_array_rotation_detector(rng):
     return [arr, [rng.randint(-5, 5) for _ in range(n)]]
 
 
-def _fuzz_constellation_mapper(rng):
+def _fuzz_constellation_mapper(rng: random.Random) -> List[Any]:
     dim = rng.randint(0, 6)
     stars = [
         (rng.randint(-2, 7), rng.randint(-2, 7))
@@ -181,7 +191,7 @@ def _fuzz_constellation_mapper(rng):
     return [stars, dim]
 
 
-def _fuzz_list_intersection_finder(rng):
+def _fuzz_list_intersection_finder(rng: random.Random) -> List[Any]:
     count = rng.randint(0, 4)
     lists = [
         [rng.randint(0, 9) for _ in range(rng.randint(0, 6))]
@@ -190,7 +200,7 @@ def _fuzz_list_intersection_finder(rng):
     return [lists]
 
 
-def _fuzz_merge_sorted_lists(rng):
+def _fuzz_merge_sorted_lists(rng: random.Random) -> List[Any]:
     lists = [
         sorted(rng.randint(-20, 20) for _ in range(rng.randint(0, 6)))
         for _ in range(rng.randint(1, 4))
@@ -198,13 +208,13 @@ def _fuzz_merge_sorted_lists(rng):
     return [lists]
 
 
-def _fuzz_palindrome_partitioner(rng):
+def _fuzz_palindrome_partitioner(rng: random.Random) -> List[Any]:
     alphabet = "aab"  # a tiny alphabet makes
     n = rng.randint(0, 12)  # real palindromes likely
     return ["".join(rng.choice(alphabet) for _ in range(n))]
 
 
-def _fuzz_package_dependency_resolver(rng):
+def _fuzz_package_dependency_resolver(rng: random.Random) -> List[Any]:
     names = list(string.ascii_lowercase[: rng.randint(0, 6)])
     packages = {}
     for i, name in enumerate(names):
@@ -223,7 +233,7 @@ def _fuzz_package_dependency_resolver(rng):
     return [packages]
 
 
-def _fuzz_sliding_window_maximum(rng):
+def _fuzz_sliding_window_maximum(rng: random.Random) -> List[Any]:
     nums = [rng.randint(-15, 15) for _ in range(rng.randint(0, 10))]
     return [nums, rng.randint(-1, 6)]
 
@@ -231,7 +241,7 @@ def _fuzz_sliding_window_maximum(rng):
 # ══════════════════════════════════════════════════════════════
 #  EXERCISES
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "py_array_rotation_detector": {
         "level": 1,
@@ -636,7 +646,7 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:
@@ -667,6 +677,6 @@ for _lvl, _pool in STANDARD_LEVELS.items():
         )
 
 
-def signature_of(name):
+def signature_of(name: str) -> Optional[str]:
     """The `def …:` line of an exercise, as shown in its subject."""
     return _signature_of(EXERCISES[name]["subject"])

@@ -20,6 +20,10 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **`ft_atoi_base` tests** — random cases stay within the subject (base
   2-16, no int overflow); more curated edge cases; a leading `+` or space
   is no longer tested, since the subject doesn't define it.
+- **Exam `stub` for `fizzbuzz`** — the bare stub declared
+  `main(int argc, char **argv)` for a program that never gets an argument,
+  so a correct solution written into it failed the exam's `-Werror` on the
+  unused parameters. Programs without arguments now get `main(void)`.
 
 ## 0.6.0 — 2026-10-01
 

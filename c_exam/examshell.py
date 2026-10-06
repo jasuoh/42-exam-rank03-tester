@@ -357,10 +357,20 @@ BARE_FUNCTION_STUB_TEMPLATE = """\
 BARE_PROGRAM_STUB_TEMPLATE = """\
 /* {name} — 42 Exam Rank 02 */
 
-int main(int argc, char **argv)
+{main}
 {{
 }}
 """
+
+
+def _bare_main(ex: Exercise) -> str:
+    """The bare stub's main() line. A program that never gets an argument
+    (fizzbuzz) gets `main(void)`: with unused argc/argv, a correct solution
+    would fail the exam's -Wall -Wextra -Werror on unused parameters."""
+    takes_args = ex.get("fuzz_argv") or any(ex["cases"])
+    return (
+        "int main(int argc, char **argv)" if takes_args else "int main(void)"
+    )
 
 
 def _definition_header(prototype: str) -> str:
@@ -380,7 +390,9 @@ def write_stub(ex_name: str, cfg: Config) -> Tuple[bool, str, str]:
     try:
         os.makedirs(cfg.rendu, exist_ok=True)
         if ex.get("kind") == "program" and bare:
-            content = BARE_PROGRAM_STUB_TEMPLATE.format(name=ex_name)
+            content = BARE_PROGRAM_STUB_TEMPLATE.format(
+                name=ex_name, main=_bare_main(ex)
+            )
         elif ex.get("kind") == "program":
             first_case: List[str] = next((c for c in ex["cases"] if c), [])
             example_args = "".join(" " + shlex.quote(a) for a in first_case)

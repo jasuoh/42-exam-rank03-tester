@@ -4,6 +4,8 @@
 the shared "s  Sync" menu row, default_config(), command names, and the
 console-script entry points named in pyproject.toml."""
 
+from __future__ import annotations
+
 import contextlib
 import importlib
 import io
@@ -21,7 +23,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class DoctorCheckTests(unittest.TestCase):
-    def test_missing_compiler_is_a_failure_only_for_the_c_tester(self):
+    def test_missing_compiler_is_a_failure_only_for_the_c_tester(self) -> None:
         self.assertEqual(
             doctor.check_compiler("no-such-cc-xyz", required=True).status,
             "fail",
@@ -35,12 +37,12 @@ class DoctorCheckTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(shutil.which("cc"), "no C compiler")
-    def test_working_compiler(self):
+    def test_working_compiler(self) -> None:
         self.assertEqual(
             doctor.check_compiler("cc", required=True).status, "ok"
         )
 
-    def test_unwritable_data_dir_fails(self):
+    def test_unwritable_data_dir_fails(self) -> None:
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         blocker = os.path.join(tmp, "file")
@@ -49,12 +51,12 @@ class DoctorCheckTests(unittest.TestCase):
         self.assertEqual(check.status, "fail")
         self.assertIn("EXAMSHELL_HOME", check.fix)
 
-    def test_sync_not_set_up_is_a_warning_with_the_setup_command(self):
+    def test_sync_not_set_up_is_a_warning_with_the_setup_command(self) -> None:
         check = doctor.check_sync(tempfile.mkdtemp())
         self.assertEqual(check.status, "warn")
         self.assertIn("make sync-setup", check.fix)
 
-    def test_update_check(self):
+    def test_update_check(self) -> None:
         with mock.patch.dict(os.environ, {update_check.ENV_OPT_OUT: ""}):
             newer = doctor.check_update(fetch=lambda: "v99.0.0")
         self.assertIn(
@@ -63,7 +65,7 @@ class DoctorCheckTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {update_check.ENV_OPT_OUT: "1"}):
             self.assertIn("turned off", doctor.check_update().detail)
 
-    def test_upgrade_command_matches_the_install(self):
+    def test_upgrade_command_matches_the_install(self) -> None:
         with mock.patch.object(doctor, "is_git_checkout", return_value=True):
             self.assertEqual(doctor.upgrade_command(), "make update")
         with mock.patch.object(doctor, "is_git_checkout", return_value=False):
@@ -71,7 +73,7 @@ class DoctorCheckTests(unittest.TestCase):
                 doctor.upgrade_command(), "uv tool upgrade examshell"
             )
 
-    def test_run_doctor_exit_code(self):
+    def test_run_doctor_exit_code(self) -> None:
         ok = [
             doctor.Check("ok", "a", "fine"),
             doctor.Check("warn", "b", "meh", "fix it"),
@@ -87,25 +89,25 @@ class DoctorCheckTests(unittest.TestCase):
 
 
 class MenuAndConfigTests(unittest.TestCase):
-    def test_sync_row_sits_right_before_quit(self):
+    def test_sync_row_sits_right_before_quit(self) -> None:
         rows = shell_common.with_sync_row(
             [("1", "Exam", ""), ("q", "Quit", "")]
         )
         self.assertEqual([r[0] for r in rows], ["1", "s", "f", "q"])
 
-    def test_default_config_per_tester(self):
+    def test_default_config_per_tester(self) -> None:
         self.assertEqual(py_shell.default_config().rendu, "rendu")
         c_cfg = c_shell.default_config(relaxed=True)
         self.assertEqual((c_cfg.rendu, c_cfg.relaxed), ("c_rendu", True))
 
-    def test_sync_dirs_follow_each_testers_rendu(self):
+    def test_sync_dirs_follow_each_testers_rendu(self) -> None:
         cfg = c_shell.default_config(rendu="mine")
         self.assertEqual(
             shell_common.sync_dirs(c_shell, cfg),
             {"rendu": "rendu", "c_rendu": "mine"},
         )
 
-    def test_command_name(self):
+    def test_command_name(self) -> None:
         with mock.patch("sys.argv", ["/home/me/.local/bin/examshell-c"]):
             self.assertEqual(
                 shell_common.command_name("examshell-c", "c_exam"),
@@ -119,7 +121,7 @@ class MenuAndConfigTests(unittest.TestCase):
 
 
 class PackagingTests(unittest.TestCase):
-    def test_console_scripts_point_at_real_functions(self):
+    def test_console_scripts_point_at_real_functions(self) -> None:
         with open(
             os.path.join(ROOT, "pyproject.toml"), encoding="utf-8"
         ) as fh:
@@ -133,7 +135,7 @@ class PackagingTests(unittest.TestCase):
                 callable(getattr(importlib.import_module(module), func))
             )
 
-    def test_old_src_shim_still_runs(self):
+    def test_old_src_shim_still_runs(self) -> None:
         import subprocess
         import sys
 

@@ -4,6 +4,8 @@
 the rank registry, the two new banks' shape, the grader's tuple/dict-key
 round-trip and its multi-function ("parts") exercises."""
 
+from __future__ import annotations
+
 import argparse
 import contextlib
 import io
@@ -12,12 +14,14 @@ import os
 import random
 import tempfile
 import unittest
+from typing import Any
 
 from examshell import examshell, grader, ranks, report_export
+from examshell.grader import Report
 from examshell.training_bank import TRAINING_EXERCISES
 
 
-def _cfg(rendu, **overrides):
+def _cfg(rendu: str, **overrides: Any) -> examshell.Config:
     args = argparse.Namespace(
         rendu=rendu,
         timeout=3,
@@ -34,37 +38,37 @@ def _cfg(rendu, **overrides):
 
 
 class RankRegistryTests(unittest.TestCase):
-    def test_every_choice_resolves(self):
+    def test_every_choice_resolves(self) -> None:
         for rank_id in ranks.CHOICES:
             self.assertEqual(ranks.get(rank_id).id, rank_id)
 
-    def test_normalize_accepts_the_shapes_a_student_would_type(self):
+    def test_normalize_accepts_the_shapes_a_student_would_type(self) -> None:
         for value in ("4", "04", "rank04", "r4", "#4"):
             self.assertEqual(ranks.normalize(value), "04", value)
         self.assertEqual(ranks.normalize("3"), "03")
         self.assertEqual(ranks.normalize("05"), "05")
 
-    def test_normalize_rejects_what_is_not_a_rank(self):
+    def test_normalize_rejects_what_is_not_a_rank(self) -> None:
         for value in ("", "99", "rank99", "banana", None):
             self.assertIsNone(ranks.normalize(value))
 
-    def test_get_falls_back_to_the_default(self):
+    def test_get_falls_back_to_the_default(self) -> None:
         self.assertEqual(ranks.get(None).id, ranks.DEFAULT_RANK)
         self.assertEqual(ranks.get("nonsense").id, ranks.DEFAULT_RANK)
 
-    def test_each_rank_files_its_history_under_its_own_tag(self):
+    def test_each_rank_files_its_history_under_its_own_tag(self) -> None:
         """A shared tag would let a Rank 03 exam be resumed as a Rank 05
         one, and would mix the two banks' stats into one history."""
         tags = [ranks.get(r).tool for r in ranks.CHOICES]
         self.assertEqual(len(set(tags)), len(tags))
         self.assertEqual(ranks.get("03").tool, "py")  # pre-existing history
 
-    def test_rank_03_is_still_the_default(self):
+    def test_rank_03_is_still_the_default(self) -> None:
         self.assertEqual(ranks.DEFAULT_RANK, "03")
         self.assertEqual(examshell.RANK.id, "03")
         self.assertEqual(examshell.TOOL, "py")
 
-    def test_every_tag_has_a_report_label(self):
+    def test_every_tag_has_a_report_label(self) -> None:
         for rank_id in ranks.CHOICES:
             self.assertIn(ranks.get(rank_id).tool, report_export.TOOL_LABELS)
 
@@ -74,7 +78,7 @@ class BankShapeTests(unittest.TestCase):
     check (every oracle graded through the real sandbox) is `make check`,
     not a unit test — this only locks in the shape the tester relies on."""
 
-    def test_every_level_has_at_least_one_standard_exercise(self):
+    def test_every_level_has_at_least_one_standard_exercise(self) -> None:
         for rank_id in ranks.CHOICES:
             rank = ranks.get(rank_id)
             for level in range(1, rank.n_levels + 1):
@@ -83,7 +87,7 @@ class BankShapeTests(unittest.TestCase):
                     "rank %s level %d" % (rank_id, level),
                 )
 
-    def test_every_exercise_carries_what_the_grader_needs(self):
+    def test_every_exercise_carries_what_the_grader_needs(self) -> None:
         for rank_id in ranks.CHOICES:
             rank = ranks.get(rank_id)
             for name, ex in rank.exercises.items():
@@ -97,7 +101,7 @@ class BankShapeTests(unittest.TestCase):
                         "def %s(" % part["function"], ex["subject"], name
                     )
 
-    def test_new_exercises_default_to_extra_not_standard(self):
+    def test_new_exercises_default_to_extra_not_standard(self) -> None:
         # Same fail-closed rule the Rank 03 bank has (see
         # test_examshell.py): an exercise that forgets "standard": True
         # must never silently become eligible for a real exam draw.
@@ -110,7 +114,7 @@ class BankShapeTests(unittest.TestCase):
                 '_ex.setdefault("standard", False)', inspect.getsource(module)
             )
 
-    def test_an_exam_name_never_collides_with_a_training_name(self):
+    def test_an_exam_name_never_collides_with_a_training_name(self) -> None:
         """Both pools land in one ALL_EXERCISES namespace and one rendu/
         directory, so a shared name would mean two different subjects
         fighting over one filename (this is why Rank 05's spiral subject
@@ -119,7 +123,7 @@ class BankShapeTests(unittest.TestCase):
             clash = set(ranks.get(rank_id).exercises) & set(TRAINING_EXERCISES)
             self.assertEqual(clash, set(), "rank %s" % rank_id)
 
-    def test_all_exercises_holds_both_pools(self):
+    def test_all_exercises_holds_both_pools(self) -> None:
         for rank_id in ranks.CHOICES:
             rank = ranks.get(rank_id)
             merged = rank.all_exercises()
@@ -129,10 +133,10 @@ class BankShapeTests(unittest.TestCase):
 
 
 class UseRankTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.addCleanup(examshell.use_rank)  # back to the default
 
-    def test_switching_rebinds_every_global_the_module_reads(self):
+    def test_switching_rebinds_every_global_the_module_reads(self) -> None:
         examshell.use_rank("05")
         self.assertEqual(examshell.RANK.id, "05")
         self.assertEqual(examshell.TOOL, "py05")
@@ -140,13 +144,13 @@ class UseRankTests(unittest.TestCase):
         self.assertIn("py_word_ladder", examshell.EXERCISES)
         self.assertNotIn("py_inter", examshell.EXERCISES)
 
-    def test_session_score_follows_the_active_rank(self):
+    def test_session_score_follows_the_active_rank(self) -> None:
         examshell.use_rank("05")
         session = examshell.Session("tester")
         session.passed = ["a", "b", "c"]
         self.assertEqual(session.score(), 100)  # 3 levels, not 6
 
-    def test_exercise_entries_covers_the_active_rank(self):
+    def test_exercise_entries_covers_the_active_rank(self) -> None:
         examshell.use_rank("04")
         entries = examshell.exercise_entries()
         self.assertEqual(
@@ -157,17 +161,17 @@ class UseRankTests(unittest.TestCase):
             [idx for idx, *_ in entries], list(range(1, len(entries) + 1))
         )
 
-    def test_switching_back_restores_rank_03(self):
+    def test_switching_back_restores_rank_03(self) -> None:
         examshell.use_rank("04")
         examshell.use_rank("03")
         self.assertEqual(examshell.TOOL, "py")
         self.assertEqual(examshell.N_LEVELS, 6)
 
-    def test_cli_rejects_an_unknown_rank(self):
+    def test_cli_rejects_an_unknown_rank(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(examshell.main(["--rank", "99", "--list"]), 2)
 
-    def test_cli_rank_flag_selects_the_pool(self):
+    def test_cli_rank_flag_selects_the_pool(self) -> None:
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(
@@ -198,28 +202,28 @@ class ValueCodecTests(unittest.TestCase):
         [{"a": (1, (2, 3))}],
     ]
 
-    def test_round_trip_through_json_keeps_types(self):
+    def test_round_trip_through_json_keeps_types(self) -> None:
         for value in self.ROUND_TRIPPED:
             wire = json.loads(json.dumps(grader.encode_value(value)))
             self.assertTrue(
                 grader.deep_eq(grader.decode_value(wire), value), repr(value)
             )
 
-    def test_json_stable_agrees(self):
+    def test_json_stable_agrees(self) -> None:
         for value in self.ROUND_TRIPPED:
             self.assertTrue(grader.json_stable(value), repr(value))
 
-    def test_plain_values_are_left_exactly_as_they_are(self):
+    def test_plain_values_are_left_exactly_as_they_are(self) -> None:
         """Anything without a tuple or dict must encode to itself, so a
         bank that uses neither produces the same cases.json as before."""
         for value in ([1, 2, 3], "text", 7, True, None, [[1], [2]]):
             self.assertEqual(grader.encode_value(value), value)
 
-    def test_a_tuple_is_not_a_list(self):
+    def test_a_tuple_is_not_a_list(self) -> None:
         self.assertFalse(grader.deep_eq((1, 2), [1, 2]))
         self.assertFalse(grader.deep_eq([1, 2], (1, 2)))
 
-    def test_tuple_comparison_stays_type_strict_inside(self):
+    def test_tuple_comparison_stays_type_strict_inside(self) -> None:
         self.assertFalse(grader.deep_eq((1, True), (1, 1)))
         self.assertTrue(grader.deep_eq((1, 2), (1, 2)))
 
@@ -251,22 +255,22 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         "    return out\n"
     )
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.ex = ranks.get("05").exercises["py_compress_decompress"]
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def _write(self, source):
+    def _write(self, source: str) -> str:
         path = os.path.join(self.tmp.name, "py_compress_decompress.py")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(source)
         return path
 
-    def test_parts_of_a_plain_exercise_is_the_exercise_itself(self):
+    def test_parts_of_a_plain_exercise_is_the_exercise_itself(self) -> None:
         plain = ranks.get("05").exercises["py_word_ladder"]
         self.assertEqual(grader.parts_of(plain), [plain])
 
-    def test_plan_has_one_entry_per_function(self):
+    def test_plan_has_one_entry_per_function(self) -> None:
         plan = grader.build_plan(
             "py_compress_decompress", self.ex, random.Random(0), fuzz=2
         )
@@ -277,7 +281,7 @@ class MultiFunctionExerciseTests(unittest.TestCase):
             grader.plan_size(plan), sum(len(tests) for _, tests in plan)
         )
 
-    def test_both_functions_right_passes(self):
+    def test_both_functions_right_passes(self) -> None:
         self._write(self.BOTH_RIGHT)
         report = grader.grade(
             "py_compress_decompress",
@@ -288,7 +292,7 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
-    def test_the_missing_half_is_named_in_the_verdict(self):
+    def test_the_missing_half_is_named_in_the_verdict(self) -> None:
         self._write(self.BOTH_RIGHT.split("def decompress")[0])
         report = grader.grade(
             "py_compress_decompress",
@@ -300,7 +304,7 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         self.assertEqual(report.fatal, "NO_FUNCTION")
         self.assertIn("decompress", report.detail)
 
-    def test_a_failure_says_which_function_it_came_from(self):
+    def test_a_failure_says_which_function_it_came_from(self) -> None:
         self._write(
             self.BOTH_RIGHT.replace(
                 "out += ch * (int(n) if n else 1)", "out += ch"
@@ -315,13 +319,16 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         )
         self.assertFalse(report.ok)
         self.assertTrue(
-            all(f.function == "decompress" for f in report.failures)
+            all(
+                getattr(f, "function", None) == "decompress"
+                for f in report.failures
+            )
         )
         self.assertTrue(
             report.failures[0].call("compress").startswith("decompress(")
         )
 
-    def test_exam_stub_is_bare_and_still_importable(self):
+    def test_exam_stub_is_bare_and_still_importable(self) -> None:
         cfg = examshell.exam_config(_cfg(self.tmp.name))
         examshell.use_rank("05")
         self.addCleanup(examshell.use_rank)
@@ -341,7 +348,7 @@ class MultiFunctionExerciseTests(unittest.TestCase):
             {"__name__": "x"},
         )
 
-    def test_stub_defines_both_functions_and_is_importable(self):
+    def test_stub_defines_both_functions_and_is_importable(self) -> None:
         cfg = _cfg(self.tmp.name)
         examshell.use_rank("05")
         self.addCleanup(examshell.use_rank)
@@ -362,11 +369,11 @@ class TupleAndDictExerciseTests(unittest.TestCase):
     """The Rank 05 subjects that hand tuples or int-keyed dicts across the
     sandbox boundary, graded end to end."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def _grade(self, name, source, fuzz=0):
+    def _grade(self, name: str, source: str, fuzz: int = 0) -> Report:
         ex = ranks.get("05").exercises[name]
         with open(
             os.path.join(self.tmp.name, name + ".py"), "w", encoding="utf-8"
@@ -376,7 +383,7 @@ class TupleAndDictExerciseTests(unittest.TestCase):
             name, ex, self.tmp.name, rng=random.Random(0), fuzz=fuzz
         )
 
-    def test_returning_lists_instead_of_tuples_fails(self):
+    def test_returning_lists_instead_of_tuples_fails(self) -> None:
         report = self._grade(
             "py_schedule_meetings",
             "def schedule_meetings(intervals):\n"
@@ -392,7 +399,7 @@ class TupleAndDictExerciseTests(unittest.TestCase):
         )
         self.assertFalse(report.ok)
 
-    def test_the_same_solution_with_tuples_passes(self):
+    def test_the_same_solution_with_tuples_passes(self) -> None:
         report = self._grade(
             "py_schedule_meetings",
             "def schedule_meetings(intervals):\n"
@@ -408,7 +415,7 @@ class TupleAndDictExerciseTests(unittest.TestCase):
         )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
-    def test_int_dict_keys_survive_the_sandbox(self):
+    def test_int_dict_keys_survive_the_sandbox(self) -> None:
         """A graph keyed by int must still be keyed by int inside the
         submission — plain JSON would hand it string keys, and every
         `nxt in graph` lookup would quietly miss."""
@@ -435,7 +442,7 @@ class TupleAndDictExerciseTests(unittest.TestCase):
         )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
-    def test_tuple_arguments_arrive_as_tuples(self):
+    def test_tuple_arguments_arrive_as_tuples(self) -> None:
         report = self._grade(
             "py_prism_detector",
             "def prism_detector(grid, pattern):\n"

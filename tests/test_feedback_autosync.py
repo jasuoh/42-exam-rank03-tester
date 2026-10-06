@@ -2,29 +2,34 @@
 # -*- coding: utf-8 -*-
 """0.6.0: --feedback (prefilled issue forms) and auto-sync."""
 
+from __future__ import annotations
+
 import contextlib
 import io
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from typing import Dict
 from unittest import mock
 from urllib.parse import parse_qs, urlparse
 
 from c_exam import examshell as c_shell
 from examshell import examshell as py_shell
+from examshell import ui
 from examshell import feedback, settings, shell_common, sync
 
 HAVE_GIT = shutil.which("git") is not None
 
 
-def _query(url):
+def _query(url: str) -> Dict[str, str]:
     return {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
 
 
 class FeedbackTests(unittest.TestCase):
-    def test_exam_form_is_prefilled(self):
+    def test_exam_form_is_prefilled(self) -> None:
         url = feedback.issue_url("exam", "C · Exam Rank 02", "inter")
         self.assertTrue(
             url.startswith(
@@ -37,12 +42,12 @@ class FeedbackTests(unittest.TestCase):
         self.assertEqual(q["exercise"], "inter")
         self.assertTrue(q["version"].startswith("examshell "))
 
-    def test_bug_form_carries_the_environment(self):
+    def test_bug_form_carries_the_environment(self) -> None:
         q = _query(feedback.issue_url("bug"))
         self.assertEqual(q["template"], "bug_report.yml")
         self.assertIn("Python", q["env"])
 
-    def test_form_ids_exist_in_the_issue_templates(self):
+    def test_form_ids_exist_in_the_issue_templates(self) -> None:
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         for kind, extra in (("exam", "inter"), ("bug", None), ("idea", None)):
             template, _ = feedback.KINDS[kind]
@@ -55,7 +60,7 @@ class FeedbackTests(unittest.TestCase):
                     with self.subTest(kind=kind, field=key):
                         self.assertIn("id: %s" % key, text)
 
-    def test_tester_labels_match_the_exam_dropdown(self):
+    def test_tester_labels_match_the_exam_dropdown(self) -> None:
         self.assertEqual(
             shell_common.tester_label(c_shell), "C · Exam Rank 02"
         )
@@ -63,16 +68,16 @@ class FeedbackTests(unittest.TestCase):
             shell_common.tester_label(py_shell), "Python · Exam Rank 03"
         )
 
-    def test_no_browser_on_a_bare_linux_console(self):
-        with mock.patch.object(
-            feedback.sys, "platform", "linux"
-        ), mock.patch.dict(os.environ, {"DISPLAY": "", "WAYLAND_DISPLAY": ""}):
+    def test_no_browser_on_a_bare_linux_console(self) -> None:
+        with mock.patch.object(sys, "platform", "linux"), mock.patch.dict(
+            os.environ, {"DISPLAY": "", "WAYLAND_DISPLAY": ""}
+        ):
             self.assertFalse(feedback.can_open_browser())
             self.assertFalse(
                 feedback.open_in_browser("https://example.invalid")
             )
 
-    def test_run_feedback_prints_the_link(self):
+    def test_run_feedback_prints_the_link(self) -> None:
         with mock.patch.object(
             feedback, "open_in_browser", return_value=False
         ), contextlib.redirect_stdout(io.StringIO()) as out:
@@ -81,13 +86,13 @@ class FeedbackTests(unittest.TestCase):
             )
         self.assertIn("exam_mismatch.yml", out.getvalue())
 
-    def test_menu_has_sync_and_feedback_before_quit(self):
+    def test_menu_has_sync_and_feedback_before_quit(self) -> None:
         rows = shell_common.with_sync_row([("1", "x", ""), ("q", "Quit", "")])
         self.assertEqual([r[0] for r in rows], ["1", "s", "f", "q"])
 
 
 class AutoSyncSettingTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         for name, value in (
@@ -98,7 +103,7 @@ class AutoSyncSettingTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def test_set_auto_sync_keeps_other_settings(self):
+    def test_set_auto_sync_keeps_other_settings(self) -> None:
         settings.save_config({"theme": "light", "cc": "clang"})
         with contextlib.redirect_stdout(io.StringIO()):
             shell_common.set_auto_sync(True)
@@ -110,7 +115,7 @@ class AutoSyncSettingTests(unittest.TestCase):
             shell_common.set_auto_sync(False)
         self.assertFalse(shell_common.auto_sync_enabled())
 
-    def test_off_or_not_set_up_does_nothing(self):
+    def test_off_or_not_set_up_does_nothing(self) -> None:
         cfg = c_shell.default_config()
         with mock.patch.object(sync, "sync") as run:
             self.assertIsNone(
@@ -125,7 +130,7 @@ class AutoSyncSettingTests(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_GIT, "git not installed")
 class AutoSyncTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp)
         self.url = os.path.join(self.tmp, "remote.git")
@@ -149,17 +154,17 @@ class AutoSyncTests(unittest.TestCase):
         )
         settings.update_config("auto_sync", True)
 
-    def test_runs_and_reports(self):
+    def test_runs_and_reports(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()) as out:
             result = shell_common.auto_sync(c_shell, self.cfg, "end")
         self.assertIsNotNone(result)
         self.assertIn("pushing your progress", out.getvalue())
 
-    def test_offline_is_only_a_warning(self):
+    def test_offline_is_only_a_warning(self) -> None:
         shutil.move(self.url, self.url + ".gone")
-        with mock.patch.object(
-            shell_common.ui, "warn"
-        ) as warn, contextlib.redirect_stdout(io.StringIO()):
+        with mock.patch.object(ui, "warn") as warn, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
             self.assertIsNone(
                 shell_common.auto_sync(c_shell, self.cfg, "start")
             )

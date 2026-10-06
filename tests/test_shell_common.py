@@ -5,20 +5,29 @@ grade(), the I/O-free core both testers' line-based UI (and a future
 full-screen one) drive. Run against both tester modules, since each
 supplies its own hooks."""
 
+from __future__ import annotations
+
 import argparse
 import os
 import random
 import tempfile
+import time
 import unittest
+from typing import Any, List, cast
 from unittest import mock
 
+from c_exam import bank as c_bank
 from c_exam import examshell as c_shell
 from examshell import examshell as py_shell
+from examshell import hints
+from examshell._types import Tester, TesterConfig
+from examshell import report_export
+from examshell import ui
 from examshell import session_store, shell_common, stats
 from examshell.grader import Report
 
 
-def _cfg(sh, **overrides):
+def _cfg(sh: Tester, **overrides: Any) -> TesterConfig:
     values = dict(
         rendu="unused-rendu",
         timeout=3,
@@ -38,13 +47,14 @@ def _cfg(sh, **overrides):
         strict_forbidden=False,
     )
     values.update(overrides)
-    return sh.Config(argparse.Namespace(**values))
+    cfg: TesterConfig = sh.Config(argparse.Namespace(**values))
+    return cfg
 
 
 class _TempDataDir(unittest.TestCase):
     """Point every file the engine writes at a throwaway directory."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         for module, name, value in (
@@ -60,7 +70,7 @@ class _TempDataDir(unittest.TestCase):
 class ExamRunTests(_TempDataDir):
     SHELLS = (py_shell, c_shell)
 
-    def test_levels_advance_only_by_passing(self):
+    def test_levels_advance_only_by_passing(self) -> None:
         for sh in self.SHELLS:
             with self.subTest(tester=sh.TOOL):
                 run = shell_common.ExamRun(sh, _cfg(sh))
@@ -77,11 +87,11 @@ class ExamRunTests(_TempDataDir):
                 self.assertEqual(run.session.history[0][:3], (1, first, 2))
                 self.assertIn(run.ensure_exercise(), sh.STANDARD_LEVELS[2])
 
-    def test_last_level_finishes_the_run(self):
+    def test_last_level_finishes_the_run(self) -> None:
         sh = c_shell
         run = shell_common.ExamRun(sh, _cfg(sh))
         run.start()
-        for _ in range(sh.N_LEVELS):
+        for _ in range(c_bank.N_LEVELS):
             run.ensure_exercise()
             run.begin_attempt()
             last = run.pass_level()
@@ -89,11 +99,11 @@ class ExamRunTests(_TempDataDir):
         self.assertTrue(run.finished)
         self.assertEqual(run.session.score(), 100)
 
-    def test_same_seed_same_exam(self):
-        def exercises(sh):
+    def test_same_seed_same_exam(self) -> None:
+        def exercises(sh: Tester) -> List[str]:
             run = shell_common.ExamRun(sh, _cfg(sh, seed=99))
             run.start()
-            drawn = []
+            drawn: List[str] = []
             while not run.finished:
                 drawn.append(run.ensure_exercise())
                 run.grade_rng.random()  # grading must not shift draws
@@ -104,7 +114,7 @@ class ExamRunTests(_TempDataDir):
             with self.subTest(tester=sh.TOOL):
                 self.assertEqual(exercises(sh), exercises(sh))
 
-    def test_redraw_only_when_relaxed(self):
+    def test_redraw_only_when_relaxed(self) -> None:
         sh = py_shell
         strict = shell_common.ExamRun(sh, _cfg(sh))
         strict.start()
@@ -121,14 +131,15 @@ class ExamRunTests(_TempDataDir):
         if len(sh.STANDARD_LEVELS[1]) > 1:
             self.assertNotEqual(relaxed.current_ex, before)
 
-    def test_exam_config_forces_the_testers_strict_flags(self):
-        self.assertTrue(
-            shell_common.ExamRun(py_shell, _cfg(py_shell)).cfg.strict_imports
+    def test_exam_config_forces_the_testers_strict_flags(self) -> None:
+        py_cfg = shell_common.ExamRun(py_shell, _cfg(py_shell)).cfg
+        self.assertTrue(cast(py_shell.Config, py_cfg).strict_imports)
+        c_cfg = cast(
+            c_shell.Config, shell_common.ExamRun(c_shell, _cfg(c_shell)).cfg
         )
-        c_cfg = shell_common.ExamRun(c_shell, _cfg(c_shell)).cfg
         self.assertTrue(c_cfg.strict_norm and c_cfg.strict_forbidden)
 
-    def test_save_and_resume_round_trip(self):
+    def test_save_and_resume_round_trip(self) -> None:
         sh = py_shell
         run = shell_common.ExamRun(sh, _cfg(sh))
         run.start("bob")
@@ -139,7 +150,9 @@ class ExamRunTests(_TempDataDir):
         run.save()
 
         resumed = shell_common.ExamRun(sh, _cfg(sh))
-        resumed.resume(session_store.load(sh.TOOL))
+        saved = session_store.load(sh.TOOL)
+        assert saved is not None
+        resumed.resume(saved)
         self.assertTrue(resumed.resumed)
         self.assertEqual((resumed.session.login, resumed.level), ("bob", 2))
         self.assertEqual(resumed.ensure_exercise(), current)
@@ -147,31 +160,31 @@ class ExamRunTests(_TempDataDir):
         # the draw RNG continues where it left off
         self.assertEqual(resumed.rng.random(), run.rng.random())
 
-    def test_time_limit(self):
+    def test_time_limit(self) -> None:
         sh = py_shell
         run = shell_common.ExamRun(sh, _cfg(sh, time_limit=1))
-        with mock.patch.object(shell_common.time, "time", return_value=1000.0):
+        with mock.patch.object(time, "time", return_value=1000.0):
             run.start()
-        with mock.patch.object(shell_common.time, "time", return_value=1030.0):
+        with mock.patch.object(time, "time", return_value=1030.0):
             self.assertFalse(run.times_up())
             self.assertIn("00:00:30 left", run.countdown())
-        with mock.patch.object(shell_common.time, "time", return_value=1060.0):
+        with mock.patch.object(time, "time", return_value=1060.0):
             self.assertTrue(run.times_up())
 
 
 class GradeTests(_TempDataDir):
     """grade(): no output at all — Report, stats, badges and hint as data."""
 
-    def _job(self, ok):
+    def _job(self, ok: bool) -> shell_common.GradingJob:
         report = Report("x", "f")
         report.total, report.passed = 3, 3 if ok else 1
         return shell_common.GradingJob(3, lambda: report)
 
-    def test_records_and_returns_an_outcome(self):
+    def test_records_and_returns_an_outcome(self) -> None:
         sh = py_shell
         with mock.patch.object(
             sh, "prepare_grading", return_value=self._job(True)
-        ), mock.patch.object(shell_common.ui, "report") as rendered:
+        ), mock.patch.object(ui, "report") as rendered:
             outcome = shell_common.grade(
                 sh, "py_inter", random.Random(0), _cfg(sh)
             )
@@ -187,7 +200,7 @@ class GradeTests(_TempDataDir):
             "First Blood", [label for _emoji, label in outcome.badges]
         )
 
-    def test_hint_after_repeated_fails_but_never_in_the_exam(self):
+    def test_hint_after_repeated_fails_but_never_in_the_exam(self) -> None:
         sh = py_shell
         with mock.patch.object(
             sh, "prepare_grading", side_effect=lambda *a: self._job(False)
@@ -196,7 +209,7 @@ class GradeTests(_TempDataDir):
         ):
             outcomes = [
                 shell_common.grade(sh, "py_inter", random.Random(0), _cfg(sh))
-                for _ in range(shell_common.hints.STUCK_THRESHOLD)
+                for _ in range(hints.STUCK_THRESHOLD)
             ]
             in_exam = shell_common.grade(
                 sh, "py_inter", random.Random(0), _cfg(sh), mode="exam"
@@ -207,7 +220,7 @@ class GradeTests(_TempDataDir):
 
 
 class FinishAndBlindTests(_TempDataDir):
-    def test_finish_exam_returns_the_summary_as_data(self):
+    def test_finish_exam_returns_the_summary_as_data(self) -> None:
         sh = py_shell
         tmp = tempfile.mkdtemp()
         run = shell_common.ExamRun(sh, _cfg(sh))
@@ -215,26 +228,27 @@ class FinishAndBlindTests(_TempDataDir):
         run.ensure_exercise()
         run.begin_attempt()
         with mock.patch.object(
-            shell_common.report_export, "REPORTS_DIR", tmp
-        ), mock.patch.object(shell_common.ui, "summary") as rendered:
+            report_export, "REPORTS_DIR", tmp
+        ), mock.patch.object(ui, "summary") as rendered:
             result = shell_common.finish_exam(
                 sh, run.session, passed=False, timed_out=True
             )
         rendered.assert_not_called()
         self.assertIn("TIME'S UP", result.title)
         self.assertEqual(dict(result.rows)["Attempts"], 1)
+        assert result.report_path is not None
         self.assertTrue(os.path.isfile(result.report_path))
 
-    def test_blind_exam_report_hides_failing_cases(self):
+    def test_blind_exam_report_hides_failing_cases(self) -> None:
         sh = py_shell
         report = Report("py_inter", "inter")
         report.total, report.passed = 3, 1
         job = shell_common.GradingJob(3, lambda: report)
         with mock.patch.object(
             sh, "prepare_grading", return_value=job
-        ), mock.patch.object(
-            shell_common.ui, "report"
-        ) as rendered, mock.patch.object(shell_common.ui, "spinner"):
+        ), mock.patch.object(ui, "report") as rendered, mock.patch.object(
+            ui, "spinner"
+        ):
             shell_common.grade_exercise(
                 sh,
                 "py_inter",

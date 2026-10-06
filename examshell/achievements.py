@@ -22,8 +22,8 @@ from . import stats
 from .hints import STUCK_THRESHOLD
 
 CENTURY_THRESHOLD = 100
-NIGHT_OWL_HOURS = range(0, 5)     # 00:00–04:59 local time
-EARLY_BIRD_HOURS = range(5, 7)    # 05:00–06:59 local time
+NIGHT_OWL_HOURS = range(0, 5)  # 00:00–04:59 local time
+EARLY_BIRD_HOURS = range(5, 7)  # 05:00–06:59 local time
 
 
 def _grading_events(tool):
@@ -36,7 +36,9 @@ def _grading_events(tool):
 
 
 def _exam_completions(tool):
-    return [e for e in stats.load_all(tool) if e.get("mode") == "exam-complete"]
+    return [
+        e for e in stats.load_all(tool) if e.get("mode") == "exam-complete"
+    ]
 
 
 def _first_blood(events, _completions, _n_levels):
@@ -74,7 +76,11 @@ def _comeback_kid(events, _completions, _n_levels):
 
 def _full_coverage(events, _completions, n_levels):
     """Passed at least one exercise from every level in the pool."""
-    passed_levels = {e["level"] for e in events if e.get("ok") and e.get("level") is not None}
+    passed_levels = {
+        e["level"]
+        for e in events
+        if e.get("ok") and e.get("level") is not None
+    }
     return n_levels > 0 and len(passed_levels) >= n_levels
 
 
@@ -106,39 +112,93 @@ def _flawless_exam(_events, completions, n_levels):
 
 
 def _night_owl(events, _completions, _n_levels):
-    return any(e.get("ok") and time.localtime(e["ts"]).tm_hour in NIGHT_OWL_HOURS
-              for e in events)
+    return any(
+        e.get("ok") and time.localtime(e["ts"]).tm_hour in NIGHT_OWL_HOURS
+        for e in events
+    )
 
 
 def _early_bird(events, _completions, _n_levels):
-    return any(e.get("ok") and time.localtime(e["ts"]).tm_hour in EARLY_BIRD_HOURS
-              for e in events)
+    return any(
+        e.get("ok") and time.localtime(e["ts"]).tm_hour in EARLY_BIRD_HOURS
+        for e in events
+    )
 
 
 # (id, emoji, label, description, check) — order is display order, roughly
 # easiest-to-earn first. `check(events, completions, n_levels)` -> bool.
 BADGES = (
-    ("first_blood", "🩸", "First Blood",
-     "Pass your first graded attempt.", _first_blood),
-    ("perfectionist", "💯", "Perfectionist",
-     "100% on an exercise's very first attempt.", _perfectionist),
-    ("comeback_kid", "🔥", "Comeback Kid",
-     "Pass an exercise right after %d+ fails in a row on it." % STUCK_THRESHOLD,
-     _comeback_kid),
-    ("redemption", "🎯", "Redemption",
-     "Every exercise you've ever attempted, you've eventually passed.", _redemption),
-    ("full_coverage", "🧭", "Full Coverage",
-     "Pass at least one exercise from every level.", _full_coverage),
-    ("night_owl", "🦉", "Night Owl",
-     "Pass something between midnight and 5am.", _night_owl),
-    ("early_bird", "🐦", "Early Bird",
-     "Pass something between 5am and 7am.", _early_bird),
-    ("century", "🏃", "Century",
-     "%d total graded attempts." % CENTURY_THRESHOLD, _century),
-    ("exam_cleared", "🏆", "Exam Cleared",
-     "Clear a full exam, all levels.", _exam_cleared),
-    ("flawless_exam", "🏅", "Flawless Exam",
-     "Clear a full exam with no retries on any level.", _flawless_exam),
+    (
+        "first_blood",
+        "🩸",
+        "First Blood",
+        "Pass your first graded attempt.",
+        _first_blood,
+    ),
+    (
+        "perfectionist",
+        "💯",
+        "Perfectionist",
+        "100% on an exercise's very first attempt.",
+        _perfectionist,
+    ),
+    (
+        "comeback_kid",
+        "🔥",
+        "Comeback Kid",
+        "Pass an exercise right after %d+ fails in a row on it."
+        % STUCK_THRESHOLD,
+        _comeback_kid,
+    ),
+    (
+        "redemption",
+        "🎯",
+        "Redemption",
+        "Every exercise you've ever attempted, you've eventually passed.",
+        _redemption,
+    ),
+    (
+        "full_coverage",
+        "🧭",
+        "Full Coverage",
+        "Pass at least one exercise from every level.",
+        _full_coverage,
+    ),
+    (
+        "night_owl",
+        "🦉",
+        "Night Owl",
+        "Pass something between midnight and 5am.",
+        _night_owl,
+    ),
+    (
+        "early_bird",
+        "🐦",
+        "Early Bird",
+        "Pass something between 5am and 7am.",
+        _early_bird,
+    ),
+    (
+        "century",
+        "🏃",
+        "Century",
+        "%d total graded attempts." % CENTURY_THRESHOLD,
+        _century,
+    ),
+    (
+        "exam_cleared",
+        "🏆",
+        "Exam Cleared",
+        "Clear a full exam, all levels.",
+        _exam_cleared,
+    ),
+    (
+        "flawless_exam",
+        "🏅",
+        "Flawless Exam",
+        "Clear a full exam with no retries on any level.",
+        _flawless_exam,
+    ),
 )
 
 
@@ -150,8 +210,11 @@ def unlocked(tool, n_levels):
     detects a badge earned just now."""
     events = _grading_events(tool)
     completions = _exam_completions(tool)
-    return [(bid, emoji, label, desc) for bid, emoji, label, desc, check in BADGES
-            if check(events, completions, n_levels)]
+    return [
+        (bid, emoji, label, desc)
+        for bid, emoji, label, desc, check in BADGES
+        if check(events, completions, n_levels)
+    ]
 
 
 def new_since(before, after):

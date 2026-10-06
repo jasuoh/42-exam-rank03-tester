@@ -13,7 +13,14 @@ import time
 import unittest
 from unittest.mock import patch
 
-from examshell import achievements, hints, report_export, session_store, settings, stats
+from examshell import (
+    achievements,
+    hints,
+    report_export,
+    session_store,
+    settings,
+    stats,
+)
 from examshell.examshell import Session
 from examshell.grader import Failure, Report
 
@@ -57,7 +64,9 @@ class SettingsTests(unittest.TestCase):
     def test_save_and_load_round_trip(self):
         ok = settings.save_config({"theme": "light", "timeout": 5})
         self.assertTrue(ok)
-        self.assertEqual(settings.load_config(), {"theme": "light", "timeout": 5})
+        self.assertEqual(
+            settings.load_config(), {"theme": "light", "timeout": 5}
+        )
 
     def test_save_config_drops_non_persistable_keys(self):
         settings.save_config({"theme": "dark", "totally_made_up": "x"})
@@ -72,22 +81,27 @@ class SettingsTests(unittest.TestCase):
         self.assertNotIn("fuzz", saved)
 
     def test_save_config_survives_unwritable_dir(self):
-        # DATA_DIR unset/unwritable: os.makedirs should fail -> best-effort False
+        # DATA_DIR unset/unwritable: os.makedirs should fail -> best-effort
+        # False
         bad_dir = unwritable_dir(self)
-        with patch.object(settings, "DATA_DIR", bad_dir), \
-             patch.object(settings, "CONFIG_PATH",
-                          os.path.join(bad_dir, "config.json")):
+        with patch.object(settings, "DATA_DIR", bad_dir), patch.object(
+            settings, "CONFIG_PATH", os.path.join(bad_dir, "config.json")
+        ):
             self.assertFalse(settings.save_config({"theme": "dark"}))
 
     def test_merged_prefers_explicit_cli_flag(self):
         args = argparse.Namespace(theme="highcontrast")
         config = {"theme": "light"}
-        self.assertEqual(settings.merged(args, config, "theme", "dark"), "highcontrast")
+        self.assertEqual(
+            settings.merged(args, config, "theme", "dark"), "highcontrast"
+        )
 
     def test_merged_falls_back_to_config_file(self):
         args = argparse.Namespace(theme=None)
         config = {"theme": "light"}
-        self.assertEqual(settings.merged(args, config, "theme", "dark"), "light")
+        self.assertEqual(
+            settings.merged(args, config, "theme", "dark"), "light"
+        )
 
     def test_merged_falls_back_to_default(self):
         args = argparse.Namespace(theme=None)
@@ -160,16 +174,21 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(summary["total_attempts"], 3)
         self.assertEqual(summary["total_passes"], 2)
         self.assertAlmostEqual(summary["pass_rate"], 2 / 3)
-        self.assertEqual(summary["per_exercise"]["py_inter"],
-                         {"attempts": 2, "passes": 1})
-        self.assertEqual(summary["per_exercise"]["py_bracket_validator"],
-                         {"attempts": 1, "passes": 1})
+        self.assertEqual(
+            summary["per_exercise"]["py_inter"], {"attempts": 2, "passes": 1}
+        )
+        self.assertEqual(
+            summary["per_exercise"]["py_bracket_validator"],
+            {"attempts": 1, "passes": 1},
+        )
 
     def test_summarize_excludes_exam_complete_from_per_exercise(self):
         stats.record("py", "py_inter", 1, True, 10, 10, "exam")
         stats.record_exam_complete("py", 100.0, 6, 100)
         summary = stats.summarize("py")
-        self.assertEqual(summary["total_attempts"], 1)  # exam-complete excluded
+        self.assertEqual(
+            summary["total_attempts"], 1
+        )  # exam-complete excluded
         self.assertEqual(summary["exam_completions"], 1)
         self.assertEqual(summary["best_seconds"], 100.0)
 
@@ -204,7 +223,8 @@ class StatsTests(unittest.TestCase):
         stats.record("py", "py_inter", 1, False, 3, 10, "practice")
         self.assertEqual(
             stats.weakest_exercises("py", ["py_inter", "py_never_touched"]),
-            ["py_inter"])
+            ["py_inter"],
+        )
 
     def test_weakest_excludes_a_spotless_record(self):
         # Nailed on the first (and only) try — nothing to gain from
@@ -219,8 +239,10 @@ class StatsTests(unittest.TestCase):
         stats.record("py", "py_inter", 1, False, 3, 10, "practice")
         stats.record("py", "py_inter", 1, False, 5, 10, "practice")
         stats.record("py", "py_hidenp", 1, False, 1, 10, "practice")
-        self.assertEqual(stats.weakest_exercises("py", ["py_inter", "py_hidenp"]),
-                         ["py_inter", "py_hidenp"])
+        self.assertEqual(
+            stats.weakest_exercises("py", ["py_inter", "py_hidenp"]),
+            ["py_inter", "py_hidenp"],
+        )
 
     def test_weakest_ties_broken_by_lowest_pass_rate(self):
         # Neither is on an active fail streak (both last-passed) —
@@ -230,8 +252,10 @@ class StatsTests(unittest.TestCase):
         stats.record("py", "py_inter", 1, True, 10, 10, "practice")
         stats.record("py", "py_hidenp", 1, False, 1, 10, "practice")
         stats.record("py", "py_hidenp", 1, True, 10, 10, "practice")
-        self.assertEqual(stats.weakest_exercises("py", ["py_inter", "py_hidenp"]),
-                         ["py_hidenp", "py_inter"])
+        self.assertEqual(
+            stats.weakest_exercises("py", ["py_inter", "py_hidenp"]),
+            ["py_hidenp", "py_inter"],
+        )
 
     def test_weakest_ignores_exam_mode_attempts(self):
         stats.record("py", "py_inter", 1, False, 3, 10, "exam")
@@ -267,6 +291,7 @@ class AchievementsTests(unittest.TestCase):
         only when a test needs to control "ts" precisely (night_owl/
         early_bird), which record() always sets to the real clock."""
         import json
+
         os.makedirs(self.tmpdir.name, exist_ok=True)
         with open(self.stats_path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry) + "\n")
@@ -307,8 +332,12 @@ class AchievementsTests(unittest.TestCase):
     def test_full_coverage_needs_a_pass_on_every_level(self):
         for level in range(1, self.N_LEVELS):
             stats.record("py", "ex%d" % level, level, True, 1, 1, "practice")
-        self.assertNotIn("full_coverage", self._ids())  # missing the last level
-        stats.record("py", "ex%d" % self.N_LEVELS, self.N_LEVELS, True, 1, 1, "practice")
+        self.assertNotIn(
+            "full_coverage", self._ids()
+        )  # missing the last level
+        stats.record(
+            "py", "ex%d" % self.N_LEVELS, self.N_LEVELS, True, 1, 1, "practice"
+        )
         self.assertIn("full_coverage", self._ids())
 
     def test_century_needs_100_total_attempts(self):
@@ -331,23 +360,52 @@ class AchievementsTests(unittest.TestCase):
 
     def test_night_owl_needs_a_pass_between_midnight_and_5am_local(self):
         import datetime
+
         three_am = datetime.datetime(2024, 1, 1, 3, 0, 0).timestamp()
         noon = datetime.datetime(2024, 1, 1, 12, 0, 0).timestamp()
-        self._write_raw({"ts": noon, "tool": "py", "exercise": "py_inter",
-                         "level": 1, "ok": True, "passed": 10, "total": 10,
-                         "mode": "practice"})
+        self._write_raw(
+            {
+                "ts": noon,
+                "tool": "py",
+                "exercise": "py_inter",
+                "level": 1,
+                "ok": True,
+                "passed": 10,
+                "total": 10,
+                "mode": "practice",
+            }
+        )
         self.assertNotIn("night_owl", self._ids())
-        self._write_raw({"ts": three_am, "tool": "py", "exercise": "py_hidenp",
-                         "level": 1, "ok": True, "passed": 6, "total": 6,
-                         "mode": "practice"})
+        self._write_raw(
+            {
+                "ts": three_am,
+                "tool": "py",
+                "exercise": "py_hidenp",
+                "level": 1,
+                "ok": True,
+                "passed": 6,
+                "total": 6,
+                "mode": "practice",
+            }
+        )
         self.assertIn("night_owl", self._ids())
 
     def test_early_bird_needs_a_pass_between_5am_and_7am_local(self):
         import datetime
+
         six_am = datetime.datetime(2024, 1, 1, 6, 0, 0).timestamp()
-        self._write_raw({"ts": six_am, "tool": "py", "exercise": "py_inter",
-                         "level": 1, "ok": True, "passed": 10, "total": 10,
-                         "mode": "practice"})
+        self._write_raw(
+            {
+                "ts": six_am,
+                "tool": "py",
+                "exercise": "py_inter",
+                "level": 1,
+                "ok": True,
+                "passed": 10,
+                "total": 10,
+                "mode": "practice",
+            }
+        )
         self.assertIn("early_bird", self._ids())
         self.assertNotIn("night_owl", self._ids())  # ranges don't overlap
 
@@ -359,8 +417,10 @@ class AchievementsTests(unittest.TestCase):
         stats.record("py", "py_inter", 1, True, 10, 10, "practice")
         after = achievements.unlocked("py", self.N_LEVELS)
         fresh = achievements.new_since(before, after)
-        self.assertEqual({b[0] for b in fresh},
-                         {"first_blood", "perfectionist", "redemption"})
+        self.assertEqual(
+            {b[0] for b in fresh},
+            {"first_blood", "perfectionist", "redemption"},
+        )
 
     def test_new_since_is_empty_when_nothing_changed(self):
         stats.record("py", "py_inter", 1, True, 10, 10, "practice")
@@ -395,7 +455,10 @@ class SessionStoreTests(unittest.TestCase):
         s.level = 3
         s.passed = ["py_inter", "py_bracket_validator"]
         s.attempts = 5
-        s.history = [(1, "py_inter", 1, 12.5), (2, "py_bracket_validator", 2, 30.0)]
+        s.history = [
+            (1, "py_inter", 1, 12.5),
+            (2, "py_bracket_validator", 2, 30.0),
+        ]
         return s
 
     def test_load_with_nothing_saved_is_none(self):
@@ -404,7 +467,9 @@ class SessionStoreTests(unittest.TestCase):
     def test_save_then_load_round_trips_the_shape(self):
         session = self._session()
         rng = random.Random(42)
-        ok = session_store.save("py", session, rng, "py_hidenp", level_attempts=2)
+        ok = session_store.save(
+            "py", session, rng, "py_hidenp", level_attempts=2
+        )
         self.assertTrue(ok)
         data = session_store.load("py")
         self.assertIsNotNone(data)
@@ -421,13 +486,21 @@ class SessionStoreTests(unittest.TestCase):
         # whatever time was already spent on it before the earlier quit.
         session = self._session()
         rng = random.Random(42)
-        level_started = time.time() - 90   # 90s already spent on this level
-        session_store.save("py", session, rng, "py_hidenp",
-                           level_attempts=2, level_started=level_started)
+        level_started = time.time() - 90  # 90s already spent on this level
+        session_store.save(
+            "py",
+            session,
+            rng,
+            "py_hidenp",
+            level_attempts=2,
+            level_started=level_started,
+        )
         data = session_store.load("py")
         self.assertAlmostEqual(data["level_elapsed_seconds"], 90, delta=2)
 
-    def test_level_elapsed_seconds_defaults_to_zero_without_level_started(self):
+    def test_level_elapsed_seconds_defaults_to_zero_without_level_started(
+        self,
+    ):
         session = self._session()
         session_store.save("py", session, random.Random(1), "py_hidenp")
         data = session_store.load("py")
@@ -496,13 +569,17 @@ class ReportExportTests(unittest.TestCase):
 
     def test_write_report_returns_a_path_that_exists(self):
         session = self._session()
-        path = report_export.write_exam_report("py", session, 6, True, ["🏅 Flawless"])
+        path = report_export.write_exam_report(
+            "py", session, 6, True, ["🏅 Flawless"]
+        )
         self.assertIsNotNone(path)
         self.assertTrue(os.path.isfile(path))
 
     def test_report_content_has_key_fields(self):
         session = self._session()
-        path = report_export.write_exam_report("py", session, 6, True, ["🏅 Flawless"])
+        path = report_export.write_exam_report(
+            "py", session, 6, True, ["🏅 Flawless"]
+        )
         with open(path, encoding="utf-8") as fh:
             content = fh.read()
         self.assertIn("Exam PASSED", content)
@@ -528,8 +605,10 @@ class ReportExportTests(unittest.TestCase):
         session.login = "../../../tmp/evil"
         path = report_export.write_exam_report("py", session, 6, True)
         self.assertIsNotNone(path)
-        self.assertEqual(os.path.dirname(os.path.abspath(path)),
-                         os.path.abspath(self.reports_dir))
+        self.assertEqual(
+            os.path.dirname(os.path.abspath(path)),
+            os.path.abspath(self.reports_dir),
+        )
         self.assertTrue(os.path.isfile(path))
 
     def test_write_report_survives_unwritable_dir(self):
@@ -561,7 +640,9 @@ class HintsTests(unittest.TestCase):
 
     def test_timeout_hint(self):
         for code in ("TIMEOUT", "GLOBAL_TIMEOUT", "IMPORT_TIMEOUT"):
-            self.assertIn("infinite loop", hints.diagnose(self._report(fatal=code)))
+            self.assertIn(
+                "infinite loop", hints.diagnose(self._report(fatal=code))
+            )
 
     def test_other_fatal_codes_get_no_generic_hint(self):
         self.assertIsNone(hints.diagnose(self._report(fatal="COMPILE_ERROR")))
@@ -572,8 +653,10 @@ class HintsTests(unittest.TestCase):
         # path), not as report.fatal like every other timeout — must still
         # get the TIMEOUT hint, not the CRASH one its own bracket shape
         # would otherwise trigger.
-        report = self._report([Failure([], "some output", "[TIMEOUT]")],
-                              warnings=["case 2 timed out: TIMEOUT"])
+        report = self._report(
+            [Failure([], "some output", "[TIMEOUT]")],
+            warnings=["case 2 timed out: TIMEOUT"],
+        )
         self.assertIn("infinite loop", hints.diagnose(report))
 
     def test_timeout_hint_from_a_python_per_case_timeout(self):
@@ -590,10 +673,14 @@ class HintsTests(unittest.TestCase):
         self.assertIn("memory access", hints.diagnose(report))
 
     def test_leak_warning_hint(self):
-        report = self._report(warnings=[
-            "valgrind reported memory error(s) (leaks, invalid reads/"
-            "writes, ...) on case 3:\n"
-            "40 bytes in 1 blocks are definitely lost in loss record 1 of 1"])
+        report = self._report(
+            warnings=[
+                "valgrind reported memory error(s) (leaks, invalid reads/"
+                "writes, ...) on case 3:\n"
+                "40 bytes in 1 blocks are definitely lost "
+                "in loss record 1 of 1"
+            ]
+        )
         self.assertIn("leak", hints.diagnose(report))
 
     def test_leak_warning_hint_still_applies_under_strict_valgrind(self):
@@ -603,9 +690,12 @@ class HintsTests(unittest.TestCase):
         # because report.fatal is set.
         report = self._report(
             fatal="VALGRIND_ERRORS",
-            warnings=["valgrind reported memory error(s) (leaks, invalid "
-                      "reads/writes, ...) on case 3:\n"
-                      "40 bytes in 1 blocks are definitely lost"])
+            warnings=[
+                "valgrind reported memory error(s) (leaks, invalid "
+                "reads/writes, ...) on case 3:\n"
+                "40 bytes in 1 blocks are definitely lost"
+            ],
+        )
         self.assertIn("leak", hints.diagnose(report))
 
     def test_non_leak_valgrind_finding_gets_the_crash_hint_not_leak(self):
@@ -614,13 +704,18 @@ class HintsTests(unittest.TestCase):
         # callers) — a plain invalid read/write with zero blocks actually
         # leaked used to still trigger the LEAK hint ("trace every malloc
         # to a matching free"), which is wrong guidance for this bug.
-        report = self._report(warnings=[
-            "valgrind reported memory error(s) (leaks, invalid reads/"
-            "writes, ...) on case 3:\n"
-            "Invalid write of size 4 at 0x1091A8: ft_strcpy"])
+        report = self._report(
+            warnings=[
+                "valgrind reported memory error(s) (leaks, invalid reads/"
+                "writes, ...) on case 3:\n"
+                "Invalid write of size 4 at 0x1091A8: ft_strcpy"
+            ]
+        )
         self.assertIn("memory access", hints.diagnose(report))
 
-    def test_a_solution_that_legitimately_returns_the_string_none_is_not_emptyish(self):
+    def test_returning_the_string_none_is_not_emptyish(
+        self,
+    ):
         # An older version of this string-matched "None"/"[]"/"()"/"{}"
         # unconditionally, so a solution whose genuinely correct answer IS
         # the literal string "None" got treated as if it returned nothing.
@@ -631,15 +726,21 @@ class HintsTests(unittest.TestCase):
         # A run can't be both, but if warnings ever carried both a crash
         # takes priority — a crash is the more actionable, more urgent
         # thing to point at first.
-        report = self._report(warnings=["your program crashed: segfault",
-                                        "valgrind reported memory error(s)"])
+        report = self._report(
+            warnings=[
+                "your program crashed: segfault",
+                "valgrind reported memory error(s)",
+            ]
+        )
         self.assertIn("memory access", hints.diagnose(report))
 
     def test_crash_hint_from_a_python_exception_failure(self):
         # The Python sandbox never appends a "crashed" warning (only the C
         # tester does) — a raised exception shows up as a failing case
         # instead, e.g. "[ZeroDivisionError] division by zero" as `got`.
-        report = self._report([Failure([1, 0], 1, "[ZeroDivisionError] division by zero")])
+        report = self._report(
+            [Failure([1, 0], 1, "[ZeroDivisionError] division by zero")]
+        )
         self.assertIn("memory access", hints.diagnose(report))
 
     def test_off_by_one_hint_python_and_c_shaped(self):
@@ -692,14 +793,22 @@ class HintForTests(unittest.TestCase):
         self.assertIn("infinite loop", hints.hint_for(ex, report))
 
     def test_dict_hint_picks_the_matching_category(self):
-        ex = {"hint": {"crash": "a crash-specific hint",
-                       "default": "a fallback hint"}}
+        ex = {
+            "hint": {
+                "crash": "a crash-specific hint",
+                "default": "a fallback hint",
+            }
+        }
         report = self._report(warnings=["your program crashed: segfault"])
         self.assertEqual(hints.hint_for(ex, report), "a crash-specific hint")
 
     def test_dict_hint_falls_back_to_default_key(self):
-        ex = {"hint": {"crash": "a crash-specific hint",
-                       "default": "a fallback hint"}}
+        ex = {
+            "hint": {
+                "crash": "a crash-specific hint",
+                "default": "a fallback hint",
+            }
+        }
         report = self._report([Failure([], "hello", "world")])
         self.assertEqual(hints.hint_for(ex, report), "a fallback hint")
 
@@ -721,18 +830,32 @@ class VersionTests(unittest.TestCase):
 
     def test_pyproject_version_matches(self):
         from examshell.version import __version__
-        self.assertIn('version = "%s"' % __version__, self._read("pyproject.toml"))
+
+        self.assertIn(
+            'version = "%s"' % __version__, self._read("pyproject.toml")
+        )
 
     def test_changelog_has_a_section_for_this_version(self):
         from examshell.version import __version__
-        headings = [line for line in self._read("CHANGELOG.md").splitlines()
-                    if line.startswith("## ")]
-        self.assertTrue(any(h == "## " + __version__ or h.startswith("## %s " % __version__)
-                            for h in headings), headings)
+
+        headings = [
+            line
+            for line in self._read("CHANGELOG.md").splitlines()
+            if line.startswith("## ")
+        ]
+        self.assertTrue(
+            any(
+                h == "## " + __version__
+                or h.startswith("## %s " % __version__)
+                for h in headings
+            ),
+            headings,
+        )
 
 
 class CaseLabelTests(unittest.TestCase):
-    """case_labels.describe(): names the edge-case traits of a failing input."""
+    """case_labels.describe(): names the edge-case traits of a failing
+    input."""
 
     class _F(object):
         def __init__(self, args, program=False):
@@ -740,6 +863,7 @@ class CaseLabelTests(unittest.TestCase):
 
     def _d(self, args, program=False):
         from examshell import case_labels
+
         return case_labels.describe(self._F(args, program))
 
     def test_strings(self):
@@ -753,7 +877,7 @@ class CaseLabelTests(unittest.TestCase):
     def test_numbers(self):
         self.assertEqual(self._d([0]), "zero")
         self.assertEqual(self._d([-4]), "negative number")
-        self.assertEqual(self._d([-2 ** 31]), "INT_MIN/INT_MAX")
+        self.assertEqual(self._d([-(2**31)]), "INT_MIN/INT_MAX")
         self.assertEqual(self._d([True]), "")
 
     def test_lists(self):
@@ -766,10 +890,13 @@ class CaseLabelTests(unittest.TestCase):
         self.assertEqual(self._d(["0"], program=True), "zero")
 
     def test_at_most_two_labels_without_duplicates(self):
-        self.assertEqual(self._d([" \ta  b ", "", 0]), "tabs · leading/trailing whitespace")
+        self.assertEqual(
+            self._d([" \ta  b ", "", 0]), "tabs · leading/trailing whitespace"
+        )
 
     def test_no_inputs_known(self):
         from examshell import case_labels
+
         self.assertEqual(case_labels.describe(object()), "")
 
 
@@ -779,8 +906,10 @@ class ReadinessAndDrillTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
-        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
-                            ("DATA_DIR", self.tmpdir.name)):
+        for name, value in (
+            ("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+            ("DATA_DIR", self.tmpdir.name),
+        ):
             patcher = patch.object(stats, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -797,27 +926,35 @@ class ReadinessAndDrillTests(unittest.TestCase):
         self._grade("b", False)
         status = stats.exercise_status("py", ["a", "b", "c"])
         self.assertEqual(status["a"]["status"], "passed")
-        self.assertEqual((status["a"]["passes"], status["a"]["attempts"]), (1, 2))
+        self.assertEqual(
+            (status["a"]["passes"], status["a"]["attempts"]), (1, 2)
+        )
         self.assertEqual(status["b"]["status"], "failed")
         self.assertEqual(status["c"]["status"], "untried")
 
     def test_exam_passes_count_for_readiness(self):
         self._grade("a", True, mode="exam")
         levels = stats.readiness("py", {1: ["a", "b"], 2: ["c"]})
-        self.assertEqual([(lv, passed, total) for lv, passed, total, _ in levels],
-                         [(1, 1, 2), (2, 0, 1)])
+        self.assertEqual(
+            [(lv, passed, total) for lv, passed, total, _ in levels],
+            [(1, 1, 2), (2, 0, 1)],
+        )
 
     def test_drill_order_weak_then_untried_then_stale(self):
         self._grade("old_pass", True)
         self._grade("new_pass", True)
         self._grade("weak", False)
-        queue = stats.drill_queue("py", ["new_pass", "old_pass", "weak", "fresh"], n=4)
+        queue = stats.drill_queue(
+            "py", ["new_pass", "old_pass", "weak", "fresh"], n=4
+        )
         self.assertEqual(queue, ["weak", "fresh", "old_pass", "new_pass"])
 
     def test_drill_caps_weak_spots_at_half_the_session(self):
         for name in ("w1", "w2", "w3", "w4"):
             self._grade(name, False)
-        queue = stats.drill_queue("py", ["w1", "w2", "w3", "w4", "u1", "u2"], n=4)
+        queue = stats.drill_queue(
+            "py", ["w1", "w2", "w3", "w4", "u1", "u2"], n=4
+        )
         self.assertEqual(len(queue), 4)
         self.assertEqual(sorted(queue[2:]), ["u1", "u2"])
 
@@ -828,11 +965,14 @@ class ReadinessAndDrillTests(unittest.TestCase):
 class UpdateCheckTests(unittest.TestCase):
     def setUp(self):
         from examshell import update_check
+
         self.uc = update_check
         self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
-        for name, value in (("CACHE_PATH", os.path.join(self.tmpdir.name, "u.json")),
-                            ("DATA_DIR", self.tmpdir.name)):
+        for name, value in (
+            ("CACHE_PATH", os.path.join(self.tmpdir.name, "u.json")),
+            ("DATA_DIR", self.tmpdir.name),
+        ):
             patcher = patch.object(update_check, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -857,14 +997,18 @@ class UpdateCheckTests(unittest.TestCase):
         self.assertIsNone(self.uc.latest_version(now=time.time(), fetch=fetch))
         self.uc.latest_version(now=time.time() + 60, fetch=fetch)
         self.assertEqual(len(calls), 1)
-        self.uc.latest_version(now=time.time() + self.uc.CHECK_EVERY + 1, fetch=fetch)
+        self.uc.latest_version(
+            now=time.time() + self.uc.CHECK_EVERY + 1, fetch=fetch
+        )
         self.assertEqual(len(calls), 2)
 
     def test_opt_out(self):
         self.assertFalse(self.uc.enabled(opt_out_flag=True))
         with patch.dict(os.environ, {self.uc.ENV_OPT_OUT: "1"}):
             self.assertFalse(self.uc.enabled())
-            self.assertEqual(self.uc.start_background_check(), {"notice": None})
+            self.assertEqual(
+                self.uc.start_background_check(), {"notice": None}
+            )
 
 
 class HistoryStatsTests(unittest.TestCase):
@@ -875,15 +1019,19 @@ class HistoryStatsTests(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
-        for name, value in (("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
-                            ("DATA_DIR", self.tmpdir.name)):
+        for name, value in (
+            ("STATS_PATH", os.path.join(self.tmpdir.name, "stats.jsonl")),
+            ("DATA_DIR", self.tmpdir.name),
+        ):
             patcher = patch.object(stats, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-        self.now = time.mktime((2026, 9, 20, 12, 0, 0, 0, 0, -1))   # local noon
+        self.now = time.mktime((2026, 9, 20, 12, 0, 0, 0, 0, -1))  # local noon
 
     def _grade(self, days_ago, ok=True):
-        with patch.object(stats.time, "time", return_value=self.now - days_ago * self.DAY):
+        with patch.object(
+            stats.time, "time", return_value=self.now - days_ago * self.DAY
+        ):
             stats.record("py", "py_inter", 1, ok, 1, 1, "practice")
 
     def test_daily_activity(self):
@@ -899,20 +1047,27 @@ class HistoryStatsTests(unittest.TestCase):
         self.assertEqual(stats.practice_streak("py", now=self.now), 3)
         self._grade(0)
         self.assertEqual(stats.practice_streak("py", now=self.now), 4)
-        self.assertEqual(stats.practice_streak("py", now=self.now + 3 * self.DAY), 0)
+        self.assertEqual(
+            stats.practice_streak("py", now=self.now + 3 * self.DAY), 0
+        )
 
     def test_exam_history_newest_first(self):
         for i, secs in enumerate((300, 200, 100)):
             with patch.object(stats.time, "time", return_value=self.now + i):
                 stats.record_exam_complete("py", secs, 6, 100)
-        self.assertEqual([e["seconds"] for e in stats.exam_history("py", n=2)], [100, 200])
+        self.assertEqual(
+            [e["seconds"] for e in stats.exam_history("py", n=2)], [100, 200]
+        )
 
 
 class ReflowTests(unittest.TestCase):
     def test_joins_hard_wrapped_lines_and_keeps_paragraphs_and_lists(self):
         from examshell import ui
+
         prose = "one\ntwo\n\nthree\n  - item\n  - item2\n"
-        self.assertEqual(ui._reflow(prose), "one two\n\nthree\n  - item\n  - item2")
+        self.assertEqual(
+            ui._reflow(prose), "one two\n\nthree\n  - item\n  - item2"
+        )
 
 
 if __name__ == "__main__":

@@ -31,8 +31,8 @@ class Rank(object):
 
     def __init__(self, rank_id, label, tool, bank, training=training_bank):
         self.id = rank_id
-        self.label = label          # "Exam Rank 03"
-        self.tool = tool            # stats / saved-exam / report tag
+        self.label = label  # "Exam Rank 03"
+        self.tool = tool  # stats / saved-exam / report tag
         self.bank = bank
         self.training = training
 
@@ -79,7 +79,8 @@ def normalize(value):
     text = str(value).strip().lower()
     for prefix in ("rank", "r", "#"):
         if text.startswith(prefix):
-            text = text[len(prefix):]
+            cut = len(prefix)
+            text = text[cut:]
     text = text.lstrip("0") or "0"
     key = "%02d" % int(text) if text.isdigit() else text
     return key if key in RANKS else None
@@ -93,5 +94,7 @@ def get(value=None):
 def summary():
     """[(id, label, exercises, levels), …] in rank order — for the
     rank-picker screen and --list-ranks."""
-    return [(r.id, r.label, len(r.exercises), r.n_levels)
-            for r in (RANKS[key] for key in CHOICES)]
+    return [
+        (r.id, r.label, len(r.exercises), r.n_levels)
+        for r in (RANKS[key] for key in CHOICES)
+    ]

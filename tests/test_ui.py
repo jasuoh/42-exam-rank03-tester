@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for examshell/ui.py — the parsing/escaping helpers that do not need
-an actual terminal. Rendering itself is checked by hand (see the README)."""
+"""Unit tests for examshell/ui.py — the parsing/escaping helpers that do not
+need an actual terminal. Rendering itself is checked by hand (see the
+README)."""
 
 import unittest
 
@@ -10,7 +11,7 @@ from examshell import ui
 
 class ColorTests(unittest.TestCase):
     def tearDown(self):
-        ui.configure()   # restore auto-detected defaults for later tests
+        ui.configure()  # restore auto-detected defaults for later tests
 
     def test_no_styling_when_color_is_off(self):
         ui.configure(color=False)
@@ -46,14 +47,20 @@ class FileExtTests(unittest.TestCase):
         self.assertEqual(ui._file_ext({"oracle": lambda: None}), ".py")
 
     def test_c_function_kind_gets_c(self):
-        self.assertEqual(ui._file_ext({"oracle_c": "int f(void);",
-                                       "prototype": "int f(void);"}), ".c")
+        self.assertEqual(
+            ui._file_ext(
+                {"oracle_c": "int f(void);", "prototype": "int f(void);"}
+            ),
+            ".c",
+        )
 
     def test_c_program_kind_gets_c(self):
         # "program"-kind C exercises (own main(), no harness) carry no
         # "prototype" — only "oracle_c" is common to every C exercise.
-        self.assertEqual(ui._file_ext({"oracle_c": "int main(void){}",
-                                       "kind": "program"}), ".c")
+        self.assertEqual(
+            ui._file_ext({"oracle_c": "int main(void){}", "kind": "program"}),
+            ".c",
+        )
 
 
 class FirstDiffIndexTests(unittest.TestCase):
@@ -63,7 +70,9 @@ class FirstDiffIndexTests(unittest.TestCase):
     def test_divergence_points_at_the_first_differing_character(self):
         self.assertEqual(ui.first_diff_index("hello", "hallo"), 1)
 
-    def test_one_string_a_prefix_of_the_other_points_past_the_shorter_one(self):
+    def test_one_string_a_prefix_of_the_other_points_past_the_shorter_one(
+        self,
+    ):
         self.assertEqual(ui.first_diff_index("abc", "abcdef"), 3)
         self.assertEqual(ui.first_diff_index("abcdef", "abc"), 3)
 
@@ -93,14 +102,20 @@ class SplitTopLevelTests(unittest.TestCase):
         self.assertEqual(ui._split_top_level("1, 2, 3"), ["1", "2", "3"])
 
     def test_nested_brackets_are_not_split(self):
-        self.assertEqual(ui._split_top_level("1, [2, 3], 4"), ["1", "[2, 3]", "4"])
+        self.assertEqual(
+            ui._split_top_level("1, [2, 3], 4"), ["1", "[2, 3]", "4"]
+        )
 
     def test_comma_inside_a_string_is_not_split(self):
-        self.assertEqual(ui._split_top_level("1, 'a,b', 3"), ["1", "'a,b'", "3"])
+        self.assertEqual(
+            ui._split_top_level("1, 'a,b', 3"), ["1", "'a,b'", "3"]
+        )
 
     def test_nested_dict_braces_are_not_split(self):
-        self.assertEqual(ui._split_top_level("{'a': 1, 'b': 2}, 3"),
-                         ["{'a': 1, 'b': 2}", "3"])
+        self.assertEqual(
+            ui._split_top_level("{'a': 1, 'b': 2}, 3"),
+            ["{'a': 1, 'b': 2}", "3"],
+        )
 
     def test_empty_text_is_no_elements(self):
         self.assertEqual(ui._split_top_level(""), [])
@@ -122,7 +137,8 @@ class StructuralDiffTests(unittest.TestCase):
 
     def test_one_differing_element_is_isolated(self):
         exp_lines, got_lines = ui.structural_diff(
-            [1, 2, 3], "[1, 2, 3]", "[1, 2, 4]")
+            [1, 2, 3], "[1, 2, 3]", "[1, 2, 4]"
+        )
         self.assertIn("  1", exp_lines)
         self.assertIn("  2", exp_lines)
         self.assertIn("- 3", exp_lines)
@@ -132,19 +148,22 @@ class StructuralDiffTests(unittest.TestCase):
 
     def test_extra_trailing_elements_are_flagged_as_additions(self):
         exp_lines, got_lines = ui.structural_diff(
-            [1, 2, 3], "[1, 2, 3]", "[1, 2, 3, 4]")
+            [1, 2, 3], "[1, 2, 3]", "[1, 2, 3, 4]"
+        )
         self.assertEqual(exp_lines, ["  1", "  2", "  3"])
         self.assertEqual(got_lines, ["  1", "  2", "  3", "+ 4"])
 
     def test_missing_trailing_elements_are_flagged_as_removals(self):
         exp_lines, got_lines = ui.structural_diff(
-            [1, 2, 3], "[1, 2, 3]", "[1, 2]")
+            [1, 2, 3], "[1, 2, 3]", "[1, 2]"
+        )
         self.assertEqual(exp_lines, ["  1", "  2", "- 3"])
         self.assertEqual(got_lines, ["  1", "  2"])
 
     def test_tuple_parens_are_stripped_the_same_way_as_list_brackets(self):
         exp_lines, got_lines = ui.structural_diff(
-            (1, 2, 3), "(1, 2, 3)", "(1, 2, 4)")
+            (1, 2, 3), "(1, 2, 3)", "(1, 2, 4)"
+        )
         self.assertIn("- 3", exp_lines)
         self.assertIn("+ 4", got_lines)
 
@@ -154,8 +173,9 @@ class LineDiffTests(unittest.TestCase):
         self.assertIsNone(ui.line_diff("abc", "abd"))
 
     def test_multi_line_mismatch_is_isolated_per_line(self):
-        exp_lines, got_lines = ui.line_diff("line1\nline2\nline3",
-                                            "line1\nlineX\nline3")
+        exp_lines, got_lines = ui.line_diff(
+            "line1\nline2\nline3", "line1\nlineX\nline3"
+        )
         self.assertIn("  line1", exp_lines)
         self.assertIn("  line3", exp_lines)
         self.assertIn("- line2", exp_lines)
@@ -171,12 +191,15 @@ class _FakeCFailure(object):
     .got, both strings always un-repr()'d) without importing that module —
     _diff_block() tells the two failure kinds apart structurally (see its
     own docstring), so a fake with the right attributes is enough."""
+
     def __init__(self, expected, got):
         self.index, self.expected, self.got = 0, expected, got
 
 
 class _FakeFailure(object):
-    """Mimics examshell.grader.Failure's attribute shape (.args/.expected/.got)."""
+    """Mimics examshell.grader.Failure's attribute shape
+    (.args/.expected/.got)."""
+
     def __init__(self, expected, got):
         self.args, self.expected, self.got = [], expected, got
 
@@ -214,8 +237,7 @@ class SplitSubjectTests(unittest.TestCase):
         self.subject = (
             "Assignment name  : py_demo\n"
             "Expected files   : py_demo.py\n"
-            "Allowed functions: None\n"
-            + "-" * 20 + "\n\n"
+            "Allowed functions: None\n" + "-" * 20 + "\n\n"
             "Some prose explaining the exercise.\n\n"
             "    def demo(x: int) -> int:\n\n"
             "Examples:\n"

@@ -27,27 +27,27 @@ os.environ["HOME"] = tempfile.mkdtemp(prefix="examshell-shots-")
 os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"
 sys.path.insert(0, ROOT)
 
-from c_exam import examshell as c_shell          # noqa: E402
-from examshell import stats                            # noqa: E402
-from examshell.tui.app import ExamShellApp             # noqa: E402
+from c_exam import examshell as c_shell  # noqa: E402
+from examshell import stats  # noqa: E402
+from examshell.tui.app import ExamShellApp  # noqa: E402
 
 # A first_word that forgets tabs — passes the curated cases, fails the fuzz.
-BUGGY_FIRST_WORD = r"""#include <unistd.h>
+BUGGY_FIRST_WORD = """#include <unistd.h>
 
-int	main(int argc, char **argv)
+int\tmain(int argc, char **argv)
 {
-	int	i;
+\tint\ti;
 
-	i = 0;
-	if (argc == 2)
-	{
-		while (argv[1][i] == ' ')
-			i++;
-		while (argv[1][i] && argv[1][i] != ' ')
-			write(1, &argv[1][i++], 1);
-	}
-	write(1, "\n", 1);
-	return (0);
+\ti = 0;
+\tif (argc == 2)
+\t{
+\t\twhile (argv[1][i] == ' ')
+\t\t\ti++;
+\t\twhile (argv[1][i] && argv[1][i] != ' ')
+\t\t\twrite(1, &argv[1][i++], 1);
+\t}
+\twrite(1, "\\n", 1);
+\treturn (0);
 }
 """
 
@@ -56,8 +56,11 @@ def fake_history():
     """A few weeks of plausible practice so readiness/stats have content."""
     rng = random.Random(42)
     now = time.time()
-    standard = [(lvl, n) for lvl, names in sorted(c_shell.STANDARD_LEVELS.items())
-                for n in sorted(names)]
+    standard = [
+        (lvl, n)
+        for lvl, names in sorted(c_shell.STANDARD_LEVELS.items())
+        for n in sorted(names)
+    ]
     for i, (lvl, name) in enumerate(standard):
         if rng.random() < 0.55 - 0.1 * lvl:
             continue
@@ -86,9 +89,24 @@ class _clock(object):
 
 
 def config(rendu, **overrides):
-    values = dict(rendu=rendu, timeout=5, cc="cc", strict_norm=False, show_fails=3, diff=False,
-                  seed=4, fuzz=8, valgrind=False, strict_valgrind=False, strict_forbidden=False,
-                  strict=False, relaxed=False, time_limit=180, no_update_check=True, blind=False)
+    values = dict(
+        rendu=rendu,
+        timeout=5,
+        cc="cc",
+        strict_norm=False,
+        show_fails=3,
+        diff=False,
+        seed=4,
+        fuzz=8,
+        valgrind=False,
+        strict_valgrind=False,
+        strict_forbidden=False,
+        strict=False,
+        relaxed=False,
+        time_limit=180,
+        no_update_check=True,
+        blind=False,
+    )
     values.update(overrides)
     return c_shell.Config(argparse.Namespace(**values))
 
@@ -128,8 +146,8 @@ async def shoot():
         await pilot.press(*"alice", "enter")
         await pilot.pause()
         exam = app.screen
-        exam.run.session.start_time -= 38 * 60 + 12          # 38 minutes in
-        await pilot.press("t")                               # a stub: compiles, prints nothing
+        exam.run.session.start_time -= 38 * 60 + 12  # 38 minutes in
+        await pilot.press("t")  # a stub: compiles, prints nothing
         await pilot.pause()
         await pilot.press("g")
         await app.workers.wait_for_complete()
@@ -141,6 +159,7 @@ async def shoot():
 
 def _screen(name, *args):
     from examshell.tui import app as tui_app
+
     return getattr(tui_app, name)(*args)
 
 

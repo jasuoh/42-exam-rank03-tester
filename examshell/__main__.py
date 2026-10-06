@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Entry point for `python3 -m examshell` and the installed `examshell` command."""
+"""Entry point for `python3 -m examshell` and the installed `examshell`
+command."""
 
 import sys
 

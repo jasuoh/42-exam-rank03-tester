@@ -33,8 +33,11 @@ KIND_LABELS = (
 
 def environment():
     """'Linux 6.8 · Python 3.12.3 · cc' — the bug form's env field."""
-    return "%s %s · Python %s" % (platform.system(), platform.release(),
-                                  platform.python_version())
+    return "%s %s · Python %s" % (
+        platform.system(),
+        platform.release(),
+        platform.python_version(),
+    )
 
 
 def issue_url(kind, tester_label="", exercise=None):
@@ -66,6 +69,7 @@ def open_in_browser(url):
     if not can_open_browser():
         return False
     import webbrowser
+
     try:
         return bool(webbrowser.open(url))
     except webbrowser.Error:

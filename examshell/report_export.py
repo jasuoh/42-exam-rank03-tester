@@ -46,7 +46,9 @@ def _safe_login(login):
 def write_exam_report(tool, session, n_levels, passed, achievements=()):
     """Write the report, return its path on success or None on failure."""
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(REPORTS_DIR, "%s_%s_%s.md" % (tool, stamp, _safe_login(session.login)))
+    path = os.path.join(
+        REPORTS_DIR, "%s_%s_%s.md" % (tool, stamp, _safe_login(session.login))
+    )
 
     lines = []
     title = "Exam PASSED" if passed else "Exam aborted"
@@ -67,9 +69,17 @@ def write_exam_report(tool, session, n_levels, passed, achievements=()):
     lines.append("|---|---|---|---|")
     for level, name, attempts, seconds in session.history:
         secs = int(seconds)
-        lines.append("| %d | %s | %d | %02d:%02d:%02d |"
-                     % (level, name, attempts,
-                        secs // 3600, (secs % 3600) // 60, secs % 60))
+        lines.append(
+            "| %d | %s | %d | %02d:%02d:%02d |"
+            % (
+                level,
+                name,
+                attempts,
+                secs // 3600,
+                (secs % 3600) // 60,
+                secs % 60,
+            )
+        )
     lines.append("")
 
     try:

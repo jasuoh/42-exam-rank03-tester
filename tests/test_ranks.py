@@ -18,9 +18,16 @@ from examshell.training_bank import TRAINING_EXERCISES
 
 
 def _cfg(rendu, **overrides):
-    args = argparse.Namespace(rendu=rendu, timeout=3, fuzz=0,
-                              strict_imports=False, strict=False,
-                              show_fails=4, diff=False, seed=None)
+    args = argparse.Namespace(
+        rendu=rendu,
+        timeout=3,
+        fuzz=0,
+        strict_imports=False,
+        strict=False,
+        show_fails=4,
+        diff=False,
+        seed=None,
+    )
     for key, value in overrides.items():
         setattr(args, key, value)
     return examshell.Config(args)
@@ -50,7 +57,7 @@ class RankRegistryTests(unittest.TestCase):
         one, and would mix the two banks' stats into one history."""
         tags = [ranks.get(r).tool for r in ranks.CHOICES]
         self.assertEqual(len(set(tags)), len(tags))
-        self.assertEqual(ranks.get("03").tool, "py")   # pre-existing history
+        self.assertEqual(ranks.get("03").tool, "py")  # pre-existing history
 
     def test_rank_03_is_still_the_default(self):
         self.assertEqual(ranks.DEFAULT_RANK, "03")
@@ -71,8 +78,10 @@ class BankShapeTests(unittest.TestCase):
         for rank_id in ranks.CHOICES:
             rank = ranks.get(rank_id)
             for level in range(1, rank.n_levels + 1):
-                self.assertTrue(rank.standard_levels[level],
-                                "rank %s level %d" % (rank_id, level))
+                self.assertTrue(
+                    rank.standard_levels[level],
+                    "rank %s level %d" % (rank_id, level),
+                )
 
     def test_every_exercise_carries_what_the_grader_needs(self):
         for rank_id in ranks.CHOICES:
@@ -84,7 +93,9 @@ class BankShapeTests(unittest.TestCase):
                 for part in grader.parts_of(ex):
                     for key in ("function", "oracle", "cases", "fuzz"):
                         self.assertIn(key, part, "%s / %s" % (name, key))
-                    self.assertIn("def %s(" % part["function"], ex["subject"], name)
+                    self.assertIn(
+                        "def %s(" % part["function"], ex["subject"], name
+                    )
 
     def test_new_exercises_default_to_extra_not_standard(self):
         # Same fail-closed rule the Rank 03 bank has (see
@@ -93,9 +104,11 @@ class BankShapeTests(unittest.TestCase):
         import inspect
 
         from examshell import exam_bank_r04, exam_bank_r05
+
         for module in (exam_bank_r04, exam_bank_r05):
-            self.assertIn('_ex.setdefault("standard", False)',
-                          inspect.getsource(module))
+            self.assertIn(
+                '_ex.setdefault("standard", False)', inspect.getsource(module)
+            )
 
     def test_an_exam_name_never_collides_with_a_training_name(self):
         """Both pools land in one ALL_EXERCISES namespace and one rendu/
@@ -110,13 +123,14 @@ class BankShapeTests(unittest.TestCase):
         for rank_id in ranks.CHOICES:
             rank = ranks.get(rank_id)
             merged = rank.all_exercises()
-            self.assertEqual(len(merged),
-                             len(rank.exercises) + len(TRAINING_EXERCISES))
+            self.assertEqual(
+                len(merged), len(rank.exercises) + len(TRAINING_EXERCISES)
+            )
 
 
 class UseRankTests(unittest.TestCase):
     def setUp(self):
-        self.addCleanup(examshell.use_rank)      # back to the default
+        self.addCleanup(examshell.use_rank)  # back to the default
 
     def test_switching_rebinds_every_global_the_module_reads(self):
         examshell.use_rank("05")
@@ -130,15 +144,18 @@ class UseRankTests(unittest.TestCase):
         examshell.use_rank("05")
         session = examshell.Session("tester")
         session.passed = ["a", "b", "c"]
-        self.assertEqual(session.score(), 100)   # 3 levels, not 6
+        self.assertEqual(session.score(), 100)  # 3 levels, not 6
 
     def test_exercise_entries_covers_the_active_rank(self):
         examshell.use_rank("04")
         entries = examshell.exercise_entries()
-        self.assertEqual({name for _, _, name, _, _ in entries},
-                         set(ranks.get("04").exercises))
-        self.assertEqual([idx for idx, *_ in entries],
-                         list(range(1, len(entries) + 1)))
+        self.assertEqual(
+            {name for _, _, name, _, _ in entries},
+            set(ranks.get("04").exercises),
+        )
+        self.assertEqual(
+            [idx for idx, *_ in entries], list(range(1, len(entries) + 1))
+        )
 
     def test_switching_back_restores_rank_03(self):
         examshell.use_rank("04")
@@ -153,8 +170,12 @@ class UseRankTests(unittest.TestCase):
     def test_cli_rank_flag_selects_the_pool(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            self.assertEqual(examshell.main(["--rank", "04", "--list",
-                                             "--no-color", "--no-rich"]), 0)
+            self.assertEqual(
+                examshell.main(
+                    ["--rank", "04", "--list", "--no-color", "--no-rich"]
+                ),
+                0,
+            )
         self.assertIn("py_sliding_window_maximum", out.getvalue())
         self.assertNotIn("py_inter", out.getvalue())
 
@@ -180,8 +201,9 @@ class ValueCodecTests(unittest.TestCase):
     def test_round_trip_through_json_keeps_types(self):
         for value in self.ROUND_TRIPPED:
             wire = json.loads(json.dumps(grader.encode_value(value)))
-            self.assertTrue(grader.deep_eq(grader.decode_value(wire), value),
-                            repr(value))
+            self.assertTrue(
+                grader.deep_eq(grader.decode_value(wire), value), repr(value)
+            )
 
     def test_json_stable_agrees(self):
         for value in self.ROUND_TRIPPED:
@@ -245,35 +267,59 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         self.assertEqual(grader.parts_of(plain), [plain])
 
     def test_plan_has_one_entry_per_function(self):
-        plan = grader.build_plan("py_compress_decompress", self.ex,
-                                 random.Random(0), fuzz=2)
-        self.assertEqual([function for function, _ in plan],
-                         ["compress", "decompress"])
-        self.assertEqual(grader.plan_size(plan),
-                         sum(len(tests) for _, tests in plan))
+        plan = grader.build_plan(
+            "py_compress_decompress", self.ex, random.Random(0), fuzz=2
+        )
+        self.assertEqual(
+            [function for function, _ in plan], ["compress", "decompress"]
+        )
+        self.assertEqual(
+            grader.plan_size(plan), sum(len(tests) for _, tests in plan)
+        )
 
     def test_both_functions_right_passes(self):
         self._write(self.BOTH_RIGHT)
-        report = grader.grade("py_compress_decompress", self.ex, self.tmp.name,
-                              rng=random.Random(0), fuzz=3)
+        report = grader.grade(
+            "py_compress_decompress",
+            self.ex,
+            self.tmp.name,
+            rng=random.Random(0),
+            fuzz=3,
+        )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
     def test_the_missing_half_is_named_in_the_verdict(self):
         self._write(self.BOTH_RIGHT.split("def decompress")[0])
-        report = grader.grade("py_compress_decompress", self.ex, self.tmp.name,
-                              rng=random.Random(0), fuzz=0)
+        report = grader.grade(
+            "py_compress_decompress",
+            self.ex,
+            self.tmp.name,
+            rng=random.Random(0),
+            fuzz=0,
+        )
         self.assertEqual(report.fatal, "NO_FUNCTION")
         self.assertIn("decompress", report.detail)
 
     def test_a_failure_says_which_function_it_came_from(self):
-        self._write(self.BOTH_RIGHT.replace(
-            "out += ch * (int(n) if n else 1)", "out += ch"))
-        report = grader.grade("py_compress_decompress", self.ex, self.tmp.name,
-                              rng=random.Random(0), fuzz=0)
+        self._write(
+            self.BOTH_RIGHT.replace(
+                "out += ch * (int(n) if n else 1)", "out += ch"
+            )
+        )
+        report = grader.grade(
+            "py_compress_decompress",
+            self.ex,
+            self.tmp.name,
+            rng=random.Random(0),
+            fuzz=0,
+        )
         self.assertFalse(report.ok)
-        self.assertTrue(all(f.function == "decompress" for f in report.failures))
-        self.assertTrue(report.failures[0].call("compress")
-                        .startswith("decompress("))
+        self.assertTrue(
+            all(f.function == "decompress" for f in report.failures)
+        )
+        self.assertTrue(
+            report.failures[0].call("compress").startswith("decompress(")
+        )
 
     def test_exam_stub_is_bare_and_still_importable(self):
         cfg = examshell.exam_config(_cfg(self.tmp.name))
@@ -281,14 +327,19 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         self.addCleanup(examshell.use_rank)
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertTrue(examshell.make_stub("py_compress_decompress", cfg))
-        with open(os.path.join(self.tmp.name, "py_compress_decompress.py"),
-                  encoding="utf-8") as fh:
+        with open(
+            os.path.join(self.tmp.name, "py_compress_decompress.py"),
+            encoding="utf-8",
+        ) as fh:
             content = fh.read()
         self.assertIn("def compress(", content)
         self.assertIn("def decompress(", content)
         self.assertNotIn("__main__", content)
         self.assertNotIn("_tests", content)
-        exec(compile(content, "py_compress_decompress.py", "exec"), {"__name__": "x"})
+        exec(
+            compile(content, "py_compress_decompress.py", "exec"),
+            {"__name__": "x"},
+        )
 
     def test_stub_defines_both_functions_and_is_importable(self):
         cfg = _cfg(self.tmp.name)
@@ -296,8 +347,10 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         self.addCleanup(examshell.use_rank)
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertTrue(examshell.make_stub("py_compress_decompress", cfg))
-        with open(os.path.join(self.tmp.name, "py_compress_decompress.py"),
-                  encoding="utf-8") as fh:
+        with open(
+            os.path.join(self.tmp.name, "py_compress_decompress.py"),
+            encoding="utf-8",
+        ) as fh:
             content = fh.read()
         self.assertIn("def compress(", content)
         self.assertIn("def decompress(", content)
@@ -315,88 +368,99 @@ class TupleAndDictExerciseTests(unittest.TestCase):
 
     def _grade(self, name, source, fuzz=0):
         ex = ranks.get("05").exercises[name]
-        with open(os.path.join(self.tmp.name, name + ".py"), "w",
-                  encoding="utf-8") as fh:
+        with open(
+            os.path.join(self.tmp.name, name + ".py"), "w", encoding="utf-8"
+        ) as fh:
             fh.write(source)
-        return grader.grade(name, ex, self.tmp.name,
-                            rng=random.Random(0), fuzz=fuzz)
+        return grader.grade(
+            name, ex, self.tmp.name, rng=random.Random(0), fuzz=fuzz
+        )
 
     def test_returning_lists_instead_of_tuples_fails(self):
-        report = self._grade("py_schedule_meetings",
-                             "def schedule_meetings(intervals):\n"
-                             "    rooms = []\n"
-                             "    for m in sorted(intervals, key=lambda x: x[0]):\n"
-                             "        for room in rooms:\n"
-                             "            if room[-1][1] <= m[0]:\n"
-                             "                room.append(list(m))\n"
-                             "                break\n"
-                             "        else:\n"
-                             "            rooms.append([list(m)])\n"
-                             "    return [len(rooms), rooms]\n")
+        report = self._grade(
+            "py_schedule_meetings",
+            "def schedule_meetings(intervals):\n"
+            "    rooms = []\n"
+            "    for m in sorted(intervals, key=lambda x: x[0]):\n"
+            "        for room in rooms:\n"
+            "            if room[-1][1] <= m[0]:\n"
+            "                room.append(list(m))\n"
+            "                break\n"
+            "        else:\n"
+            "            rooms.append([list(m)])\n"
+            "    return [len(rooms), rooms]\n",
+        )
         self.assertFalse(report.ok)
 
     def test_the_same_solution_with_tuples_passes(self):
-        report = self._grade("py_schedule_meetings",
-                             "def schedule_meetings(intervals):\n"
-                             "    rooms = []\n"
-                             "    for m in sorted(intervals, key=lambda x: x[0]):\n"
-                             "        for room in rooms:\n"
-                             "            if room[-1][1] <= m[0]:\n"
-                             "                room.append(tuple(m))\n"
-                             "                break\n"
-                             "        else:\n"
-                             "            rooms.append([tuple(m)])\n"
-                             "    return (len(rooms), rooms)\n")
+        report = self._grade(
+            "py_schedule_meetings",
+            "def schedule_meetings(intervals):\n"
+            "    rooms = []\n"
+            "    for m in sorted(intervals, key=lambda x: x[0]):\n"
+            "        for room in rooms:\n"
+            "            if room[-1][1] <= m[0]:\n"
+            "                room.append(tuple(m))\n"
+            "                break\n"
+            "        else:\n"
+            "            rooms.append([tuple(m)])\n"
+            "    return (len(rooms), rooms)\n",
+        )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
     def test_int_dict_keys_survive_the_sandbox(self):
         """A graph keyed by int must still be keyed by int inside the
         submission — plain JSON would hand it string keys, and every
         `nxt in graph` lookup would quietly miss."""
-        report = self._grade("py_graph_cycle_detector",
-                             "def graph_cycle_detector(graph):\n"
-                             "    for node in graph:\n"
-                             "        if not isinstance(node, int):\n"
-                             "            raise AssertionError('key is ' + repr(node))\n"
-                             "    state = {n: 0 for n in graph}\n"
-                             "    def walk(n):\n"
-                             "        state[n] = 1\n"
-                             "        for nxt in graph[n]:\n"
-                             "            if nxt not in graph:\n"
-                             "                continue\n"
-                             "            if state[nxt] == 1:\n"
-                             "                return True\n"
-                             "            if state[nxt] == 0 and walk(nxt):\n"
-                             "                return True\n"
-                             "        state[n] = 2\n"
-                             "        return False\n"
-                             "    return any(state[n] == 0 and walk(n) for n in graph)\n",
-                             fuzz=5)
+        report = self._grade(
+            "py_graph_cycle_detector",
+            "def graph_cycle_detector(graph):\n"
+            "    for node in graph:\n"
+            "        if not isinstance(node, int):\n"
+            "            raise AssertionError('key is ' + repr(node))\n"
+            "    state = {n: 0 for n in graph}\n"
+            "    def walk(n):\n"
+            "        state[n] = 1\n"
+            "        for nxt in graph[n]:\n"
+            "            if nxt not in graph:\n"
+            "                continue\n"
+            "            if state[nxt] == 1:\n"
+            "                return True\n"
+            "            if state[nxt] == 0 and walk(nxt):\n"
+            "                return True\n"
+            "        state[n] = 2\n"
+            "        return False\n"
+            "    return any(state[n] == 0 and walk(n) for n in graph)\n",
+            fuzz=5,
+        )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
     def test_tuple_arguments_arrive_as_tuples(self):
-        report = self._grade("py_prism_detector",
-                             "def prism_detector(grid, pattern):\n"
-                             "    if not grid or not pattern:\n"
-                             "        return []\n"
-                             "    dirs = ((1,0,'H'), (-1,0,'H-'), (0,1,'V'), (0,-1,'V-'),\n"
-                             "            (1,1,'D1'), (-1,-1,'D1-'), (-1,1,'D2'), (1,-1,'D2-'))\n"
-                             "    out = []\n"
-                             "    for y in range(len(grid)):\n"
-                             "        for x in range(len(grid[y])):\n"
-                             "            for dx, dy, code in dirs:\n"
-                             "                ok = True\n"
-                             "                for k in range(len(pattern)):\n"
-                             "                    ny, nx = y + dy * k, x + dx * k\n"
-                             "                    if not (0 <= ny < len(grid)) or \\\n"
-                             "                            not (0 <= nx < len(grid[ny])) or \\\n"
-                             "                            grid[ny][nx] != pattern[k]:\n"
-                             "                        ok = False\n"
-                             "                        break\n"
-                             "                if ok:\n"
-                             "                    out.append((x, y, code))\n"
-                             "    return out\n",
-                             fuzz=5)
+        report = self._grade(
+            "py_prism_detector",
+            "def prism_detector(grid, pattern):\n"
+            "    if not grid or not pattern:\n"
+            "        return []\n"
+            "    dirs = ((1,0,'H'), (-1,0,'H-'), (0,1,'V'), (0,-1,'V-'),\n"
+            "            (1,1,'D1'), (-1,-1,'D1-'), "
+            "(-1,1,'D2'), (1,-1,'D2-'))\n"
+            "    out = []\n"
+            "    for y in range(len(grid)):\n"
+            "        for x in range(len(grid[y])):\n"
+            "            for dx, dy, code in dirs:\n"
+            "                ok = True\n"
+            "                for k in range(len(pattern)):\n"
+            "                    ny, nx = y + dy * k, x + dx * k\n"
+            "                    if not (0 <= ny < len(grid)) or \\\n"
+            "                            not (0 <= nx < len(grid[ny])) or \\\n"
+            "                            grid[ny][nx] != pattern[k]:\n"
+            "                        ok = False\n"
+            "                        break\n"
+            "                if ok:\n"
+            "                    out.append((x, y, code))\n"
+            "    return out\n",
+            fuzz=5,
+        )
         self.assertTrue(report.ok, report.fatal or report.failures[:1])
 
 

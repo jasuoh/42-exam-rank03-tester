@@ -23,8 +23,10 @@ class Device(object):
     def __init__(self, root, name):
         self.name = name
         self.data = os.path.join(root, name, "home")
-        self.dirs = {"rendu": os.path.join(root, name, "rendu"),
-                     "c_rendu": os.path.join(root, name, "c_rendu")}
+        self.dirs = {
+            "rendu": os.path.join(root, name, "rendu"),
+            "c_rendu": os.path.join(root, name, "c_rendu"),
+        }
         os.makedirs(self.data)
 
     def setup(self, url):
@@ -48,24 +50,43 @@ class Device(object):
     def stats(self, *events):
         with open(os.path.join(self.data, "stats.jsonl"), "a") as fh:
             for ts, exercise in events:
-                fh.write(json.dumps({"ts": ts, "tool": "py", "exercise": exercise,
-                                     "ok": True, "mode": "practice"}) + "\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "ts": ts,
+                            "tool": "py",
+                            "exercise": exercise,
+                            "ok": True,
+                            "mode": "practice",
+                        }
+                    )
+                    + "\n"
+                )
 
     def stat_lines(self):
         with open(os.path.join(self.data, "stats.jsonl")) as fh:
-            return [json.loads(l)["ts"] for l in fh if l.strip()]
+            return [json.loads(line)["ts"] for line in fh if line.strip()]
 
     def save_exam(self, level, when):
         class S(object):
-            login, passed, attempts, history, start_time = "alice", [], 1, [], when - 60
+            login, passed, attempts, history, start_time = (
+                "alice",
+                [],
+                1,
+                [],
+                when - 60,
+            )
+
         S.level = level
-        with mock.patch.object(session_store, "DATA_DIR", self.data), \
-             mock.patch.object(session_store.time, "time", return_value=when):
+        with mock.patch.object(
+            session_store, "DATA_DIR", self.data
+        ), mock.patch.object(session_store.time, "time", return_value=when):
             session_store.save("py", S(), random.Random(1), "py_inter")
 
     def clear_exam(self, when):
-        with mock.patch.object(session_store, "DATA_DIR", self.data), \
-             mock.patch.object(session_store.time, "time", return_value=when):
+        with mock.patch.object(
+            session_store, "DATA_DIR", self.data
+        ), mock.patch.object(session_store.time, "time", return_value=when):
             session_store.clear("py")
 
     def saved_exam(self):
@@ -104,11 +125,13 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.b.read("c_rendu", "rotone.c"), "int main(){}")
         self.assertEqual(self.b.stat_lines(), [1, 2, 3])
 
-        self.a.sync()                                   # A gets B's attempt too
+        self.a.sync()  # A gets B's attempt too
         self.assertEqual(self.a.stat_lines(), [1, 2, 3])
-        again = self.a.sync()                           # nothing left to move
+        again = self.a.sync()  # nothing left to move
         self.assertFalse(again.committed)
-        self.assertEqual(sum(again.pulled.values()) + sum(again.pushed.values()), 0)
+        self.assertEqual(
+            sum(again.pulled.values()) + sum(again.pushed.values()), 0
+        )
 
     def test_newer_edit_wins_and_the_older_one_is_backed_up(self):
         self.a.write("rendu", "py_inter.py", "old", 1000)
@@ -138,12 +161,14 @@ class SyncTests(unittest.TestCase):
         self.b.setup(self.url)
         self.assertEqual(self.b.saved_exam()["level"], 3)
 
-        self.b.clear_exam(when=6000)                    # finished it on campus
+        self.b.clear_exam(when=6000)  # finished it on campus
         self.b.sync()
         self.a.sync()
-        self.assertIsNone(self.a.saved_exam())          # not resurrected from the laptop
+        self.assertIsNone(
+            self.a.saved_exam()
+        )  # not resurrected from the laptop
 
-        self.a.save_exam(level=1, when=7000)            # a new exam later wins again
+        self.a.save_exam(level=1, when=7000)  # a new exam later wins again
         self.a.sync()
         self.b.sync()
         self.assertEqual(self.b.saved_exam()["level"], 1)
@@ -157,19 +182,25 @@ class SyncTests(unittest.TestCase):
         self.b.setup(self.url)
         self.a.sync()
         for device in (self.a, self.b):
-            self.assertEqual(sorted(os.listdir(os.path.join(device.data, "reports"))),
-                             ["c_2.md", "py_1.md"])
+            self.assertEqual(
+                sorted(os.listdir(os.path.join(device.data, "reports"))),
+                ["c_2.md", "py_1.md"],
+            )
 
     def test_config_stays_per_device(self):
         with open(os.path.join(self.a.data, "config.json"), "w") as fh:
             fh.write('{"cc": "clang"}')
         self.a.setup(self.url)
         self.b.setup(self.url)
-        self.assertFalse(os.path.exists(os.path.join(self.b.data, "config.json")))
+        self.assertFalse(
+            os.path.exists(os.path.join(self.b.data, "config.json"))
+        )
 
     def test_bad_remote_is_a_clear_error(self):
         with self.assertRaises(sync.SyncError):
-            self.a.setup(os.path.join(os.path.dirname(self.url), "does-not-exist.git"))
+            self.a.setup(
+                os.path.join(os.path.dirname(self.url), "does-not-exist.git")
+            )
 
 
 class DataDirTests(unittest.TestCase):
@@ -177,11 +208,18 @@ class DataDirTests(unittest.TestCase):
         target = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, target)
         out = subprocess.run(
-            [sys.executable, "-c",
-             "from examshell import settings, stats; print(settings.DATA_DIR); print(stats.STATS_PATH)"],
-            env=dict(os.environ, EXAMSHELL_HOME=target), stdout=subprocess.PIPE,
-            universal_newlines=True, check=True,
-            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).stdout.split()
+            [
+                sys.executable,
+                "-c",
+                "from examshell import settings, stats; "
+                "print(settings.DATA_DIR); print(stats.STATS_PATH)",
+            ],
+            env=dict(os.environ, EXAMSHELL_HOME=target),
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+            check=True,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        ).stdout.split()
         self.assertEqual(out, [target, os.path.join(target, "stats.jsonl")])
 
 

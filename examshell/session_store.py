@@ -51,9 +51,12 @@ def save(tool, session, rng, current_ex, level_attempts=0, level_started=None):
         "attempts": session.attempts,
         "history": session.history,
         "level_attempts": level_attempts,
-        "level_elapsed_seconds": (time.time() - level_started) if level_started else 0,
+        "level_elapsed_seconds": (time.time() - level_started)
+        if level_started
+        else 0,
         "elapsed_seconds": time.time() - session.start_time
-                          if session.start_time else 0,
+        if session.start_time
+        else 0,
         "rng_state": _rng_to_json(rng),
         # what examshell/sync.py compares when two devices both have a save
         "saved_at": time.time(),
@@ -75,8 +78,16 @@ def load(tool):
             data = json.load(fh)
         # sanity-check the shape before handing it back — a hand-edited
         # or half-written file should just look like "nothing saved".
-        required = ("login", "level", "current_ex", "passed", "attempts",
-                    "history", "elapsed_seconds", "rng_state")
+        required = (
+            "login",
+            "level",
+            "current_ex",
+            "passed",
+            "attempts",
+            "history",
+            "elapsed_seconds",
+            "rng_state",
+        )
         if not isinstance(data, dict) or not all(k in data for k in required):
             return None
         return data

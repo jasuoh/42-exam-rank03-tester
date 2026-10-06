@@ -39,27 +39,43 @@ def report_view(report, function, show_fails=6, blind=False):
     blocks = []
     ok = report.ok
     verdict = Text()
-    verdict.append(" ✔ PASSED " if ok else " ✖ FAILED ",
-                   style="bold black on green" if ok else "bold white on red")
+    verdict.append(
+        " ✔ PASSED " if ok else " ✖ FAILED ",
+        style="bold black on green" if ok else "bold white on red",
+    )
     verdict.append("  ")
     if report.fatal:
         verdict.append(report.fatal_title, style="bold red")
     else:
-        verdict.append_text(bar(report.passed, report.total, 24, OK if ok else KO))
-        verdict.append("  %d/%d tests  %d%%" % (report.passed, report.total,
-                                                percent(report.passed, report.total)),
-                       style="bold")
+        verdict.append_text(
+            bar(report.passed, report.total, 24, OK if ok else KO)
+        )
+        verdict.append(
+            "  %d/%d tests  %d%%"
+            % (
+                report.passed,
+                report.total,
+                percent(report.passed, report.total),
+            ),
+            style="bold",
+        )
     blocks.append(verdict)
 
     if report.fatal and report.detail:
-        blocks.append(Panel(Text(report.detail), border_style="red", box=box.ROUNDED))
+        blocks.append(
+            Panel(Text(report.detail), border_style="red", box=box.ROUNDED)
+        )
 
     failures = report.failures
     if failures and blind:
-        blocks.append(Text("\nblind grading — %d failing test%s, inputs hidden "
-                           "(like the real exam)" % (len(failures),
-                                                     "" if len(failures) == 1 else "s"),
-                           style="italic yellow"))
+        blocks.append(
+            Text(
+                "\nblind grading — %d failing test%s, inputs hidden "
+                "(like the real exam)"
+                % (len(failures), "" if len(failures) == 1 else "s"),
+                style="italic yellow",
+            )
+        )
     elif failures:
         blocks.append(Text(""))
         for f in failures[:show_fails]:
@@ -78,8 +94,13 @@ def report_view(report, function, show_fails=6, blind=False):
             blocks.append(grid)
         rest = len(failures) - show_fails
         if rest > 0:
-            blocks.append(Text("… and %d more failing test%s" % (rest, "s" if rest > 1 else ""),
-                               style="dim"))
+            blocks.append(
+                Text(
+                    "… and %d more failing test%s"
+                    % (rest, "s" if rest > 1 else ""),
+                    style="dim",
+                )
+            )
     for warning in report.warnings:
         blocks.append(Text("\n⚠ " + warning, style="yellow"))
     if report.duration:
@@ -88,7 +109,9 @@ def report_view(report, function, show_fails=6, blind=False):
 
 
 def hint_view(hint):
-    return Panel(Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED)
+    return Panel(
+        Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED
+    )
 
 
 def waiting_view(message):
@@ -112,11 +135,16 @@ def stepper(session, n_levels):
 def exam_status(session, n_levels, countdown="", attempts=0):
     text = Text()
     text.append(" %s " % session.login, style="bold reverse")
-    text.append("  Level %d/%d  " % (min(session.level, n_levels), n_levels), style="bold")
+    text.append(
+        "  Level %d/%d  " % (min(session.level, n_levels), n_levels),
+        style="bold",
+    )
     text.append_text(stepper(session, n_levels))
     text.append("  attempts on this level: %d" % attempts, style="dim")
     if countdown:
-        text.append("   ⏱%s" % countdown.replace(" · ", " "), style="bold magenta")
+        text.append(
+            "   ⏱%s" % countdown.replace(" · ", " "), style="bold magenta"
+        )
     return text
 
 
@@ -126,10 +154,18 @@ def exam_result_view(result):
     table.add_column()
     for key, value in result.rows:
         table.add_row(str(key), str(value))
-    blocks = [Text(result.title, style="bold green" if result.passed else "bold red"),
-              Text(""), table]
+    blocks = [
+        Text(
+            result.title, style="bold green" if result.passed else "bold red"
+        ),
+        Text(""),
+        table,
+    ]
     if result.report_path:
-        blocks += [Text(""), Text("report saved to %s" % result.report_path, style="dim")]
+        blocks += [
+            Text(""),
+            Text("report saved to %s" % result.report_path, style="dim"),
+        ]
     return Group(*blocks)
 
 
@@ -142,7 +178,9 @@ def readiness_view(levels):
     total = sum(t for _, _, t, _ in levels)
     head = Text("Overall  ", style="bold")
     head.append_text(bar(done, total, 30))
-    head.append("  %d/%d  %d%%" % (done, total, percent(done, total)), style="bold")
+    head.append(
+        "  %d/%d  %d%%" % (done, total, percent(done, total)), style="bold"
+    )
     blocks += [head, Text("")]
     for level, passed, count, entries in levels:
         line = Text("Level %d  " % level, style="bold yellow")
@@ -153,16 +191,22 @@ def readiness_view(levels):
             line.append(" ")
         blocks += [line, Text("")]
     legend = Text()
-    for status, label in (("passed", "passed"), ("failed", "tried, never passed"),
-                          ("untried", "never tried")):
+    for status, label in (
+        ("passed", "passed"),
+        ("failed", "tried, never passed"),
+        ("untried", "never tried"),
+    ):
         legend.append_text(chip(label, status))
         legend.append("  ")
     blocks.append(legend)
     return Group(*blocks)
 
 
-CHIP_COLOURS = {"passed": ("green", "bold black"), "failed": ("red", "bold white"),
-                "untried": ("grey23", "white")}
+CHIP_COLOURS = {
+    "passed": ("green", "bold black"),
+    "failed": ("red", "bold white"),
+    "untried": ("grey23", "white"),
+}
 
 
 def chip(label, status):
@@ -193,15 +237,26 @@ def stats_view(summary, activity, streak, history, fmt_duration):
     head = Table.grid(padding=(0, 3))
     for _ in range(4):
         head.add_column(justify="center")
+
     def tile(value, label):
         t = Text(str(value), style="bold cyan", justify="center")
         t.append("\n" + label, style="dim")
         return t
-    head.add_row(tile(summary["total_attempts"], "graded attempts"),
-                 tile("%d%%" % round(summary["pass_rate"] * 100), "pass rate"),
-                 tile("%d day%s" % (streak, "" if streak == 1 else "s"), "practice streak"),
-                 tile(fmt_duration(summary["best_seconds"]) if summary["best_seconds"]
-                      is not None else "—", "best exam time"))
+
+    head.add_row(
+        tile(summary["total_attempts"], "graded attempts"),
+        tile("%d%%" % round(summary["pass_rate"] * 100), "pass rate"),
+        tile(
+            "%d day%s" % (streak, "" if streak == 1 else "s"),
+            "practice streak",
+        ),
+        tile(
+            fmt_duration(summary["best_seconds"])
+            if summary["best_seconds"] is not None
+            else "—",
+            "best exam time",
+        ),
+    )
     blocks = [head, Text("")]
 
     chart = Text("last 4 weeks  ", style="bold")
@@ -210,33 +265,53 @@ def stats_view(summary, activity, streak, history, fmt_duration):
     blocks += [chart, Text("")]
 
     if history:
-        exams = Table(title="recent exams", box=box.SIMPLE, title_style="bold",
-                      header_style="dim")
+        exams = Table(
+            title="recent exams",
+            box=box.SIMPLE,
+            title_style="bold",
+            header_style="dim",
+        )
         exams.add_column("time")
         exams.add_column("attempts", justify="right")
         exams.add_column("score", justify="right")
         for e in history:
-            exams.add_row(fmt_duration(e.get("seconds", 0)), str(e.get("attempts", "")),
-                          "%s/100" % e.get("score", ""))
+            exams.add_row(
+                fmt_duration(e.get("seconds", 0)),
+                str(e.get("attempts", "")),
+                "%s/100" % e.get("score", ""),
+            )
         blocks += [exams]
 
     if summary["per_exercise"]:
-        per = Table(title="per exercise (worst first)", box=box.SIMPLE,
-                    title_style="bold", header_style="dim")
+        per = Table(
+            title="per exercise (worst first)",
+            box=box.SIMPLE,
+            title_style="bold",
+            header_style="dim",
+        )
         per.add_column("exercise")
         per.add_column("pass rate")
         per.add_column("", justify="right")
-        rows = sorted(summary["per_exercise"].items(),
-                      key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]))
+        rows = sorted(
+            summary["per_exercise"].items(),
+            key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]),
+        )
         for name, row in rows:
             rate = row["passes"] / float(row["attempts"])
             style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
-            per.add_row(name, bar(row["passes"], row["attempts"], 16, style),
-                        "%d/%d" % (row["passes"], row["attempts"]))
+            per.add_row(
+                name,
+                bar(row["passes"], row["attempts"], 16, style),
+                "%d/%d" % (row["passes"], row["attempts"]),
+            )
         blocks.append(per)
     else:
-        blocks.append(Text("no grading history yet — practice something first",
-                           style="dim italic"))
+        blocks.append(
+            Text(
+                "no grading history yet — practice something first",
+                style="dim italic",
+            )
+        )
     return Group(*blocks)
 
 
@@ -244,7 +319,14 @@ def logo(subtitle):
     """The menu's title block."""
     text = Text(justify="center")
     word = "E X A M S H E L L"
-    colours = ["#5fd7ff", "#5fafff", "#8787ff", "#af87ff", "#d787ff", "#ff87d7"]
+    colours = [
+        "#5fd7ff",
+        "#5fafff",
+        "#8787ff",
+        "#af87ff",
+        "#d787ff",
+        "#ff87d7",
+    ]
     for i, ch in enumerate(word):
         text.append(ch, style="bold %s" % colours[(i // 3) % len(colours)])
     text.append("\n" + subtitle, style="dim")

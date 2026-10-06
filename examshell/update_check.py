@@ -23,13 +23,13 @@ from .version import REPO, __version__
 
 LATEST_URL = "https://api.github.com/repos/%s/releases/latest" % REPO
 CACHE_PATH = os.path.join(DATA_DIR, "update_check.json")
-CHECK_EVERY = 24 * 3600      # seconds
-HTTP_TIMEOUT = 3             # seconds — runs in the background anyway
+CHECK_EVERY = 24 * 3600  # seconds
+HTTP_TIMEOUT = 3  # seconds — runs in the background anyway
 ENV_OPT_OUT = "EXAMSHELL_NO_UPDATE_CHECK"
 
 
 def parse_version(text):
-    """"v1.2.3" / "1.2.3" -> (1, 2, 3); None when it isn't one."""
+    """ "v1.2.3" / "1.2.3" -> (1, 2, 3); None when it isn't one."""
     parts = str(text).strip().lstrip("vV").split(".")
     try:
         return tuple(int(p) for p in parts)
@@ -63,9 +63,14 @@ def _save_cache(latest):
 def _fetch_latest():
     """The latest release tag from GitHub, or None on any failure."""
     import urllib.request
+
     request = urllib.request.Request(
-        LATEST_URL, headers={"Accept": "application/vnd.github+json",
-                             "User-Agent": "42-exam-tester/" + __version__})
+        LATEST_URL,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "42-exam-tester/" + __version__,
+        },
+    )
     try:
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as resp:
             return json.loads(resp.read().decode("utf-8")).get("tag_name")
@@ -94,8 +99,12 @@ def notice_text(latest):
     if not latest or not is_newer(latest):
         return None
     from .doctor import upgrade_command
-    return ("update available: %s (you have %s) — run `%s`"
-            % (latest.lstrip("vV"), __version__, upgrade_command()))
+
+    return "update available: %s (you have %s) — run `%s`" % (
+        latest.lstrip("vV"),
+        __version__,
+        upgrade_command(),
+    )
 
 
 def start_background_check(opt_out_flag=False):

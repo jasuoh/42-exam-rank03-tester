@@ -30,8 +30,9 @@ try:
     from rich.table import Table
     from rich.text import Text
     from rich.theme import Theme as _RichTheme
+
     HAVE_RICH = True
-except ImportError:                                        # pragma: no cover
+except ImportError:  # pragma: no cover
     HAVE_RICH = False
 
     def _rich_escape(text):
@@ -72,14 +73,28 @@ THEME_NAMES = ("dark", "light", "highcontrast")
 # using the Okabe–Ito palette: blue/vermillion/orange/sky-blue).
 _ANSI_256 = {
     "light": {
-        "RED": 160, "GREEN": 28, "YELLOW": 172, "CYAN": 30,
-        "WHITE": 236, "GRAY": 244, "MAGENTA": 127, "BLUE": 25,
-        "BG_RED": 217, "BG_GREEN": 150,
+        "RED": 160,
+        "GREEN": 28,
+        "YELLOW": 172,
+        "CYAN": 30,
+        "WHITE": 236,
+        "GRAY": 244,
+        "MAGENTA": 127,
+        "BLUE": 25,
+        "BG_RED": 217,
+        "BG_GREEN": 150,
     },
     "highcontrast": {
-        "RED": 166, "GREEN": 27, "YELLOW": 208, "CYAN": 39,
-        "WHITE": 255, "GRAY": 246, "MAGENTA": 25, "BLUE": 27,
-        "BG_RED": 208, "BG_GREEN": 27,
+        "RED": 166,
+        "GREEN": 27,
+        "YELLOW": 208,
+        "CYAN": 39,
+        "WHITE": 255,
+        "GRAY": 246,
+        "MAGENTA": 25,
+        "BLUE": 27,
+        "BG_RED": 208,
+        "BG_GREEN": 27,
     },
 }
 
@@ -91,22 +106,38 @@ _ANSI_256 = {
 # enough to re-theme the whole UI without editing a single call site).
 _RICH_THEMES = {
     "light": {
-        "cyan": "#0a6e8c", "red": "#a4130f", "green": "#1c6b1c",
-        "yellow": "#8a5a00", "white": "#1c1c1c", "dim": "#5c5c5c",
-        "grey37": "#8a8a8a", "magenta": "#7a1f7a",
-        "bold cyan": "bold #0a6e8c", "bold red": "bold #a4130f",
-        "bold green": "bold #1c6b1c", "bold yellow": "bold #8a5a00",
+        "cyan": "#0a6e8c",
+        "red": "#a4130f",
+        "green": "#1c6b1c",
+        "yellow": "#8a5a00",
+        "white": "#1c1c1c",
+        "dim": "#5c5c5c",
+        "grey37": "#8a8a8a",
+        "magenta": "#7a1f7a",
+        "bold cyan": "bold #0a6e8c",
+        "bold red": "bold #a4130f",
+        "bold green": "bold #1c6b1c",
+        "bold yellow": "bold #8a5a00",
         "bold white": "bold #1c1c1c",
-        "on green": "on #1c6b1c", "on red": "on #a4130f",
+        "on green": "on #1c6b1c",
+        "on red": "on #a4130f",
     },
     "highcontrast": {
-        "cyan": "#56b4e9", "red": "#d55e00", "green": "#0072b2",
-        "yellow": "#e69f00", "white": "#f5f5f5", "dim": "#9a9a9a",
-        "grey37": "#8a8a8a", "magenta": "#0072b2",
-        "bold cyan": "bold #56b4e9", "bold red": "bold #d55e00",
-        "bold green": "bold #0072b2", "bold yellow": "bold #e69f00",
+        "cyan": "#56b4e9",
+        "red": "#d55e00",
+        "green": "#0072b2",
+        "yellow": "#e69f00",
+        "white": "#f5f5f5",
+        "dim": "#9a9a9a",
+        "grey37": "#8a8a8a",
+        "magenta": "#0072b2",
+        "bold cyan": "bold #56b4e9",
+        "bold red": "bold #d55e00",
+        "bold green": "bold #0072b2",
+        "bold yellow": "bold #e69f00",
         "bold white": "bold #f5f5f5",
-        "on green": "on #0072b2", "on red": "on #d55e00",
+        "on green": "on #0072b2",
+        "on red": "on #d55e00",
     },
 }
 
@@ -135,7 +166,11 @@ def configure(rich=None, color=None, theme="dark"):
     want_rich = HAVE_RICH if rich is None else (bool(rich) and HAVE_RICH)
     _rich = want_rich and _color
     _theme = theme if theme in THEME_NAMES else "dark"
-    rich_theme = _RichTheme(_RICH_THEMES[_theme]) if (_rich and _theme in _RICH_THEMES) else None
+    rich_theme = (
+        _RichTheme(_RICH_THEMES[_theme])
+        if (_rich and _theme in _RICH_THEMES)
+        else None
+    )
     _console = Console(highlight=False, theme=rich_theme) if _rich else None
 
 
@@ -153,11 +188,20 @@ def width():
 
 class C:
     """ANSI escapes; every attribute is "" when colour is disabled."""
-    RESET = "\033[0m"; BOLD = "\033[1m"; DIM = "\033[2m"
-    RED = "\033[91m"; GREEN = "\033[92m"; YELLOW = "\033[93m"
-    BLUE = "\033[94m"; MAGENTA = "\033[95m"; CYAN = "\033[96m"
-    WHITE = "\033[97m"; GRAY = "\033[90m"
-    BG_RED = "\033[41m"; BG_GREEN = "\033[42m"
+
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    CYAN = "\033[96m"
+    WHITE = "\033[97m"
+    GRAY = "\033[90m"
+    BG_RED = "\033[41m"
+    BG_GREEN = "\033[42m"
 
 
 def c(text, *styles):
@@ -171,8 +215,11 @@ def c(text, *styles):
         if code is None:
             codes.append(getattr(C, s))
         else:
-            codes.append("\033[48;5;%dm" % code if s.startswith("BG_")
-                        else "\033[38;5;%dm" % code)
+            codes.append(
+                "\033[48;5;%dm" % code
+                if s.startswith("BG_")
+                else "\033[38;5;%dm" % code
+            )
     return "".join(codes) + text + C.RESET
 
 
@@ -200,7 +247,9 @@ def ask(label):
     """Prompt for a line of input. Ctrl-C / Ctrl-D raise Abort."""
     try:
         if _rich:
-            return _console.input("[bold cyan]%s[/bold cyan]" % _esc(label)).strip()
+            return _console.input(
+                "[bold cyan]%s[/bold cyan]" % _esc(label)
+            ).strip()
         return input(c(label, "BOLD", "CYAN")).strip()
     except (EOFError, KeyboardInterrupt):
         print()
@@ -265,12 +314,16 @@ def badge_unlocked(emoji, label):
     """A just-earned achievement (see achievements.py) — shown the moment
     it's detected, not just tucked away in --stats, so it lands like the
     small reward it's meant to be."""
-    _line("%s New badge: %s!" % (emoji, label), "bold yellow", "YELLOW", "BOLD")
+    _line(
+        "%s New badge: %s!" % (emoji, label), "bold yellow", "YELLOW", "BOLD"
+    )
 
 
 def _line(msg, rich_style, *ansi):
     if _rich:
-        _console.print(IND0 + "[%s]%s[/%s]" % (rich_style, _esc(msg), rich_style))
+        _console.print(
+            IND0 + "[%s]%s[/%s]" % (rich_style, _esc(msg), rich_style)
+        )
     else:
         print(IND0 + c(msg, *ansi))
 
@@ -292,10 +345,13 @@ def box_message(title, detail="", style="red"):
         body = Text(title, style="bold %s" % style)
         if detail:
             body.append("\n" + detail, style="dim")
-        _console.print(Panel(body, border_style=style, box=box.ROUNDED,
-                             padding=(0, 2)))
+        _console.print(
+            Panel(body, border_style=style, box=box.ROUNDED, padding=(0, 2))
+        )
     else:
-        colour = {"red": "RED", "green": "GREEN", "yellow": "YELLOW"}.get(style, "CYAN")
+        colour = {"red": "RED", "green": "GREEN", "yellow": "YELLOW"}.get(
+            style, "CYAN"
+        )
         print(IND0 + c("[KO] " + title, colour, "BOLD"))
         if detail:
             print(IND0 + " " * len("[KO] ") + c(detail, "GRAY"))
@@ -304,24 +360,40 @@ def box_message(title, detail="", style="red"):
 # ══════════════════════════════════════════════════════════════
 #  SCREENS
 # ══════════════════════════════════════════════════════════════
-def banner(subtitle="Exam Rank 03  ·  Common Core", edition="42 School  ·  Python Edition"):
+def banner(
+    subtitle="Exam Rank 03  ·  Common Core",
+    edition="42 School  ·  Python Edition",
+):
     if _rich:
         title = Text()
         title.append("EXAMSHELL", style="bold white")
         title.append("  ·  " + subtitle, style="cyan")
         sub = Text(edition, style="dim")
-        _console.print(Panel(Align.center(Text.assemble(title, "\n", sub)),
-                             box=box.DOUBLE, border_style="cyan", padding=(0, 2)))
+        _console.print(
+            Panel(
+                Align.center(Text.assemble(title, "\n", sub)),
+                box=box.DOUBLE,
+                border_style="cyan",
+                padding=(0, 2),
+            )
+        )
         return
     w = width()
     inner = w - 2
     print(c("╔" + "═" * inner + "╗", "CYAN"))
-    for text, styles in (("EXAMSHELL · " + subtitle, ("BOLD", "WHITE")),
-                         (edition, ("GRAY",))):
+    for text, styles in (
+        ("EXAMSHELL · " + subtitle, ("BOLD", "WHITE")),
+        (edition, ("GRAY",)),
+    ):
         pad = inner - len(text)
         left = pad // 2
-        print(c("║", "CYAN") + " " * left + c(text, *styles)
-              + " " * (pad - left) + c("║", "CYAN"))
+        print(
+            c("║", "CYAN")
+            + " " * left
+            + c(text, *styles)
+            + " " * (pad - left)
+            + c("║", "CYAN")
+        )
     print(c("╚" + "═" * inner + "╝", "CYAN"))
 
 
@@ -334,10 +406,16 @@ def status_bar(s, n_levels):
             grid.add_column(justify="left")
         grid.add_row(
             Text.assemble(("LOGIN ", "cyan"), (s.login, "bold white")),
-            Text.assemble(("LEVEL ", "cyan"), ("%d/%d" % (level, n_levels), "bold yellow")),
+            Text.assemble(
+                ("LEVEL ", "cyan"),
+                ("%d/%d" % (level, n_levels), "bold yellow"),
+            ),
             Text.assemble(("TIME ", "cyan"), (s.elapsed(), "white")),
-            Text.assemble(("SCORE ", "cyan"), ("%d/100 " % s.score(), "bold green"),
-                         (_bar(s.score(), 100, 10), "green")),
+            Text.assemble(
+                ("SCORE ", "cyan"),
+                ("%d/100 " % s.score(), "bold green"),
+                (_bar(s.score(), 100, 10), "green"),
+            ),
         )
         dots = Text()
         for lvl in range(1, n_levels + 1):
@@ -347,19 +425,38 @@ def status_bar(s, n_levels):
                 dots.append("◆ ", style="bold yellow")
             else:
                 dots.append("○ ", style="dim")
-        _console.print(Panel(Group(grid, dots), border_style="cyan",
-                             box=box.SQUARE, padding=(0, 1)))
+        _console.print(
+            Panel(
+                Group(grid, dots),
+                border_style="cyan",
+                box=box.SQUARE,
+                padding=(0, 1),
+            )
+        )
         return
     bar = "═" * width()
     print(c(bar, "CYAN"))
-    print(IND0 + c("LOGIN: ", "CYAN") + c(s.login.ljust(12), "BOLD", "WHITE")
-          + c("LEVEL: ", "CYAN") + c(("%d/%d" % (level, n_levels)).ljust(6), "YELLOW")
-          + c("TIME: ", "CYAN") + c(s.elapsed(), "WHITE"))
-    print(IND0 + c("SCORE: ", "CYAN") + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
-          + c("PASSED: ", "CYAN") + c("%d/%d  " % (len(s.passed), n_levels), "GREEN")
-          + c(_bar(s.score(), 100, 10), "GREEN"))
-    dots = " ".join("●" if l < s.level else "◆" if l == s.level else "○"
-                    for l in range(1, n_levels + 1))
+    print(
+        IND0
+        + c("LOGIN: ", "CYAN")
+        + c(s.login.ljust(12), "BOLD", "WHITE")
+        + c("LEVEL: ", "CYAN")
+        + c(("%d/%d" % (level, n_levels)).ljust(6), "YELLOW")
+        + c("TIME: ", "CYAN")
+        + c(s.elapsed(), "WHITE")
+    )
+    print(
+        IND0
+        + c("SCORE: ", "CYAN")
+        + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
+        + c("PASSED: ", "CYAN")
+        + c("%d/%d  " % (len(s.passed), n_levels), "GREEN")
+        + c(_bar(s.score(), 100, 10), "GREEN")
+    )
+    dots = " ".join(
+        "●" if lvl < s.level else "◆" if lvl == s.level else "○"
+        for lvl in range(1, n_levels + 1)
+    )
     print(IND0 + c(dots, "YELLOW"))
     print(c(bar, "CYAN"))
 
@@ -369,8 +466,12 @@ def _looks_like_c_prototype(line):
     a Python `def ...:` signature. Comment lines never end in `;`, and a
     prose sentence ending in a raw `);` doesn't happen in this project's
     subject style, so this is safe without a real C parser."""
-    return (line.endswith(";") and "(" in line and ")" in line
-            and not line.startswith(("//", "/*", "*")))
+    return (
+        line.endswith(";")
+        and "(" in line
+        and ")" in line
+        and not line.startswith(("//", "/*", "*"))
+    )
 
 
 def _split_subject(subject):
@@ -400,8 +501,12 @@ def _split_subject(subject):
             examples.append(line)
         else:
             prose.append(line)
-    return header, "\n".join(prose).strip("\n"), "\n".join(signatures), \
-        "\n".join(examples).strip("\n")
+    return (
+        header,
+        "\n".join(prose).strip("\n"),
+        "\n".join(signatures),
+        "\n".join(examples).strip("\n"),
+    )
 
 
 def _group_label(ex):
@@ -462,11 +567,24 @@ def subject_blocks(ex, lexer_theme="monokai", code_background="default"):
     if prose:
         blocks.append(Text(prose))
     if signature:
-        blocks.append(Syntax(signature, lexer, theme=lexer_theme,
-                             background_color=code_background))
+        blocks.append(
+            Syntax(
+                signature,
+                lexer,
+                theme=lexer_theme,
+                background_color=code_background,
+            )
+        )
     if examples.strip():
-        blocks.append(Syntax(examples, "text", theme=lexer_theme,
-                             background_color=code_background, word_wrap=True))
+        blocks.append(
+            Syntax(
+                examples,
+                "text",
+                theme=lexer_theme,
+                background_color=code_background,
+                word_wrap=True,
+            )
+        )
     return Group(*blocks)
 
 
@@ -474,18 +592,26 @@ def subject(ex_name, ex, rendu_dir):
     group = _group_label(ex)
     ext = _file_ext(ex)
     if _rich:
-        _console.print(Panel(
-            subject_blocks(ex),
-            title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
-            subtitle="[dim]%s  ·  file: %s[/dim]" % (
-                group, _esc(os.path.join(rendu_dir, ex_name + ext))),
-            border_style="yellow", box=box.ROUNDED, padding=(1, 2)))
+        _console.print(
+            Panel(
+                subject_blocks(ex),
+                title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
+                subtitle="[dim]%s  ·  file: %s[/dim]"
+                % (group, _esc(os.path.join(rendu_dir, ex_name + ext))),
+                border_style="yellow",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            )
+        )
         print()
         return
 
     print()
-    print(IND0 + c("📄 " + ex_name, "BOLD", "YELLOW")
-          + c("   (%s)" % group, "GRAY"))
+    print(
+        IND0
+        + c("📄 " + ex_name, "BOLD", "YELLOW")
+        + c("   (%s)" % group, "GRAY")
+    )
     print(IND0 + c("─" * (width() - 2), "GRAY"))
     for line in ex["subject"].splitlines():
         if line.startswith("Allowed") and line.rstrip().endswith("None"):
@@ -496,13 +622,19 @@ def subject(ex_name, ex, rendu_dir):
             print(IND0 + c("─" * (width() - 4), "GRAY"))
         elif "->" in line:
             head, _, tail = line.partition("->")
-            print(IND0 + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW"))
-        elif line.strip().startswith("def ") or _looks_like_c_prototype(line.strip()):
+            print(
+                IND0 + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW")
+            )
+        elif line.strip().startswith("def ") or _looks_like_c_prototype(
+            line.strip()
+        ):
             print(IND0 + c(line, "MAGENTA"))
         else:
             print(IND0 + line)
     print(IND0 + c("─" * (width() - 2), "GRAY"))
-    print(IND0 + c("Create file:  %s/%s%s" % (rendu_dir, ex_name, ext), "GRAY"))
+    print(
+        IND0 + c("Create file:  %s/%s%s" % (rendu_dir, ex_name, ext), "GRAY")
+    )
     print()
 
 
@@ -514,9 +646,16 @@ def commands(rows):
         t.add_column(style="dim")
         for cmd, desc in rows:
             t.add_row(_esc(cmd), _esc(desc))
-        _console.print(Panel(t, title="[dim]commands[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED,
-                             padding=(0, 1)))
+        _console.print(
+            Panel(
+                t,
+                title="[dim]commands[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     print(IND0 + c("Commands:", "CYAN"))
     for cmd, desc in rows:
@@ -547,18 +686,34 @@ def stats_table(rows):
             rate = (passes / attempts) if attempts else 0.0
             style = _pass_rate_tier(rate)
             bar = _bar(passes, attempts, 12)
-            t.add_row(_esc(name), "[%s]%s[/%s]" % (style, bar, style),
-                      "%d/%d" % (passes, attempts))
-        _console.print(Panel(t, title="[dim]per-exercise[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED, padding=(0, 1)))
+            t.add_row(
+                _esc(name),
+                "[%s]%s[/%s]" % (style, bar, style),
+                "%d/%d" % (passes, attempts),
+            )
+        _console.print(
+            Panel(
+                t,
+                title="[dim]per-exercise[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     name_width = max((len(name) for name, _, _ in rows), default=0) + 2
     for name, passes, attempts in rows:
         rate = (passes / attempts) if attempts else 0.0
         style = _pass_rate_tier(rate).upper()
         bar = _bar(passes, attempts, 12)
-        print(IND0 + c(name.ljust(name_width), "WHITE") + c(bar, style)
-              + "  " + c("%d/%d" % (passes, attempts), "GRAY"))
+        print(
+            IND0
+            + c(name.ljust(name_width), "WHITE")
+            + c(bar, style)
+            + "  "
+            + c("%d/%d" % (passes, attempts), "GRAY")
+        )
 
 
 def badges_table(rows):
@@ -577,15 +732,28 @@ def badges_table(rows):
                 t.add_row(emoji, _esc(label), _esc(desc))
             else:
                 t.add_row("🔒", "[dim]%s[/dim]" % _esc(label), _esc(desc))
-        _console.print(Panel(t, title="[dim]badges[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED, padding=(0, 1)))
+        _console.print(
+            Panel(
+                t,
+                title="[dim]badges[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     label_width = max((len(label) for _, label, _, _ in rows), default=0) + 2
     for emoji, label, desc, earned in rows:
         icon = emoji if earned else "🔒"
         style = ("WHITE", "BOLD") if earned else ("GRAY",)
-        print(IND0 + icon + " " + c(label.ljust(label_width), *style)
-              + c(desc, "GRAY"))
+        print(
+            IND0
+            + icon
+            + " "
+            + c(label.ljust(label_width), *style)
+            + c(desc, "GRAY")
+        )
 
 
 def menu(rows):
@@ -595,35 +763,53 @@ def menu(rows):
         t.add_column(style="bold white", no_wrap=True)
         t.add_column()
         for key, label, hint in rows:
-            t.add_row(_esc("[%s]" % key),
-                      "%s  [dim]%s[/dim]" % (_esc(label), _esc(hint)))
-        _console.print(Panel(t, border_style="grey37", box=box.ROUNDED,
-                             padding=(0, 1)))
+            t.add_row(
+                _esc("[%s]" % key),
+                "%s  [dim]%s[/dim]" % (_esc(label), _esc(hint)),
+            )
+        _console.print(
+            Panel(t, border_style="grey37", box=box.ROUNDED, padding=(0, 1))
+        )
         return
     for key, label, hint in rows:
-        print(IND0 + c("[%s] " % key, "WHITE", "BOLD") + label.ljust(20)
-              + c(hint, "GRAY"))
+        print(
+            IND0
+            + c("[%s] " % key, "WHITE", "BOLD")
+            + label.ljust(20)
+            + c(hint, "GRAY")
+        )
 
 
 def exercise_table(entries, numbered=False):
     """entries: [(index, level, name, function, standard), …]. `standard`
     marks the exercises a real exam run can actually draw — everything
     else is practice-only, shown with a dim ○ instead of ★. Shared by both
-    testers (examshell/exam_bank.py's Standard/Extra split and c_exam/bank.py's)."""
+    testers (examshell/exam_bank.py's Standard/Extra split and
+    c_exam/bank.py's)."""
     if _rich:
-        t = Table(title="[bold]Exercise pool[/bold]  "
-                        "(★ = can appear in a real exam run)",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]Exercise pool[/bold]  "
+            "(★ = can appear in a real exam run)",
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("#", justify="right", style="dim")
         t.add_column("", justify="center", width=1)
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("Function", style="green")
         for idx, lvl, name, func, standard in entries:
-            mark = "[bold yellow]★[/bold yellow]" if standard else "[dim]○[/dim]"
-            t.add_row(str(idx) if numbered else "", mark, str(lvl),
-                      _esc(name), _esc(func + "()"))
+            mark = (
+                "[bold yellow]★[/bold yellow]" if standard else "[dim]○[/dim]"
+            )
+            t.add_row(
+                str(idx) if numbered else "",
+                mark,
+                str(lvl),
+                _esc(name),
+                _esc(func + "()"),
+            )
         _console.print(t)
         return
     width = max((len(name) for _, _, name, _, _ in entries), default=0) + 2
@@ -634,26 +820,38 @@ def exercise_table(entries, numbered=False):
             last = lvl
         prefix = ("[%d] " % idx) if numbered else ""
         mark = c("★", "YELLOW", "BOLD") if standard else c("○", "GRAY")
-        print(IND1 + c(prefix, "GRAY") + mark + " "
-              + c(name.ljust(width), "WHITE") + c(func + "()", "GRAY"))
+        print(
+            IND1
+            + c(prefix, "GRAY")
+            + mark
+            + " "
+            + c(name.ljust(width), "WHITE")
+            + c(func + "()", "GRAY")
+        )
 
 
 def training_table(entries, numbered=False):
     """entries: [(index, difficulty, name, function), …]"""
     if _rich:
-        t = Table(title="[bold]Training pool[/bold]  "
-                        "(LeetCode-style · practice only, not exam material)",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]Training pool[/bold]  "
+            "(LeetCode-style · practice only, not exam material)",
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("#", justify="right", style="dim")
         t.add_column("Difficulty", justify="center")
         t.add_column("Exercise", style="white")
         t.add_column("Function", style="green")
         for idx, diff, name, func in entries:
             style = DIFFICULTY_STYLE.get(diff, "white")
-            t.add_row(str(idx) if numbered else "",
-                      "[%s]%s[/%s]" % (style, diff.title(), style),
-                      _esc(name), _esc(func + "()"))
+            t.add_row(
+                str(idx) if numbered else "",
+                "[%s]%s[/%s]" % (style, diff.title(), style),
+                _esc(name),
+                _esc(func + "()"),
+            )
         _console.print(t)
         return
     width = max((len(name) for _, _, name, _ in entries), default=0) + 2
@@ -664,8 +862,12 @@ def training_table(entries, numbered=False):
             print(IND0 + c(diff.title() + ":", style))
             last = diff
         prefix = ("[%d] " % idx) if numbered else ""
-        print(IND1 + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
-              + c(func + "()", "GRAY"))
+        print(
+            IND1
+            + c(prefix, "GRAY")
+            + c(name.ljust(width), "WHITE")
+            + c(func + "()", "GRAY")
+        )
 
 
 def overview_table(rows, title="Grading overview"):
@@ -675,25 +877,39 @@ def overview_table(rows, title="Grading overview"):
     """
     glyph = {"ok": ("✔", "green"), "ko": ("✖", "red"), "missing": ("·", "dim")}
     if _rich:
-        t = Table(title="[bold]%s[/bold]" % _esc(title),
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]%s[/bold]" % _esc(title),
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("", justify="center")
         t.add_column("Tests", justify="right", style="dim")
         for lvl, name, status, tests_label in rows:
             mark, style = glyph[status]
-            t.add_row(str(lvl), _esc(name), "[%s]%s[/%s]" % (style, mark, style),
-                      _esc(tests_label))
+            t.add_row(
+                str(lvl),
+                _esc(name),
+                "[%s]%s[/%s]" % (style, mark, style),
+                _esc(tests_label),
+            )
         _console.print(t)
         return
     print(IND0 + c(title, "BOLD"))
     width = max((len(name) for _, name, _, _ in rows), default=0) + 2
     for lvl, name, status, tests_label in rows:
         mark, style = glyph[status]
-        print(IND0 + c(str(lvl), "YELLOW") + "  " + c(mark, style.upper())
-              + "  " + c(name.ljust(width), "WHITE") + c(tests_label, "GRAY"))
+        print(
+            IND0
+            + c(str(lvl), "YELLOW")
+            + "  "
+            + c(mark, style.upper())
+            + "  "
+            + c(name.ljust(width), "WHITE")
+            + c(tests_label, "GRAY")
+        )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -777,7 +993,11 @@ def _diff_columns(exp_items, got_items):
     own caret/marker lines) are dropped — useful in a unified terminal
     diff, redundant once expected/got are already shown as separate
     columns/blocks."""
-    lines = [ln for ln in difflib.ndiff(exp_items, got_items) if not ln.startswith("? ")]
+    lines = [
+        ln
+        for ln in difflib.ndiff(exp_items, got_items)
+        if not ln.startswith("? ")
+    ]
     exp_out, got_out = [], []
     for ln in lines:
         tag, content = ln[:2], ln[2:]
@@ -848,7 +1068,7 @@ def _diff_block(f, exp_text, got_text):
     block = structural_diff(f.expected, exp_text, got_text)
     if block:
         return block
-    if hasattr(f, "index"):        # CFailure: its own strings are already raw
+    if hasattr(f, "index"):  # CFailure: its own strings are already raw
         return line_diff(str(f.expected), str(f.got))
     return line_diff(exp_text, got_text)
 
@@ -901,7 +1121,9 @@ def _failure_texts(f):
     The grader's own bracketed markers ("[TIMEOUT]", "[no output …]")
     stay as they are."""
     exp_text, got_text = repr(f.expected), str(f.got)
-    if hasattr(f, "index") and not (got_text.startswith("[") and got_text.endswith("]")):
+    if hasattr(f, "index") and not (
+        got_text.startswith("[") and got_text.endswith("]")
+    ):
         got_text = repr(got_text)
     return exp_text, got_text
 
@@ -910,6 +1132,7 @@ def _call_text(f, function):
     """The failing call, plus the edge case its input represents (see
     examshell/case_labels.py) when there is one worth naming."""
     from . import case_labels
+
     label = case_labels.describe(f)
     return f.call(function), label
 
@@ -921,15 +1144,23 @@ def _failures(rep, show_fails, diff=False, filepath=None):
         if source:
             _code_panel(source, rep.function, filepath)
     if _rich:
-        t = Table(box=box.SIMPLE_HEAVY, show_edge=False, pad_edge=False,
-                  header_style="bold red")
-        t.add_column("failing call", style="white", max_width=46, overflow="fold")
+        t = Table(
+            box=box.SIMPLE_HEAVY,
+            show_edge=False,
+            pad_edge=False,
+            header_style="bold red",
+        )
+        t.add_column(
+            "failing call", style="white", max_width=46, overflow="fold"
+        )
         t.add_column("expected", style="green", max_width=26, overflow="fold")
         t.add_column("got", style="red", max_width=26, overflow="fold")
         for f in shown:
             exp_text, got_text = _failure_texts(f)
             call, label = _call_text(f, rep.function)
-            call_cell = _esc(call) + ("\n[yellow]⟨%s⟩[/yellow]" % _esc(label) if label else "")
+            call_cell = _esc(call) + (
+                "\n[yellow]⟨%s⟩[/yellow]" % _esc(label) if label else ""
+            )
             if diff:
                 block = _diff_block(f, exp_text, got_text)
                 if block:
@@ -937,19 +1168,26 @@ def _failures(rep, show_fails, diff=False, filepath=None):
                     exp_lines, exp_more = _clip_block(exp_lines)
                     got_lines, got_more = _clip_block(got_lines)
                     exp_shown = "\n".join(exp_lines) + (
-                        "\n… +%d more" % exp_more if exp_more else "")
+                        "\n… +%d more" % exp_more if exp_more else ""
+                    )
                     got_shown = "\n".join(got_lines) + (
-                        "\n… +%d more" % got_more if got_more else "")
+                        "\n… +%d more" % got_more if got_more else ""
+                    )
                     t.add_row(call_cell, _esc(exp_shown), _esc(got_shown))
                 else:
                     idx = first_diff_index(exp_text, got_text)
-                    t.add_row(call_cell,
-                              _diff_markup(exp_text, idx), _diff_markup(got_text, idx))
+                    t.add_row(
+                        call_cell,
+                        _diff_markup(exp_text, idx),
+                        _diff_markup(got_text, idx),
+                    )
             else:
                 t.add_row(call_cell, _esc(exp_text), _esc(got_text))
         _console.print(t)
     else:
-        hang = IND0 + " " * len("[KO] ")     # aligns under the text, like box_message
+        hang = IND0 + " " * len(
+            "[KO] "
+        )  # aligns under the text, like box_message
         for f in shown:
             call, label = _call_text(f, rep.function)
             print(IND0 + c("[KO] " + call[:90], "RED"))
@@ -974,10 +1212,18 @@ def _failures(rep, show_fails, diff=False, filepath=None):
                         print(hang + "  " + c("… +%d more" % got_more, "GRAY"))
                 else:
                     idx = first_diff_index(exp_text, got_text)
-                    print(hang + c("expected : " + exp_text[:_DIFF_CLIP], "GRAY"))
-                    print(hang + c("got      : " + got_text[:_DIFF_CLIP], "GRAY"))
+                    print(
+                        hang + c("expected : " + exp_text[:_DIFF_CLIP], "GRAY")
+                    )
+                    print(
+                        hang + c("got      : " + got_text[:_DIFF_CLIP], "GRAY")
+                    )
                     if idx is not None and idx < _DIFF_CLIP:
-                        print(hang + " " * (len("got      : ") + idx) + c("^", "RED"))
+                        print(
+                            hang
+                            + " " * (len("got      : ") + idx)
+                            + c("^", "RED")
+                        )
             else:
                 print(hang + c("expected : " + exp_text[:70], "GRAY"))
                 print(hang + c("got      : " + got_text[:70], "GRAY"))
@@ -988,17 +1234,20 @@ def _failures(rep, show_fails, diff=False, filepath=None):
 
 def _extract_source(filepath, function_name):
     """Best-effort source lookup for --diff's inline code panel — Python
-    files use examshell.grader's ast-based extractor, C files use c_exam.grader's
-    brace-matching one. Imported lazily (not at module load) so this
-    presentation module doesn't hard-depend on either grading backend at
-    import time. Never raises — both extractors already return None on any
-    failure of their own, and an unexpected import error here is caught
-    too, since this is purely cosmetic and must never crash grading."""
+    files use examshell.grader's ast-based extractor, C files use
+    c_exam.grader's brace-matching one. Imported lazily (not at module
+    load) so this presentation module doesn't hard-depend on either grading
+    backend at import time. Never raises — both extractors already return
+    None on any failure of their own, and an unexpected import error here is
+    caught too, since this is purely cosmetic and must never crash
+    grading."""
     try:
         if filepath.endswith(".c"):
             from c_exam import grader as _c_grader
+
             return _c_grader.extract_function_source(filepath, function_name)
         from . import grader as _py_grader
+
         return _py_grader.extract_function_source(filepath, function_name)
     except Exception:
         return None
@@ -1017,14 +1266,30 @@ def _code_panel(source, function_name, filepath):
     title = "your %s()" % function_name
     if _rich:
         theme = _CODE_SYNTAX_THEMES.get(_theme, "monokai")
-        syntax = Syntax(source, lexer, theme=theme, line_numbers=True,
-                        background_color="default", word_wrap=True)
-        _console.print(Panel(syntax, title="[dim]%s[/dim]" % _esc(title),
-                             title_align="left", border_style="grey37",
-                             box=box.ROUNDED, padding=(0, 1)))
+        syntax = Syntax(
+            source,
+            lexer,
+            theme=theme,
+            line_numbers=True,
+            background_color="default",
+            word_wrap=True,
+        )
+        _console.print(
+            Panel(
+                syntax,
+                title="[dim]%s[/dim]" % _esc(title),
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     header = "── " + title + " "
-    print(IND0 + c(header + "─" * max(0, width() - len(header) - len(IND0)), "GRAY"))
+    print(
+        IND0
+        + c(header + "─" * max(0, width() - len(header) - len(IND0)), "GRAY")
+    )
     for line in source.splitlines():
         print(IND1 + c(line, "GRAY"))
     print(IND0 + c("─" * width(), "GRAY"))
@@ -1050,9 +1315,14 @@ def _verdict(rep):
     mark = "✔" if ok else "✖"
     label = "%s  %s  %s tests passed  %3d%%" % (mark, bar, ratio, pct)
     if _rich:
-        _console.print(Panel(Align.center(Text(label, style="bold white")),
-                             style="on green" if ok else "on red",
-                             box=box.HEAVY, padding=(0, 2)))
+        _console.print(
+            Panel(
+                Align.center(Text(label, style="bold white")),
+                style="on green" if ok else "on red",
+                box=box.HEAVY,
+                padding=(0, 2),
+            )
+        )
         return
     print()
     print(c("  %s  " % label, "BG_GREEN" if ok else "BG_RED", "WHITE", "BOLD"))
@@ -1060,9 +1330,15 @@ def _verdict(rep):
 
 def level_cleared(level):
     if _rich:
-        _console.print(Panel(Align.center(
-            Text("✔  Level %d cleared!" % level, style="bold green")),
-            border_style="green", box=box.ROUNDED))
+        _console.print(
+            Panel(
+                Align.center(
+                    Text("✔  Level %d cleared!" % level, style="bold green")
+                ),
+                border_style="green",
+                box=box.ROUNDED,
+            )
+        )
     else:
         print()
         print(IND0 + c("✔ Level %d cleared!" % level, "GREEN", "BOLD"))
@@ -1077,13 +1353,28 @@ def summary(title, rows, passed=True):
         t.add_column(style="bold white")
         for label, value in rows:
             t.add_row(label, str(value))
-        _console.print(Panel(
-            Group(Align.center(Text(title, style="bold white")),
-                  Rule(style=style), t),
-            border_style=style, box=box.DOUBLE, padding=(1, 3)))
+        _console.print(
+            Panel(
+                Group(
+                    Align.center(Text(title, style="bold white")),
+                    Rule(style=style),
+                    t,
+                ),
+                border_style=style,
+                box=box.DOUBLE,
+                padding=(1, 3),
+            )
+        )
         return
     print()
-    print(c("  " + title + "  ", "BG_GREEN" if passed else "BG_RED", "WHITE", "BOLD"))
+    print(
+        c(
+            "  " + title + "  ",
+            "BG_GREEN" if passed else "BG_RED",
+            "WHITE",
+            "BOLD",
+        )
+    )
     print()
     for label, value in rows:
         print(IND0 + c(label.rjust(12) + " : ", "CYAN") + str(value))

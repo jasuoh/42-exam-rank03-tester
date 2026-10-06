@@ -12,8 +12,8 @@ about the exercise, so it only ever names properties of the input itself,
 never guesses at the bug.
 """
 
-INT_MAX = 2 ** 31 - 1
-INT_MIN = -2 ** 31
+INT_MAX = 2**31 - 1
+INT_MIN = -(2**31)
 MAX_LABELS = 2
 
 
@@ -55,7 +55,11 @@ def _value_traits(value, argv=False):
         return _number_traits(value)
     if isinstance(value, str):
         number = _argv_number(value) if argv else None
-        return _number_traits(number) if number is not None else _string_traits(value)
+        return (
+            _number_traits(number)
+            if number is not None
+            else _string_traits(value)
+        )
     if isinstance(value, (list, tuple)):
         if not value:
             return ["empty list"]

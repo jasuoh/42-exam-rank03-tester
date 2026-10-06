@@ -26,18 +26,43 @@ import shlex
 import sys
 
 from examshell import settings, shell_common, ui
-# Used by the shared flow (examshell/shell_common.py), not here — kept reachable
-# as examshell.<name> for callers and tests that patch them through it.
-from examshell import achievements, hints, report_export, session_store, stats  # noqa: F401
-from examshell.shell_common import DRILL_SIZE, countdown, draw, fmt_duration, time_left  # noqa: F401
+
+# Used by the shared flow (examshell/shell_common.py), not here — kept
+# reachable as examshell.<name> for callers and tests that patch them through
+# it.
+from examshell import (  # noqa: F401
+    achievements,
+    hints,
+    report_export,
+    session_store,
+    stats,
+)
+from examshell.shell_common import (  # noqa: F401
+    DRILL_SIZE,
+    countdown,
+    draw,
+    fmt_duration,
+    time_left,
+)
 from examshell.version import __version__
 
 from . import grader
-from .bank import EXERCISES, LEVELS, N_LEVELS, STANDARD_LEVELS  # noqa: F401 (hooks, see shell_common)
-from .training_bank import DIFFICULTIES, TRAINING_BY_DIFFICULTY, TRAINING_EXERCISES
+
+# hooks, see shell_common
+from .bank import (  # noqa: F401
+    EXERCISES,
+    LEVELS,
+    N_LEVELS,
+    STANDARD_LEVELS,
+)
+from .training_bank import (
+    DIFFICULTIES,
+    TRAINING_BY_DIFFICULTY,
+    TRAINING_EXERCISES,
+)
 
 RENDU_DIR = "c_rendu"
-TOOL = "c"               # tags saved config/stats/reports — "c" vs examshell's "py"
+TOOL = "c"  # tags saved config/stats/reports — "c" vs examshell's "py"
 
 # Every exercise from both pools, keyed by name — used wherever the code only
 # needs "the exercise dict for this name" and doesn't care which pool it is
@@ -51,8 +76,10 @@ ALL_EXERCISES.update(TRAINING_EXERCISES)
 def banner():
     """ui.banner() with this tool's own title — it defaults to the Python
     tool's "Exam Rank 03 · Python Edition" otherwise."""
-    ui.banner(subtitle="Exam Rank 02  ·  Common Core",
-             edition="42 School  ·  C Edition")
+    ui.banner(
+        subtitle="Exam Rank 02  ·  Common Core",
+        edition="42 School  ·  C Edition",
+    )
 
 
 class Config(object):
@@ -74,10 +101,13 @@ class Config(object):
         self.strict_forbidden = args.strict_forbidden or args.strict
         # Exam-only realism, see exam_config() / exam_commands().
         self.relaxed = getattr(args, "relaxed", False)
-        self.time_limit = getattr(args, "time_limit", None)   # minutes
+        self.time_limit = getattr(args, "time_limit", None)  # minutes
         self.blind = getattr(args, "blind", False)
-        self.bare_stub = getattr(args, "bare_stub", False)    # forced on in the exam
+        self.bare_stub = getattr(
+            args, "bare_stub", False
+        )  # forced on in the exam
         self.no_update_check = getattr(args, "no_update_check", False)
+
 
 # ══════════════════════════════════════════════════════════════
 #  TESTER HOOKS  ·  what examshell/shell_common.py needs from this tester
@@ -85,7 +115,8 @@ class Config(object):
 _SH = sys.modules[__name__]
 
 PROG = shell_common.command_name("examshell-c", "c_exam")
-# which folder of the sync repo this tester's --rendu maps to (examshell/sync.py)
+# which folder of the sync repo this tester's --rendu maps to
+# (examshell/sync.py)
 SYNC_SLOT = "c_rendu"
 SOURCE_EXT = ".c"
 EXAM_PROMPT = "c-exam"
@@ -121,9 +152,11 @@ def Session(login=None):
 def grading_notes(cfg):
     """Warnings to show before grading."""
     if cfg.valgrind and not grader.have_valgrind():
-        return ["--valgrind requested but the valgrind binary isn't on PATH — "
-                "skipping the leak/UB check (not available on Apple Silicon "
-                "macOS; works on the real 42 school machines' Linux)"]
+        return [
+            "--valgrind requested but the valgrind binary isn't on PATH — "
+            "skipping the leak/UB check (not available on Apple Silicon "
+            "macOS; works on the real 42 school machines' Linux)"
+        ]
     return []
 
 
@@ -133,11 +166,21 @@ def prepare_grading(ex_name, rng, cfg):
     size = len(ex["cases"]) + (cfg.fuzz if grader.is_fuzzable(ex) else 0)
     return shell_common.GradingJob(
         size,
-        lambda: grader.grade(ex_name, ex, cfg.rendu, cc=cfg.cc, timeout=cfg.timeout,
-                             strict_norm=cfg.strict_norm, rng=rng, fuzz=cfg.fuzz,
-                             valgrind=cfg.valgrind, strict_valgrind=cfg.strict_valgrind,
-                             strict_forbidden=cfg.strict_forbidden),
-        verb="Compiling & grading")
+        lambda: grader.grade(
+            ex_name,
+            ex,
+            cfg.rendu,
+            cc=cfg.cc,
+            timeout=cfg.timeout,
+            strict_norm=cfg.strict_norm,
+            rng=rng,
+            fuzz=cfg.fuzz,
+            valgrind=cfg.valgrind,
+            strict_valgrind=cfg.strict_valgrind,
+            strict_forbidden=cfg.strict_forbidden,
+        ),
+        verb="Compiling & grading",
+    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -319,23 +362,35 @@ def write_stub(ex_name, cfg):
             first_case = next((c for c in ex["cases"] if c), [])
             example_args = "".join(" " + shlex.quote(a) for a in first_case)
             content = PROGRAM_STUB_TEMPLATE.format(
-                name=ex_name, assignment=ex["subject"].splitlines()[0],
-                path=path, short=ex_name, example_args=example_args)
+                name=ex_name,
+                assignment=ex["subject"].splitlines()[0],
+                path=path,
+                short=ex_name,
+                example_args=example_args,
+            )
         elif bare:
             header = grader.header_filename(ex)
             content = BARE_FUNCTION_STUB_TEMPLATE.format(
-                name=ex_name, includes="\n#include \"%s\"\n" % header if header else "",
-                definition=_definition_header(ex["prototype"]))
+                name=ex_name,
+                includes='\n#include "%s"\n' % header if header else "",
+                definition=_definition_header(ex["prototype"]),
+            )
         else:
             header = grader.header_filename(ex)
-            includes = "\n#include \"%s\"\n" % header if header else ""
-            examples = "\n".join(grader.render_call(ex, args)
-                                 for args in ex["cases"][:2])
+            includes = '\n#include "%s"\n' % header if header else ""
+            examples = "\n".join(
+                grader.render_call(ex, args) for args in ex["cases"][:2]
+            )
             content = FUNCTION_STUB_TEMPLATE.format(
-                name=ex_name, assignment=ex["subject"].splitlines()[0],
-                includes=includes, definition=_definition_header(ex["prototype"]),
-                path=path, short=ex_name, helpers=grader.needed_helpers_c(ex),
-                examples=examples)
+                name=ex_name,
+                assignment=ex["subject"].splitlines()[0],
+                includes=includes,
+                definition=_definition_header(ex["prototype"]),
+                path=path,
+                short=ex_name,
+                helpers=grader.needed_helpers_c(ex),
+                examples=examples,
+            )
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(content)
         header = grader.header_filename(ex)
@@ -346,8 +401,17 @@ def write_stub(ex_name, cfg):
                     fh.write(grader.header_content(header))
     except OSError as exc:
         return False, "error", "cannot create %s: %s" % (path, exc)
-    return True, "success", "created %s%s" % (
-        path, "  (bare, like the real exam — --relaxed for the full stub)" if bare else "")
+    return (
+        True,
+        "success",
+        "created %s%s"
+        % (
+            path,
+            "  (bare, like the real exam — --relaxed for the full stub)"
+            if bare
+            else "",
+        ),
+    )
 
 
 def make_stub(ex_name, cfg):
@@ -364,7 +428,11 @@ MENU = [
     ("1", "Start exam", "(%d levels, real exam flow)" % N_LEVELS),
     ("2", "Practice mode", "(drill a single exercise)"),
     ("3", "List all exercises", ""),
-    ("4", "Training mode", "(LeetCode-style, by difficulty — not exam material)"),
+    (
+        "4",
+        "Training mode",
+        "(LeetCode-style, by difficulty — not exam material)",
+    ),
     ("5", "Exam readiness", "(what you've passed, level by level)"),
     ("6", "Daily drill", "(%d exercises from your gaps)" % DRILL_SIZE),
     ("q", "Quit", ""),
@@ -397,130 +465,267 @@ def build_parser():
         description="42 Exam Rank 02 (C) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="examples:\n"
-               "  python3 -m c_exam                       interactive menu\n"
-               "  python3 -m c_exam --exam --seed 42      reproducible exam\n"
-               "  python3 -m c_exam --practice ft_atoi    drill one exercise\n"
-               "  python3 -m c_exam --train easy          drill an easy training exercise\n"
-               "  python3 -m c_exam --grade ft_atoi       grade once, no UI\n"
-               "  python3 -m c_exam --grade-all           grade every c_rendu/ solution\n"
-               "  python3 -m c_exam --check                validate the banks\n")
+        "  python3 -m c_exam                       interactive menu\n"
+        "  python3 -m c_exam --exam --seed 42      reproducible exam\n"
+        "  python3 -m c_exam --practice ft_atoi    drill one exercise\n"
+        "  python3 -m c_exam --train easy          "
+        "drill an easy training exercise\n"
+        "  python3 -m c_exam --grade ft_atoi       grade once, no UI\n"
+        "  python3 -m c_exam --grade-all           "
+        "grade every c_rendu/ solution\n"
+        "  python3 -m c_exam --check                validate the banks\n",
+    )
     mode = p.add_mutually_exclusive_group()
-    mode.add_argument("--exam", action="store_true",
-                      help="start the exam directly, skipping the menu")
-    mode.add_argument("--practice", nargs="?", const="", metavar="EXERCISE",
-                      help="practice mode, optionally on one exercise")
-    mode.add_argument("--list", action="store_true",
-                      help="print the exercise pool and exit")
-    mode.add_argument("--train", nargs="?", const="", metavar="EXERCISE_OR_DIFFICULTY",
-                      help="training mode (LeetCode-style, by difficulty, "
-                           "or 'weak' for your worst-performing exercises "
-                           "so far — see --stats; never part of the exam)")
-    mode.add_argument("--list-training", action="store_true",
-                      help="print the training pool (by difficulty) and exit")
-    mode.add_argument("--grade", metavar="EXERCISE",
-                      help="grade one exercise and exit (0 = OK, 1 = KO)")
-    mode.add_argument("--grade-all", action="store_true",
-                      help="grade every solution found in c_rendu/ and exit")
-    mode.add_argument("--stub", metavar="EXERCISE",
-                      help="create an empty solution file and exit")
-    mode.add_argument("--check", action="store_true",
-                      help="self-test the exercise bank and exit")
-    mode.add_argument("--stats", action="store_true",
-                      help="show your local practice history and exit")
-    mode.add_argument("--feedback", nargs="?", const="idea", choices=("exam", "bug", "idea"),
-                      metavar="exam|bug|idea",
-                      help="open a prefilled GitHub issue form: an exercise that "
-                           "differs from your real exam, a bug, or an idea")
-    mode.add_argument("--auto-sync", choices=("on", "off"),
-                      help="remember: sync automatically at the start and end of "
-                           "every session (needs --sync-setup)")
-    mode.add_argument("--doctor", action="store_true",
-                      help="check this machine: Python, extras, C compiler, "
-                           "valgrind, git, data folder, sync, updates")
-    mode.add_argument("--sync", action="store_true",
-                      help="carry your progress and solutions to/from your own "
-                           "private git repo (see --sync-setup)")
-    mode.add_argument("--sync-setup", metavar="REPO_URL",
-                      help="connect this device to your private git repo for "
-                           "--sync (once per device), then sync")
-    mode.add_argument("--readiness", action="store_true",
-                      help="show, level by level, which exercises the exam "
-                           "can draw you've passed, failed or never tried")
-    mode.add_argument("--drill", nargs="?", type=int, const=DRILL_SIZE, metavar="N",
-                      help="a short daily session (default %d exercises): weak "
-                           "spots, never-tried ones, then the longest-unpractised"
-                           % DRILL_SIZE)
+    mode.add_argument(
+        "--exam",
+        action="store_true",
+        help="start the exam directly, skipping the menu",
+    )
+    mode.add_argument(
+        "--practice",
+        nargs="?",
+        const="",
+        metavar="EXERCISE",
+        help="practice mode, optionally on one exercise",
+    )
+    mode.add_argument(
+        "--list", action="store_true", help="print the exercise pool and exit"
+    )
+    mode.add_argument(
+        "--train",
+        nargs="?",
+        const="",
+        metavar="EXERCISE_OR_DIFFICULTY",
+        help="training mode (LeetCode-style, by difficulty, "
+        "or 'weak' for your worst-performing exercises "
+        "so far — see --stats; never part of the exam)",
+    )
+    mode.add_argument(
+        "--list-training",
+        action="store_true",
+        help="print the training pool (by difficulty) and exit",
+    )
+    mode.add_argument(
+        "--grade",
+        metavar="EXERCISE",
+        help="grade one exercise and exit (0 = OK, 1 = KO)",
+    )
+    mode.add_argument(
+        "--grade-all",
+        action="store_true",
+        help="grade every solution found in c_rendu/ and exit",
+    )
+    mode.add_argument(
+        "--stub",
+        metavar="EXERCISE",
+        help="create an empty solution file and exit",
+    )
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="self-test the exercise bank and exit",
+    )
+    mode.add_argument(
+        "--stats",
+        action="store_true",
+        help="show your local practice history and exit",
+    )
+    mode.add_argument(
+        "--feedback",
+        nargs="?",
+        const="idea",
+        choices=("exam", "bug", "idea"),
+        metavar="exam|bug|idea",
+        help="open a prefilled GitHub issue form: an exercise that "
+        "differs from your real exam, a bug, or an idea",
+    )
+    mode.add_argument(
+        "--auto-sync",
+        choices=("on", "off"),
+        help="remember: sync automatically at the start and end of "
+        "every session (needs --sync-setup)",
+    )
+    mode.add_argument(
+        "--doctor",
+        action="store_true",
+        help="check this machine: Python, extras, C compiler, "
+        "valgrind, git, data folder, sync, updates",
+    )
+    mode.add_argument(
+        "--sync",
+        action="store_true",
+        help="carry your progress and solutions to/from your own "
+        "private git repo (see --sync-setup)",
+    )
+    mode.add_argument(
+        "--sync-setup",
+        metavar="REPO_URL",
+        help="connect this device to your private git repo for "
+        "--sync (once per device), then sync",
+    )
+    mode.add_argument(
+        "--readiness",
+        action="store_true",
+        help="show, level by level, which exercises the exam "
+        "can draw you've passed, failed or never tried",
+    )
+    mode.add_argument(
+        "--drill",
+        nargs="?",
+        type=int,
+        const=DRILL_SIZE,
+        metavar="N",
+        help="a short daily session (default %d exercises): weak "
+        "spots, never-tried ones, then the longest-unpractised" % DRILL_SIZE,
+    )
 
-    p.add_argument("--seed", type=int, default=None,
-                   help="seed the RNG so a run is reproducible")
-    p.add_argument("--rendu", default=RENDU_DIR, metavar="DIR",
-                   help="where your solutions live (default: %(default)s)")
-    p.add_argument("--cc", default=None, metavar="COMPILER",
-                   help="C compiler to use (default: %s, or your saved "
-                        "--save-config value)" % grader.DEFAULT_CC)
-    p.add_argument("--timeout", type=int, default=None, metavar="SEC",
-                   help="seconds allowed per harness run (default: %d, or "
-                        "your saved --save-config value)" % grader.DEFAULT_TIMEOUT)
-    p.add_argument("--strict-norm", action="store_true",
-                   help="fail grading on any compiler warning (-Werror)")
-    p.add_argument("--strict-forbidden", action="store_true",
-                   help="fail grading on a forbidden call, like the real "
-                        "moulinette (default: warning only, like malloc "
-                        "in an ft_strdup-style exercise's forbidden list)")
-    p.add_argument("--strict", action="store_true",
-                   help="shorthand for --strict-norm + --strict-forbidden + "
-                        "--strict-valgrind, and turns on --valgrind itself "
-                        "too (otherwise --strict-valgrind has nothing to "
-                        "check) — the harshest grading this tester can do")
-    p.add_argument("--fuzz", type=int, default=None, metavar="N",
-                   help="random extra cases per fuzzable exercise (default: %d, or "
-                        "your saved --save-config value) — only \"function\"-kind "
-                        "exercises whose args are all safe to randomise are "
-                        "affected; everything else still grades on curated cases "
-                        "alone" % grader.DEFAULT_FUZZ)
-    p.add_argument("--valgrind", action="store_true",
-                   help="run your compiled solution through valgrind's leak "
-                        "checker too (warning only; needs valgrind on PATH — "
-                        "not available on Apple Silicon macOS, but is on the "
-                        "real 42 school machines' Linux)")
-    p.add_argument("--strict-valgrind", action="store_true",
-                   help="like --valgrind, but a leak/memory error fails grading "
-                        "instead of only warning")
-    p.add_argument("--show-fails", type=int, default=None, metavar="N",
-                   help="failing tests to display (default: 4, or your "
-                        "saved --save-config value)")
-    p.add_argument("--diff", action="store_true",
-                   help="on a failing test, show the full expected/got "
-                        "values with a pointer at the first character "
-                        "where they differ, instead of a 70-char clip")
-    p.add_argument("--theme", choices=ui.THEME_NAMES, default=None,
-                   help="colour theme: dark (default), light, or highcontrast "
-                        "(colour-blind friendly)")
-    p.add_argument("--save-config", action="store_true",
-                   help="remember --theme/--timeout/--fuzz/--show-fails/--cc for "
-                        "next time, then exit")
-    p.add_argument("--no-color", action="store_true",
-                   help="disable colours (also honours NO_COLOR)")
-    p.add_argument("--relaxed", action="store_true",
-                   help="exam mode only: grade leniently (compiler warnings and forbidden calls only warn) "
-                        "and allow 'new' to redraw an exercise — by default "
-                        "the exam is as strict as the real one")
-    p.add_argument("--blind", action="store_true",
-                   help="exam mode only: like the real exam, show how many "
-                        "tests failed but not which inputs")
-    p.add_argument("--tui", action="store_true",
-                   help="full-screen interface (needs Python 3.9+ and "
-                        "`pip install textual`; falls back to the normal one)")
-    p.add_argument("--time-limit", type=int, default=None, metavar="MIN",
-                   help="exam mode only: end the exam after MIN minutes, "
-                        "with a countdown in the prompt (default: no limit)")
-    p.add_argument("--no-update-check", action="store_true",
-                   help="don't check GitHub (at most once a day, in the "
-                        "background) for a newer version of this tester")
-    p.add_argument("--version", action="version",
-                   version="%(prog)s " + __version__)
-    p.add_argument("--no-rich", action="store_true",
-                   help="force the plain ANSI UI even if rich is installed")
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="seed the RNG so a run is reproducible",
+    )
+    p.add_argument(
+        "--rendu",
+        default=RENDU_DIR,
+        metavar="DIR",
+        help="where your solutions live (default: %(default)s)",
+    )
+    p.add_argument(
+        "--cc",
+        default=None,
+        metavar="COMPILER",
+        help="C compiler to use (default: %s, or your saved "
+        "--save-config value)" % grader.DEFAULT_CC,
+    )
+    p.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        metavar="SEC",
+        help="seconds allowed per harness run (default: %d, or "
+        "your saved --save-config value)" % grader.DEFAULT_TIMEOUT,
+    )
+    p.add_argument(
+        "--strict-norm",
+        action="store_true",
+        help="fail grading on any compiler warning (-Werror)",
+    )
+    p.add_argument(
+        "--strict-forbidden",
+        action="store_true",
+        help="fail grading on a forbidden call, like the real "
+        "moulinette (default: warning only, like malloc "
+        "in an ft_strdup-style exercise's forbidden list)",
+    )
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="shorthand for --strict-norm + --strict-forbidden + "
+        "--strict-valgrind, and turns on --valgrind itself "
+        "too (otherwise --strict-valgrind has nothing to "
+        "check) — the harshest grading this tester can do",
+    )
+    p.add_argument(
+        "--fuzz",
+        type=int,
+        default=None,
+        metavar="N",
+        help="random extra cases per fuzzable exercise (default: %d, or "
+        'your saved --save-config value) — only "function"-kind '
+        "exercises whose args are all safe to randomise are "
+        "affected; everything else still grades on curated cases "
+        "alone" % grader.DEFAULT_FUZZ,
+    )
+    p.add_argument(
+        "--valgrind",
+        action="store_true",
+        help="run your compiled solution through valgrind's leak "
+        "checker too (warning only; needs valgrind on PATH — "
+        "not available on Apple Silicon macOS, but is on the "
+        "real 42 school machines' Linux)",
+    )
+    p.add_argument(
+        "--strict-valgrind",
+        action="store_true",
+        help="like --valgrind, but a leak/memory error fails grading "
+        "instead of only warning",
+    )
+    p.add_argument(
+        "--show-fails",
+        type=int,
+        default=None,
+        metavar="N",
+        help="failing tests to display (default: 4, or your "
+        "saved --save-config value)",
+    )
+    p.add_argument(
+        "--diff",
+        action="store_true",
+        help="on a failing test, show the full expected/got "
+        "values with a pointer at the first character "
+        "where they differ, instead of a 70-char clip",
+    )
+    p.add_argument(
+        "--theme",
+        choices=ui.THEME_NAMES,
+        default=None,
+        help="colour theme: dark (default), light, or highcontrast "
+        "(colour-blind friendly)",
+    )
+    p.add_argument(
+        "--save-config",
+        action="store_true",
+        help="remember --theme/--timeout/--fuzz/--show-fails/--cc for "
+        "next time, then exit",
+    )
+    p.add_argument(
+        "--no-color",
+        action="store_true",
+        help="disable colours (also honours NO_COLOR)",
+    )
+    p.add_argument(
+        "--relaxed",
+        action="store_true",
+        help="exam mode only: grade leniently (compiler warnings and "
+        "forbidden calls only warn) "
+        "and allow 'new' to redraw an exercise — by default "
+        "the exam is as strict as the real one",
+    )
+    p.add_argument(
+        "--blind",
+        action="store_true",
+        help="exam mode only: like the real exam, show how many "
+        "tests failed but not which inputs",
+    )
+    p.add_argument(
+        "--tui",
+        action="store_true",
+        help="full-screen interface (needs Python 3.9+ and "
+        "`pip install textual`; falls back to the normal one)",
+    )
+    p.add_argument(
+        "--time-limit",
+        type=int,
+        default=None,
+        metavar="MIN",
+        help="exam mode only: end the exam after MIN minutes, "
+        "with a countdown in the prompt (default: no limit)",
+    )
+    p.add_argument(
+        "--no-update-check",
+        action="store_true",
+        help="don't check GitHub (at most once a day, in the "
+        "background) for a newer version of this tester",
+    )
+    p.add_argument(
+        "--version", action="version", version="%(prog)s " + __version__
+    )
+    p.add_argument(
+        "--no-rich",
+        action="store_true",
+        help="force the plain ANSI UI even if rich is installed",
+    )
     return p
 
 
@@ -529,7 +734,9 @@ def apply_saved_settings(args):
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
     args.theme = settings.merged(args, file_config, "theme", "dark")
-    args.timeout = settings.merged(args, file_config, "timeout", grader.DEFAULT_TIMEOUT)
+    args.timeout = settings.merged(
+        args, file_config, "timeout", grader.DEFAULT_TIMEOUT
+    )
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
     args.cc = settings.merged(args, file_config, "cc", grader.DEFAULT_CC)
@@ -550,18 +757,35 @@ def default_config(**overrides):
 
 def main(argv=None):
     args = apply_saved_settings(build_parser().parse_args(argv))
-    ui.configure(rich=not args.no_rich, color=False if args.no_color else None,
-                theme=args.theme)
+    ui.configure(
+        rich=not args.no_rich,
+        color=False if args.no_color else None,
+        theme=args.theme,
+    )
     cfg = Config(args)
 
     if args.save_config:
-        ok = settings.save_config({"theme": args.theme, "timeout": args.timeout,
-                                    "fuzz": args.fuzz, "show_fails": args.show_fails,
-                                    "cc": args.cc})
+        ok = settings.save_config(
+            {
+                "theme": args.theme,
+                "timeout": args.timeout,
+                "fuzz": args.fuzz,
+                "show_fails": args.show_fails,
+                "cc": args.cc,
+            }
+        )
         if ok:
-            ui.success("saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d cc=%s"
-                      % (settings.CONFIG_PATH, args.theme, args.timeout,
-                         args.fuzz, args.show_fails, args.cc))
+            ui.success(
+                "saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d cc=%s"
+                % (
+                    settings.CONFIG_PATH,
+                    args.theme,
+                    args.timeout,
+                    args.fuzz,
+                    args.show_fails,
+                    args.cc,
+                )
+            )
         else:
             ui.error("could not write %s" % settings.CONFIG_PATH)
         return 0 if ok else 1
@@ -597,24 +821,45 @@ def main(argv=None):
     if args.check:
         rng = random.Random(args.seed if args.seed is not None else 0)
         if cfg.valgrind and not grader.have_valgrind():
-            ui.warn("--valgrind requested but the valgrind binary isn't on "
-                    "PATH — skipping the leak/UB check for both banks")
+            ui.warn(
+                "--valgrind requested but the valgrind binary isn't on "
+                "PATH — skipping the leak/UB check for both banks"
+            )
         ui.info("checking the C exercise bank …")
-        problems = grader.selftest(EXERCISES, LEVELS, cc=cfg.cc, timeout=cfg.timeout,
-                                   rng=rng, fuzz=cfg.fuzz, valgrind=cfg.valgrind)
+        problems = grader.selftest(
+            EXERCISES,
+            LEVELS,
+            cc=cfg.cc,
+            timeout=cfg.timeout,
+            rng=rng,
+            fuzz=cfg.fuzz,
+            valgrind=cfg.valgrind,
+        )
         print()
         ui.info("checking the C training bank …")
-        problems += grader.selftest(TRAINING_EXERCISES, TRAINING_BY_DIFFICULTY,
-                                    cc=cfg.cc, timeout=cfg.timeout, rng=rng, fuzz=cfg.fuzz,
-                                    valgrind=cfg.valgrind)
+        problems += grader.selftest(
+            TRAINING_EXERCISES,
+            TRAINING_BY_DIFFICULTY,
+            cc=cfg.cc,
+            timeout=cfg.timeout,
+            rng=rng,
+            fuzz=cfg.fuzz,
+            valgrind=cfg.valgrind,
+        )
         print()
         if problems:
             ui.error("%d problem(s) found in the bank(s)" % problems)
             return 1
-        ui.success("banks are consistent — %d exam exercises (%d levels), "
-                   "%d training exercises (%d difficulties)"
-                   % (len(EXERCISES), N_LEVELS, len(TRAINING_EXERCISES),
-                      len(DIFFICULTIES)))
+        ui.success(
+            "banks are consistent — %d exam exercises (%d levels), "
+            "%d training exercises (%d difficulties)"
+            % (
+                len(EXERCISES),
+                N_LEVELS,
+                len(TRAINING_EXERCISES),
+                len(DIFFICULTIES),
+            )
+        )
         return 0
 
     if args.list:

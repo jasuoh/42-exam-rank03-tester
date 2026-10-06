@@ -9,15 +9,18 @@ import unittest
 try:
     from rich.console import Console
     from examshell.tui import render
+
     HAVE_RICH = True
-except ImportError:                                        # pragma: no cover
+except ImportError:  # pragma: no cover
     HAVE_RICH = False
 
 from examshell.grader import Failure, Report
 
 
 def text_of(renderable, width=100):
-    console = Console(width=width, record=True, color_system=None, file=io.StringIO())
+    console = Console(
+        width=width, record=True, color_system=None, file=io.StringIO()
+    )
     console.print(renderable)
     return console.export_text()
 
@@ -27,8 +30,10 @@ class ReportViewTests(unittest.TestCase):
     def _failing(self):
         report = Report("py_inter", "inter")
         report.total, report.passed = 3, 1
-        report.failures = [Failure(["", "abc"], "", "'x'"),
-                           Failure(["a\tb", "b"], "b", "'a'")]
+        report.failures = [
+            Failure(["", "abc"], "", "'x'"),
+            Failure(["a\tb", "b"], "b", "'a'"),
+        ]
         return report
 
     def test_failures_show_call_edge_case_and_values(self):
@@ -45,7 +50,9 @@ class ReportViewTests(unittest.TestCase):
         self.assertNotIn("inter('', 'abc')", out)
 
     def test_fatal(self):
-        report = Report("x", "f").fail("FILE_MISSING", "expected your solution at r/x.py")
+        report = Report("x", "f").fail(
+            "FILE_MISSING", "expected your solution at r/x.py"
+        )
         out = text_of(render.report_view(report, "f"))
         self.assertIn("File not found", out)
         self.assertIn("expected your solution at r/x.py", out)
@@ -67,14 +74,30 @@ class ChartTests(unittest.TestCase):
         self.assertEqual(len(render.bar(0, 0, 8).plain), 8)
 
     def test_readiness_view_lists_every_exercise(self):
-        levels = [(1, 1, 2, [("a", {"status": "passed"}), ("b", {"status": "untried"})]),
-                  (2, 0, 1, [("c", {"status": "failed"})])]
+        levels = [
+            (
+                1,
+                1,
+                2,
+                [("a", {"status": "passed"}), ("b", {"status": "untried"})],
+            ),
+            (2, 0, 1, [("c", {"status": "failed"})]),
+        ]
         out = text_of(render.readiness_view(levels))
-        for piece in ("Overall", "1/3", "Level 1", "Level 2", "a", "b", "c",
-                      "tried, never passed"):
+        for piece in (
+            "Overall",
+            "1/3",
+            "Level 1",
+            "Level 2",
+            "a",
+            "b",
+            "c",
+            "tried, never passed",
+        ):
             self.assertIn(piece, out)
 
     def test_stepper(self):
         class S(object):
             level = 2
+
         self.assertEqual(render.stepper(S(), 4).plain, "● ◉ ○ ○ ")

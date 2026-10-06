@@ -12,10 +12,11 @@ import textwrap
 
 def sub(name, body):
     """Build a subject string in the standard `Assignment name: ...` shape."""
-    head = (f"Assignment name  : {name}\n"
-            f"Expected files   : {name}.py\n"
-            f"Allowed functions: None\n"
-            + "-" * 80 + "\n\n")
+    head = (
+        f"Assignment name  : {name}\n"
+        f"Expected files   : {name}.py\n"
+        f"Allowed functions: None\n" + "-" * 80 + "\n\n"
+    )
     return head + textwrap.dedent(body).strip("\n") + "\n"
 
 
@@ -37,6 +38,8 @@ def signature_for(subject, function):
     """
     for line in subject.splitlines():
         stripped = line.strip()
-        if stripped.startswith("def %s(" % function) and stripped.endswith(":"):
+        if stripped.startswith("def %s(" % function) and stripped.endswith(
+            ":"
+        ):
             return stripped
     return None

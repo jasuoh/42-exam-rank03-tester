@@ -63,7 +63,7 @@ class ShortReprTests(unittest.TestCase):
 
     def test_long_value_is_truncated(self):
         text = grader.short_repr("x" * 500, limit=20)
-        self.assertEqual(len(text), 21)          # 20 chars + the ellipsis
+        self.assertEqual(len(text), 21)  # 20 chars + the ellipsis
         self.assertTrue(text.endswith("…"))
 
     def test_unrepresentable_object_does_not_raise(self):
@@ -71,7 +71,9 @@ class ShortReprTests(unittest.TestCase):
             def __repr__(self):
                 raise RuntimeError("nope")
 
-        self.assertEqual(grader.short_repr(Cursed()), "<unrepresentable object>")
+        self.assertEqual(
+            grader.short_repr(Cursed()), "<unrepresentable object>"
+        )
 
 
 class FreeGlobalsTests(unittest.TestCase):
@@ -79,22 +81,29 @@ class FreeGlobalsTests(unittest.TestCase):
         self.assertEqual(grader._free_globals(_fully_self_contained), [])
 
     def test_module_global_is_detected(self):
-        self.assertIn("_SOME_MODULE_GLOBAL",
-                      grader._free_globals(_uses_a_module_global))
+        self.assertIn(
+            "_SOME_MODULE_GLOBAL", grader._free_globals(_uses_a_module_global)
+        )
 
 
 class BuildTestsTests(unittest.TestCase):
     def test_curated_cases_are_deduplicated(self):
-        ex = {"oracle": lambda x: x * 2,
-              "cases": [[1], [1], [2]],
-              "fuzz": lambda rng: [rng.randint(0, 1000)]}
+        ex = {
+            "oracle": lambda x: x * 2,
+            "cases": [[1], [1], [2]],
+            "fuzz": lambda rng: [rng.randint(0, 1000)],
+        }
         tests = grader.build_tests("fake", ex, random.Random(0), fuzz=0)
         self.assertEqual(len(tests), 2)
         self.assertIn(([1], 2), [(a, e) for a, e in tests])
         self.assertIn(([2], 4), [(a, e) for a, e in tests])
 
     def test_curated_oracle_crash_is_a_bank_error(self):
-        ex = {"oracle": lambda x: 1 / x, "cases": [[0]], "fuzz": lambda rng: [1]}
+        ex = {
+            "oracle": lambda x: 1 / x,
+            "cases": [[0]],
+            "fuzz": lambda rng: [1],
+        }
         with self.assertRaises(grader.BankError):
             grader.build_tests("fake", ex, random.Random(0), fuzz=0)
 
@@ -105,8 +114,11 @@ class BuildTestsTests(unittest.TestCase):
 
     def test_fuzz_case_that_crashes_the_oracle_is_skipped_not_fatal(self):
         # unlike a curated case, a bad *fuzz* draw is just discarded
-        ex = {"oracle": lambda x: 1 / x, "cases": [],
-              "fuzz": lambda rng: [rng.choice([0, 1, 2])]}
+        ex = {
+            "oracle": lambda x: 1 / x,
+            "cases": [],
+            "fuzz": lambda rng: [rng.choice([0, 1, 2])],
+        }
         tests = grader.build_tests("fake", ex, random.Random(1), fuzz=20)
         self.assertTrue(all(args != [0] for args, _ in tests))
 
@@ -150,28 +162,36 @@ class FindForbiddenCallsTests(unittest.TestCase):
 
     def test_builtin_call_is_found(self):
         path = self._write("def f(x):\n    return sorted(x)\n")
-        self.assertEqual(grader.find_forbidden_calls(path, ("sorted", "sort")),
-                         ["sorted"])
+        self.assertEqual(
+            grader.find_forbidden_calls(path, ("sorted", "sort")), ["sorted"]
+        )
 
     def test_method_call_is_found(self):
         path = self._write("def f(x):\n    x.sort()\n    return x\n")
-        self.assertEqual(grader.find_forbidden_calls(path, ("sorted", "sort")),
-                         ["sort"])
+        self.assertEqual(
+            grader.find_forbidden_calls(path, ("sorted", "sort")), ["sort"]
+        )
 
     def test_unrelated_name_is_not_flagged(self):
         path = self._write("def f(x):\n    return list(x)\n")
-        self.assertEqual(grader.find_forbidden_calls(path, ("sorted", "sort")), [])
+        self.assertEqual(
+            grader.find_forbidden_calls(path, ("sorted", "sort")), []
+        )
 
     def test_name_mentioned_without_a_call_is_not_flagged(self):
         path = self._write("sorted = None\ndef f(x):\n    return x\n")
-        self.assertEqual(grader.find_forbidden_calls(path, ("sorted", "sort")), [])
+        self.assertEqual(
+            grader.find_forbidden_calls(path, ("sorted", "sort")), []
+        )
 
     def test_empty_forbidden_list_short_circuits(self):
         path = self._write("def f(x):\n    return sorted(x)\n")
         self.assertEqual(grader.find_forbidden_calls(path, ()), [])
 
     def test_missing_file_returns_empty_not_an_exception(self):
-        self.assertEqual(grader.find_forbidden_calls("/no/such/file.py", ("sorted",)), [])
+        self.assertEqual(
+            grader.find_forbidden_calls("/no/such/file.py", ("sorted",)), []
+        )
 
     def test_syntax_error_returns_empty_not_an_exception(self):
         path = self._write("def broken(:\n")
@@ -187,8 +207,9 @@ class ExtractFunctionSourceTests(unittest.TestCase):
         return path
 
     def test_extracts_the_named_function(self):
-        path = self._write("def other(x):\n    return 0\n\n\n"
-                           "def demo(x):\n    return x + 1\n")
+        path = self._write(
+            "def other(x):\n    return 0\n\n\ndef demo(x):\n    return x + 1\n"
+        )
         src = grader.extract_function_source(path, "demo")
         self.assertIn("def demo(x):", src)
         self.assertIn("return x + 1", src)
@@ -199,21 +220,26 @@ class ExtractFunctionSourceTests(unittest.TestCase):
         self.assertIsNone(grader.extract_function_source(path, "demo"))
 
     def test_missing_file_returns_none_not_an_exception(self):
-        self.assertIsNone(grader.extract_function_source("/no/such/file.py", "demo"))
+        self.assertIsNone(
+            grader.extract_function_source("/no/such/file.py", "demo")
+        )
 
     def test_syntax_error_returns_none_not_an_exception(self):
         path = self._write("def broken(:\n")
         self.assertIsNone(grader.extract_function_source(path, "broken"))
 
     def test_last_definition_wins_on_redefinition(self):
-        path = self._write("def demo(x):\n    return 1\n\n\n"
-                           "def demo(x):\n    return 2\n")
+        path = self._write(
+            "def demo(x):\n    return 1\n\n\ndef demo(x):\n    return 2\n"
+        )
         src = grader.extract_function_source(path, "demo")
         self.assertIn("return 2", src)
         self.assertNotIn("return 1", src)
 
     def test_extracted_source_is_valid_python_on_its_own(self):
-        path = self._write("def demo(x):\n    if x:\n        return x\n    return 0\n")
+        path = self._write(
+            "def demo(x):\n    if x:\n        return x\n    return 0\n"
+        )
         src = grader.extract_function_source(path, "demo")
         namespace = {}
         exec(compile(src, "<test>", "exec"), namespace)
@@ -234,7 +260,7 @@ class OracleSourceTests(unittest.TestCase):
 class ReportTests(unittest.TestCase):
     def test_ok_requires_total_greater_than_zero(self):
         report = grader.Report("ex", "fn")
-        self.assertFalse(report.ok)          # 0/0 is not a pass
+        self.assertFalse(report.ok)  # 0/0 is not a pass
         report.total, report.passed = 5, 5
         self.assertTrue(report.ok)
         report.passed = 4
@@ -250,7 +276,9 @@ class ReportTests(unittest.TestCase):
         report = grader.Report("ex", "fn").fail("SOMETHING_NEW")
         self.assertEqual(report.fatal_title, "SOMETHING_NEW")
         known = grader.Report("ex", "fn").fail("FILE_MISSING")
-        self.assertEqual(known.fatal_title, grader.FATAL_TITLES["FILE_MISSING"])
+        self.assertEqual(
+            known.fatal_title, grader.FATAL_TITLES["FILE_MISSING"]
+        )
 
     def test_failure_call_formatting(self):
         failure = grader.Failure(["ab", 3], "expected", "got")
@@ -262,8 +290,12 @@ class GradeTests(unittest.TestCase):
 
     def test_missing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            ex = {"oracle": lambda x: x, "cases": [[1]],
-                  "fuzz": lambda rng: [1], "function": "demo"}
+            ex = {
+                "oracle": lambda x: x,
+                "cases": [[1]],
+                "fuzz": lambda rng: [1],
+                "function": "demo",
+            }
             report = grader.grade("demo", ex, tmp, random.Random(0))
             self.assertEqual(report.fatal, "FILE_MISSING")
 
@@ -272,10 +304,15 @@ class GradeTests(unittest.TestCase):
             path = os.path.join(tmp, "demo.py")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("import os\ndef demo(x):\n    return x\n")
-            ex = {"oracle": lambda x: x, "cases": [[1]],
-                  "fuzz": lambda rng: [1], "function": "demo"}
-            report = grader.grade("demo", ex, tmp, random.Random(0),
-                                  strict_imports=True)
+            ex = {
+                "oracle": lambda x: x,
+                "cases": [[1]],
+                "fuzz": lambda rng: [1],
+                "function": "demo",
+            }
+            report = grader.grade(
+                "demo", ex, tmp, random.Random(0), strict_imports=True
+            )
             self.assertEqual(report.fatal, "FORBIDDEN")
 
     def test_forbidden_call_fails_unconditionally_no_flag_needed(self):
@@ -283,9 +320,13 @@ class GradeTests(unittest.TestCase):
             path = os.path.join(tmp, "demo.py")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("def demo(x):\n    return sorted(x)\n")
-            ex = {"oracle": lambda x: sorted(x), "cases": [[[1]]],
-                  "fuzz": lambda rng: [[1]], "function": "demo",
-                  "forbidden": ("sorted", "sort")}
+            ex = {
+                "oracle": lambda x: sorted(x),
+                "cases": [[[1]]],
+                "fuzz": lambda rng: [[1]],
+                "function": "demo",
+                "forbidden": ("sorted", "sort"),
+            }
             report = grader.grade("demo", ex, tmp, random.Random(0))
             self.assertEqual(report.fatal, "FORBIDDEN_CALL")
             self.assertIn("sorted", report.detail)
@@ -295,8 +336,12 @@ class GradeTests(unittest.TestCase):
             path = os.path.join(tmp, "demo.py")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("def demo(x):\n    return sorted(x)\n")
-            ex = {"oracle": lambda x: sorted(x), "cases": [[[1]]],
-                  "fuzz": lambda rng: [[1]], "function": "demo"}
+            ex = {
+                "oracle": lambda x: sorted(x),
+                "cases": [[[1]]],
+                "fuzz": lambda rng: [[1]],
+                "function": "demo",
+            }
             report = grader.grade("demo", ex, tmp, random.Random(0))
             self.assertTrue(report.ok, report.failures)
 
@@ -305,8 +350,12 @@ class GradeTests(unittest.TestCase):
             path = os.path.join(tmp, "demo.py")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("def demo(x):\n    return x * 2\n")
-            ex = {"oracle": lambda x: x * 2, "cases": [[1], [2], [3]],
-                  "fuzz": lambda rng: [rng.randint(-5, 5)], "function": "demo"}
+            ex = {
+                "oracle": lambda x: x * 2,
+                "cases": [[1], [2], [3]],
+                "fuzz": lambda rng: [rng.randint(-5, 5)],
+                "function": "demo",
+            }
             report = grader.grade("demo", ex, tmp, random.Random(0), fuzz=3)
             self.assertTrue(report.ok, report.failures)
             self.assertEqual(report.passed, report.total)

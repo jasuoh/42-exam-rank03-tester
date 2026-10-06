@@ -45,7 +45,15 @@ import os
 import random
 import time
 
-from . import achievements, hints, report_export, session_store, stats, ui, update_check
+from . import (
+    achievements,
+    hints,
+    report_export,
+    session_store,
+    stats,
+    ui,
+    update_check,
+)
 from .grader import BankError
 
 DRILL_SIZE = 5
@@ -59,6 +67,7 @@ def command_name(installed, module):
     (`examshell`, `examshell-c`) or `python3 -m <module>` — so --help,
     --version and every "run `…`" hint name the command they actually use."""
     import sys
+
     if os.path.basename(sys.argv[0] or "") == installed:
         return installed
     return "python3 -m " + module
@@ -66,7 +75,11 @@ def command_name(installed, module):
 
 def fmt_duration(seconds):
     seconds = int(seconds)
-    return "%02d:%02d:%02d" % (seconds // 3600, (seconds % 3600) // 60, seconds % 60)
+    return "%02d:%02d:%02d" % (
+        seconds // 3600,
+        (seconds % 3600) // 60,
+        seconds % 60,
+    )
 
 
 def draw(rng, pool, avoid=None):
@@ -88,7 +101,11 @@ def filter_entries(entries, query, name_col, func_col):
     if not query:
         return entries
     q = query.lower()
-    return [e for e in entries if q in e[name_col].lower() or q in e[func_col].lower()]
+    return [
+        e
+        for e in entries
+        if q in e[name_col].lower() or q in e[func_col].lower()
+    ]
 
 
 def percent(part, whole):
@@ -132,7 +149,7 @@ class Session(object):
         self.current_ex = None
         self.passed = []
         self.attempts = 0
-        self.history = []          # [(level, exercise, attempts, seconds)]
+        self.history = []  # [(level, exercise, attempts, seconds)]
 
     def start(self):
         self.start_time = time.time()
@@ -181,10 +198,21 @@ def record(sh, ex_name, report, cfg, mode):
     student has failed this exercise STUCK_THRESHOLD times in a row."""
     ex = sh.ALL_EXERCISES[ex_name]
     before = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
-    stats.record(sh.TOOL, ex_name, ex.get("level"), report.ok,
-                 report.passed, report.total, mode)
-    badges = [(emoji, label) for _bid, emoji, label, _desc in achievements.new_since(
-        before, achievements.unlocked(sh.TOOL, sh.N_LEVELS))]
+    stats.record(
+        sh.TOOL,
+        ex_name,
+        ex.get("level"),
+        report.ok,
+        report.passed,
+        report.total,
+        mode,
+    )
+    badges = [
+        (emoji, label)
+        for _bid, emoji, label, _desc in achievements.new_since(
+            before, achievements.unlocked(sh.TOOL, sh.N_LEVELS)
+        )
+    ]
     hint = None
     if not report.ok and mode != "exam":
         if stats.consecutive_fails(sh.TOOL, ex_name) >= hints.STUCK_THRESHOLD:
@@ -258,7 +286,9 @@ class ExamRun(object):
         # Restore how much of this level's clock had already run before the
         # earlier quit — otherwise a resume would restart it from zero and
         # drop that time from session.history / the report.
-        self.level_started = time.time() - saved.get("level_elapsed_seconds", 0)
+        self.level_started = time.time() - saved.get(
+            "level_elapsed_seconds", 0
+        )
         self.resumed = True
 
     @property
@@ -279,7 +309,8 @@ class ExamRun(object):
 
     def _new_exercise(self, avoid=None):
         self.session.current_ex = draw(
-            self.rng, self.sh.STANDARD_LEVELS[self.session.level], avoid)
+            self.rng, self.sh.STANDARD_LEVELS[self.session.level], avoid
+        )
         self.level_started, self.level_attempts = time.time(), 0
 
     def ensure_exercise(self):
@@ -313,8 +344,14 @@ class ExamRun(object):
         Returns True when that was the last level."""
         s = self.session
         s.passed.append(s.current_ex)
-        s.history.append((s.level, s.current_ex, self.level_attempts,
-                          time.time() - self.level_started))
+        s.history.append(
+            (
+                s.level,
+                s.current_ex,
+                self.level_attempts,
+                time.time() - self.level_started,
+            )
+        )
         s.level += 1
         s.current_ex = None
         return self.finished
@@ -333,12 +370,18 @@ class ExamRun(object):
     # ── persistence ───────────────────────────────────────────────────
     def save(self):
         """Save mid-level, so a resume lands on the same exercise and clock."""
-        session_store.save(self.sh.TOOL, self.session, self.rng,
-                           self.session.current_ex, self.level_attempts,
-                           self.level_started)
+        session_store.save(
+            self.sh.TOOL,
+            self.session,
+            self.rng,
+            self.session.current_ex,
+            self.level_attempts,
+            self.level_started,
+        )
 
     def save_between_levels(self):
-        """Save right after a level was cleared — the next one isn't drawn yet."""
+        """Save right after a level was cleared — the next one isn't drawn
+        yet."""
         session_store.save(self.sh.TOOL, self.session, self.rng, None, 0)
 
     def discard_save(self):
@@ -362,8 +405,12 @@ def grade_exercise(sh, ex_name, rng, cfg, mode="practice"):
     # --blind: in the exam, like the real one, you learn THAT you failed,
     # not on which input — testing your own edge cases is part of the exam.
     blind = mode == "exam" and getattr(cfg, "blind", False)
-    ui.report(report, 0 if blind else cfg.show_fails, cfg.diff,
-              solution_path(sh, ex_name, cfg))
+    ui.report(
+        report,
+        0 if blind else cfg.show_fails,
+        cfg.diff,
+        solution_path(sh, ex_name, cfg),
+    )
     outcome = record(sh, ex_name, report, cfg, mode)
     for emoji, label in outcome.badges:
         ui.badge_unlocked(emoji, label)
@@ -397,16 +444,21 @@ def grade_all(sh, cfg):
         with ui.spinner("%s %s … (%d tests)" % (job.verb, name, job.size)):
             report = job.run()
         all_ok = all_ok and report.ok
-        label = ("%d/%d" % (report.passed, report.total) if not report.fatal
-                 else report.fatal_title)
+        label = (
+            "%d/%d" % (report.passed, report.total)
+            if not report.fatal
+            else report.fatal_title
+        )
         rows.append((level, name, "ok" if report.ok else "ko", label))
 
     ui.overview_table(rows)
     if found == 0:
         ui.note("no solutions found in %s/ — nothing to grade" % cfg.rendu)
     else:
-        ui.info("%d/%d solutions found — run --grade EXERCISE for details"
-                % (found, len(rows)))
+        ui.info(
+            "%d/%d solutions found — run --grade EXERCISE for details"
+            % (found, len(rows))
+        )
     return all_ok
 
 
@@ -421,8 +473,15 @@ def exercise_entries(sh):
     for level in range(1, sh.N_LEVELS + 1):
         for name in sorted(sh.LEVELS[level]):
             index += 1
-            entries.append((index, level, name, sh.EXERCISES[name]["function"],
-                            sh.EXERCISES[name]["standard"]))
+            entries.append(
+                (
+                    index,
+                    level,
+                    name,
+                    sh.EXERCISES[name]["function"],
+                    sh.EXERCISES[name]["standard"],
+                )
+            )
     return entries
 
 
@@ -435,8 +494,14 @@ def training_entries(sh):
     for difficulty in sh.DIFFICULTIES:
         for name in sorted(sh.TRAINING_BY_DIFFICULTY[difficulty]):
             index += 1
-            entries.append((index, difficulty, name,
-                            sh.TRAINING_EXERCISES[name]["function"]))
+            entries.append(
+                (
+                    index,
+                    difficulty,
+                    name,
+                    sh.TRAINING_EXERCISES[name]["function"],
+                )
+            )
     return entries
 
 
@@ -459,8 +524,10 @@ def list_mode(sh, interactive=True):
         _screen(sh)
     entries = sh.exercise_entries()
     ui.exercise_table(entries)
-    ui.info("%d exercises · %d levels · one exercise per level in the exam"
-            % (len(entries), sh.N_LEVELS))
+    ui.info(
+        "%d exercises · %d levels · one exercise per level in the exam"
+        % (len(entries), sh.N_LEVELS)
+    )
     if interactive:
         _pause_back()
 
@@ -470,8 +537,10 @@ def training_list_mode(sh, interactive=True):
         _screen(sh)
     entries = sh.training_entries()
     ui.training_table(entries)
-    ui.info("%d training exercises · %d difficulties · practice only, "
-            "never drawn into the exam" % (len(entries), len(sh.DIFFICULTIES)))
+    ui.info(
+        "%d training exercises · %d difficulties · practice only, "
+        "never drawn into the exam" % (len(entries), len(sh.DIFFICULTIES))
+    )
     if interactive:
         _pause_back()
 
@@ -510,8 +579,10 @@ def exam_mode(sh, cfg):
     saved = session_store.load(sh.TOOL)
     if saved:
         try:
-            ans = ui.ask("  Resume saved exam for %s — level %d? [Y/n]: "
-                         % (saved["login"], saved["level"])).lower()
+            ans = ui.ask(
+                "  Resume saved exam for %s — level %d? [Y/n]: "
+                % (saved["login"], saved["level"])
+            ).lower()
         except ui.Abort:
             return
         if ans in ("", "y", "yes"):
@@ -529,8 +600,10 @@ def exam_mode(sh, cfg):
         if cfg.seed is not None:
             ui.note("seed %d — this exam is reproducible" % cfg.seed)
     if not cfg.relaxed:
-        ui.note("realistic mode — graded as strictly as the real exam, no "
-                "'new' (start with --relaxed for lenient grading)")
+        ui.note(
+            "realistic mode — graded as strictly as the real exam, no "
+            "'new' (start with --relaxed for lenient grading)"
+        )
     if cfg.time_limit:
         ui.note("time limit: %d minutes" % cfg.time_limit)
     if getattr(cfg, "blind", False):
@@ -544,9 +617,15 @@ def exam_mode(sh, cfg):
 
         while True:
             try:
-                cmd = ui.ask("\n  [%s@%s · lvl%d%s]$ "
-                             % (session.login, sh.EXAM_PROMPT, session.level,
-                                run.countdown())).lower()
+                cmd = ui.ask(
+                    "\n  [%s@%s · lvl%d%s]$ "
+                    % (
+                        session.login,
+                        sh.EXAM_PROMPT,
+                        session.level,
+                        run.countdown(),
+                    )
+                ).lower()
             except ui.Abort:
                 cmd = "quit"
             if _times_up(sh, run):
@@ -554,7 +633,9 @@ def exam_mode(sh, cfg):
 
             if cmd in ("grademe", "g"):
                 run.begin_attempt()
-                if sh.grade_exercise(run.current_ex, run.grade_rng, cfg, mode="exam"):
+                if sh.grade_exercise(
+                    run.current_ex, run.grade_rng, cfg, mode="exam"
+                ):
                     cleared = session.level
                     last = run.pass_level()
                     ui.level_cleared(cleared)
@@ -581,8 +662,10 @@ def exam_mode(sh, cfg):
                 print()
                 ui.status_bar(session, sh.N_LEVELS)
             elif cmd == "new" and not run.can_redraw:
-                ui.warn("the real exam has no 'new' — solve this one "
-                        "(or start with --relaxed to allow redraws)")
+                ui.warn(
+                    "the real exam has no 'new' — solve this one "
+                    "(or start with --relaxed to allow redraws)"
+                )
             elif cmd == "new":
                 run.redraw()
                 sh.show_subject(run.current_ex, cfg, session)
@@ -597,7 +680,10 @@ def exam_mode(sh, cfg):
             elif cmd == "":
                 continue
             else:
-                ui.warn("unknown command — " + " · ".join(name for name, _ in commands))
+                ui.warn(
+                    "unknown command — "
+                    + " · ".join(name for name, _ in commands)
+                )
 
     run.discard_save()
     sh.exam_summary(session, passed=True)
@@ -615,13 +701,24 @@ class ExamResult(object):
 def finish_exam(sh, session, passed, timed_out=False):
     """Close an exam: record a completion (badges, personal best), write
     the Markdown report, and return an ExamResult to show. No output."""
-    rows = [("Total time", session.elapsed()),
-            ("Attempts", session.attempts),
-            ("Score", "%d/100" % session.score())]
+    rows = [
+        ("Total time", session.elapsed()),
+        ("Attempts", session.attempts),
+        ("Score", "%d/100" % session.score()),
+    ]
     for level, name, attempts, seconds in session.history:
-        rows.append(("Level %d" % level, "%s  (%d attempt%s, %s)"
-                     % (name, attempts, "" if attempts == 1 else "s",
-                        fmt_duration(seconds))))
+        rows.append(
+            (
+                "Level %d" % level,
+                "%s  (%d attempt%s, %s)"
+                % (
+                    name,
+                    attempts,
+                    "" if attempts == 1 else "s",
+                    fmt_duration(seconds),
+                ),
+            )
+        )
 
     badge_lines = []
     if passed:
@@ -631,20 +728,33 @@ def finish_exam(sh, session, passed, timed_out=False):
         # achievements.unlocked()'s before/after convention.
         before = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
         new_best = achievements.is_new_best_time(sh.TOOL, seconds)
-        stats.record_exam_complete(sh.TOOL, seconds, session.attempts, session.score())
+        stats.record_exam_complete(
+            sh.TOOL, seconds, session.attempts, session.score()
+        )
         after = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
-        badge_lines = ["%s %s!" % (emoji, label)
-                       for _bid, emoji, label, _desc in achievements.new_since(before, after)]
+        badge_lines = [
+            "%s %s!" % (emoji, label)
+            for _bid, emoji, label, _desc in achievements.new_since(
+                before, after
+            )
+        ]
         if new_best:
             badge_lines.append("⏱ New personal best time!")
         rows.append(("Badges", ", ".join(badge_lines) if badge_lines else "—"))
 
-    title = ("🎉  EXAM PASSED — all %d levels cleared!" % sh.N_LEVELS if passed
-             else "%s — %d/%d levels cleared"
-             % ("⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
-                len(session.passed), sh.N_LEVELS))
-    report_path = report_export.write_exam_report(sh.TOOL, session, sh.N_LEVELS,
-                                                  passed, badge_lines)
+    title = (
+        "🎉  EXAM PASSED — all %d levels cleared!" % sh.N_LEVELS
+        if passed
+        else "%s — %d/%d levels cleared"
+        % (
+            "⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
+            len(session.passed),
+            sh.N_LEVELS,
+        )
+    )
+    report_path = report_export.write_exam_report(
+        sh.TOOL, session, sh.N_LEVELS, passed, badge_lines
+    )
     return ExamResult(title, rows, passed, badge_lines, report_path)
 
 
@@ -669,7 +779,9 @@ def practice_one(sh, ex_name, cfg, rng, mode="practice"):
     ui.commands(sh.PRACTICE_COMMANDS)
     while True:
         try:
-            cmd = ui.ask("\n  [%s · %s]$ " % (sh.PRACTICE_PROMPT, ex_name)).lower()
+            cmd = ui.ask(
+                "\n  [%s · %s]$ " % (sh.PRACTICE_PROMPT, ex_name)
+            ).lower()
         except ui.Abort:
             return
         if cmd in ("grademe", "g"):
@@ -686,8 +798,10 @@ def practice_one(sh, ex_name, cfg, rng, mode="practice"):
         elif cmd == "":
             continue
         else:
-            ui.warn("unknown command — " +
-                    " · ".join(name for name, _ in sh.PRACTICE_COMMANDS))
+            ui.warn(
+                "unknown command — "
+                + " · ".join(name for name, _ in sh.PRACTICE_COMMANDS)
+            )
 
 
 def _pick(choice, shown):
@@ -709,13 +823,16 @@ def practice_mode(sh, cfg, ex_name=None):
         shown = renumber(filter_entries(all_entries, query, 2, 3))
         ui.exercise_table(shown, numbered=True)
         if query:
-            ui.note("filter /%s — %d/%d shown  ('/' alone clears it)"
-                    % (query, len(shown), len(all_entries)))
+            ui.note(
+                "filter /%s — %d/%d shown  ('/' alone clears it)"
+                % (query, len(shown), len(all_entries))
+            )
             if not shown:
                 ui.warn("no exercise matches %r" % query)
         try:
-            choice = ui.ask("\n  Selection (number, /text to filter, "
-                            "or 'b' to go back): ").lower()
+            choice = ui.ask(
+                "\n  Selection (number, /text to filter, or 'b' to go back): "
+            ).lower()
         except ui.Abort:
             return
         if choice in ("b", "back", "q", "quit", ""):
@@ -725,13 +842,22 @@ def practice_mode(sh, cfg, ex_name=None):
             continue
         picked = _pick(choice, shown)
         if picked is None:
-            ui.warn("pick a number between 1 and %d, or /text to filter" % len(shown))
+            ui.warn(
+                "pick a number between 1 and %d, or /text to filter"
+                % len(shown)
+            )
             time.sleep(0.8)
             continue
         sh.practice_one(picked, cfg, rng)
 
 
-DIFFICULTY_KEYS = {"e": "easy", "m": "medium", "h": "hard", "a": None, "w": "weak"}
+DIFFICULTY_KEYS = {
+    "e": "easy",
+    "m": "medium",
+    "h": "hard",
+    "a": None,
+    "w": "weak",
+}
 
 
 def weak_entries(sh):
@@ -739,7 +865,9 @@ def weak_entries(sh):
     stats.weakest_exercises(). Recomputed fresh every call (not cached)
     so a grade recorded a moment ago is reflected immediately."""
     by_name = {e[2]: e for e in sh.training_entries()}
-    return [by_name[n] for n in stats.weakest_exercises(sh.TOOL, list(by_name))]
+    return [
+        by_name[n] for n in stats.weakest_exercises(sh.TOOL, list(by_name))
+    ]
 
 
 def training_mode(sh, cfg, ex_name=None, difficulty=None):
@@ -763,19 +891,28 @@ def training_mode(sh, cfg, ex_name=None, difficulty=None):
         shown = renumber(filter_entries(entries, query, 2, 3))
         _screen(sh)
         ui.training_table(shown, numbered=True)
-        ui.note("keys: e=easy · m=medium · h=hard · w=weak (needs practice) · a=all")
-        label = ("all" if not difficulty else difficulty)
+        ui.note(
+            "keys: e=easy · m=medium · h=hard · "
+            "w=weak (needs practice) · a=all"
+        )
+        label = "all" if not difficulty else difficulty
         if difficulty == "weak" and not entries:
-            ui.note("no weak spots yet — nothing attempted in training/practice "
-                    "yet, or everything you've tried you've eventually passed")
+            ui.note(
+                "no weak spots yet — nothing attempted in training/practice "
+                "yet, or everything you've tried you've eventually passed"
+            )
         if query:
-            ui.note("filter /%s — %d/%d shown  ('/' alone clears it)"
-                    % (query, len(shown), len(entries)))
+            ui.note(
+                "filter /%s — %d/%d shown  ('/' alone clears it)"
+                % (query, len(shown), len(entries))
+            )
             if not shown:
                 ui.warn("no exercise matches %r" % query)
         try:
-            choice = ui.ask("\n  [%s] Selection (number · e/m/h/w to filter · "
-                            "/text to search · b to go back): " % label).lower()
+            choice = ui.ask(
+                "\n  [%s] Selection (number · e/m/h/w to filter · "
+                "/text to search · b to go back): " % label
+            ).lower()
         except ui.Abort:
             return
         if choice in ("b", "back", "q", "quit", ""):
@@ -788,8 +925,10 @@ def training_mode(sh, cfg, ex_name=None, difficulty=None):
             continue
         picked = _pick(choice, shown)
         if picked is None:
-            ui.warn("pick a number, e/m/h/w/a to filter, /text to search, "
-                    "or b to go back")
+            ui.warn(
+                "pick a number, e/m/h/w/a to filter, /text to search, "
+                "or b to go back"
+            )
             time.sleep(0.8)
             continue
         sh.practice_one(picked, cfg, rng, mode="train")
@@ -814,16 +953,21 @@ def show_stats(sh):
         # weak spot jump out, so put it where it's seen first, same spirit
         # as stats.weakest_exercises() / --train weak.
         per_ex_rows = sorted(
-            ((name, row["passes"], row["attempts"])
-             for name, row in summary["per_exercise"].items()),
-            key=lambda r: r[1] / r[2])
+            (
+                (name, row["passes"], row["attempts"])
+                for name, row in summary["per_exercise"].items()
+            ),
+            key=lambda r: r[1] / r[2],
+        )
         ui.stats_table(per_ex_rows)
     else:
         ui.note("no grading history yet — practice or grade something first")
     print()
     earned = {b[0] for b in achievements.unlocked(sh.TOOL, sh.N_LEVELS)}
-    badge_rows = [(emoji, label, desc, bid in earned)
-                  for bid, emoji, label, desc, _check in achievements.BADGES]
+    badge_rows = [
+        (emoji, label, desc, bid in earned)
+        for bid, emoji, label, desc, _check in achievements.BADGES
+    ]
     ui.badges_table(badge_rows)
 
 
@@ -840,21 +984,34 @@ def readiness_mode(sh, interactive=True):
     rows = []
     for level, _passed, _total, entries in levels:
         for name, row in entries:
-            label = ("%d/%d passed" % (row["passes"], row["attempts"])
-                     if row["attempts"] else "never tried")
+            label = (
+                "%d/%d passed" % (row["passes"], row["attempts"])
+                if row["attempts"]
+                else "never tried"
+            )
             rows.append((level, name, _READY_GLYPH[row["status"]], label))
-    ui.overview_table(rows, title="Exam readiness — every exercise the exam can draw")
+    ui.overview_table(
+        rows, title="Exam readiness — every exercise the exam can draw"
+    )
     done = sum(passed for _, passed, _, _ in levels)
     total = sum(count for _, _, count, _ in levels)
-    summary_rows = [("Level %d" % level, "%d/%d passed  (%d%%)"
-                     % (passed, count, percent(passed, count)))
-                    for level, passed, count, _ in levels]
-    summary_rows.append(("Overall", "%d/%d  (%d%%)" % (done, total, percent(done, total))))
+    summary_rows = [
+        (
+            "Level %d" % level,
+            "%d/%d passed  (%d%%)" % (passed, count, percent(passed, count)),
+        )
+        for level, passed, count, _ in levels
+    ]
+    summary_rows.append(
+        ("Overall", "%d/%d  (%d%%)" % (done, total, percent(done, total)))
+    )
     ui.summary("Exam readiness", summary_rows, passed=done == total)
     if done < total:
         weakest = min(levels, key=lambda lv: percent(lv[1], lv[2]))
-        ui.info("level %d is your biggest gap — `--drill` builds a short "
-                "session from your gaps" % weakest[0])
+        ui.info(
+            "level %d is your biggest gap — `--drill` builds a short "
+            "session from your gaps" % weakest[0]
+        )
     if interactive:
         _pause_back()
 
@@ -863,20 +1020,26 @@ def drill_mode(sh, cfg, n=DRILL_SIZE):
     """A short daily session: weak spots, then never-tried exercises, then
     the ones practised longest ago (see stats.drill_queue()) — only
     exercises the real exam can draw."""
-    names = [name for _, _, name, _, standard in sh.exercise_entries() if standard]
+    names = [
+        name for _, _, name, _, standard in sh.exercise_entries() if standard
+    ]
     queue = stats.drill_queue(sh.TOOL, names, n)
     rng = random.Random()
     for i, name in enumerate(queue, 1):
         _screen(sh)
-        ui.info("Drill %d/%d — %s (level %d)" % (i, len(queue), name,
-                                                sh.ALL_EXERCISES[name]["level"]))
+        ui.info(
+            "Drill %d/%d — %s (level %d)"
+            % (i, len(queue), name, sh.ALL_EXERCISES[name]["level"])
+        )
         try:
             ui.pause("  Press Enter to start, Ctrl-C to end the drill…")
         except ui.Abort:
             return
         sh.practice_one(name, cfg, rng, mode="drill")
-    ui.success("drill done — %d exercise%s. `--readiness` shows where you stand."
-               % (len(queue), "" if len(queue) == 1 else "s"))
+    ui.success(
+        "drill done — %d exercise%s. `--readiness` shows where you stand."
+        % (len(queue), "" if len(queue) == 1 else "s")
+    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -886,13 +1049,22 @@ def with_sync_row(rows):
     """The tester's menu rows plus the shared "s  Sync" and "f  Feedback"
     entries, right before Quit."""
     from . import settings, sync
-    hint = ("(with %s)" % sync.remote_url(settings.DATA_DIR)
-            if sync.is_configured(settings.DATA_DIR)
-            else "(not set up — see docs/sync.md)")
+
+    hint = (
+        "(with %s)" % sync.remote_url(settings.DATA_DIR)
+        if sync.is_configured(settings.DATA_DIR)
+        else "(not set up — see docs/sync.md)"
+    )
     sync_row = ("s", "Sync progress", hint)
-    feedback_row = ("f", "Give feedback", "(opens a GitHub form — nothing is sent automatically)")
+    feedback_row = (
+        "f",
+        "Give feedback",
+        "(opens a GitHub form — nothing is sent automatically)",
+    )
     quit_rows = [r for r in rows if r[0] == "q"]
-    return [r for r in rows if r[0] != "q"] + [sync_row, feedback_row] + quit_rows
+    return (
+        [r for r in rows if r[0] != "q"] + [sync_row, feedback_row] + quit_rows
+    )
 
 
 def main_menu(sh, cfg):
@@ -956,8 +1128,10 @@ def resolve_exercise(sh, name, prefix):
         ui.error("unknown exercise: %s" % name)
         ui.note("run `%s --list` to see them all" % sh.PROG)
     else:
-        ui.error("ambiguous exercise %r — did you mean %s?"
-                 % (name, ", ".join(sorted(matches))))
+        ui.error(
+            "ambiguous exercise %r — did you mean %s?"
+            % (name, ", ".join(sorted(matches)))
+        )
     return None
 
 
@@ -967,6 +1141,7 @@ def run_tui(sh, cfg, args):
     Returns an exit code, or None — after saying why — to fall back to the
     line-based UI."""
     from . import tui
+
     if not tui.available():
         ui.warn(tui.why_unavailable() + " — using the normal interface")
         return None
@@ -992,12 +1167,17 @@ def sync_dirs(sh, cfg):
 def run_sync(sh, cfg, setup_url=None):
     """--sync / --sync-setup URL. Returns a process exit code."""
     from . import settings, sync
+
     # No spinner: git may need to ask for a password / key passphrase.
-    ui.info("syncing with %s …" % (setup_url or sync.remote_url(settings.DATA_DIR)
-                                   or "your repo"))
+    ui.info(
+        "syncing with %s …"
+        % (setup_url or sync.remote_url(settings.DATA_DIR) or "your repo")
+    )
     try:
         if setup_url:
-            result = sync.setup(setup_url, settings.DATA_DIR, sync_dirs(sh, cfg))
+            result = sync.setup(
+                setup_url, settings.DATA_DIR, sync_dirs(sh, cfg)
+            )
         else:
             result = sync.sync(settings.DATA_DIR, sync_dirs(sh, cfg))
     except sync.SyncError as exc:
@@ -1005,49 +1185,74 @@ def run_sync(sh, cfg, setup_url=None):
         return 1
     if setup_url:
         ui.success("this device is connected to %s" % setup_url)
-        ui.note("make sure that repository is PRIVATE — it holds your solutions")
+        ui.note(
+            "make sure that repository is PRIVATE — it holds your solutions"
+        )
     ui.success(result.summary())
     for backup in result.backups:
-        ui.note("a newer version came from the repo — your older one is kept at %s" % backup)
+        ui.note(
+            "a newer version came from the repo — your older one is kept at %s"
+            % backup
+        )
     return 0
 
 
 def sync_hint():
     """The line to show after an exam is paused, when sync is set up."""
     from . import settings, sync
+
     if sync.is_configured(settings.DATA_DIR):
-        return "continue on another device: `make sync` here, then `make sync` there"
+        return (
+            "continue on another device: "
+            "`make sync` here, then `make sync` there"
+        )
     return None
 
 
-_DOCTOR_GLYPH = {"ok": ("✔", "GREEN"), "warn": ("⚠", "YELLOW"), "fail": ("✖", "RED")}
+_DOCTOR_GLYPH = {
+    "ok": ("✔", "GREEN"),
+    "warn": ("⚠", "YELLOW"),
+    "fail": ("✖", "RED"),
+}
 
 
 def run_doctor(sh, cfg):
     """--doctor: check this machine, print one line per check plus the fix
     for anything that's off. Exit code 1 only when something is broken."""
     from . import doctor
+
     sh.banner()
     print()
-    checks = doctor.run_checks(cc=getattr(cfg, "cc", "cc"),
-                               c_required=sh.SYNC_SLOT == "c_rendu")
+    checks = doctor.run_checks(
+        cc=getattr(cfg, "cc", "cc"), c_required=sh.SYNC_SLOT == "c_rendu"
+    )
     width = max(len(c.name) for c in checks)
     for check in checks:
         glyph, colour = _DOCTOR_GLYPH[check.status]
-        print(ui.IND0 + ui.c(glyph, colour) + "  " + ui.c(check.name.ljust(width), "BOLD")
-              + "  " + check.detail)
+        print(
+            ui.IND0
+            + ui.c(glyph, colour)
+            + "  "
+            + ui.c(check.name.ljust(width), "BOLD")
+            + "  "
+            + check.detail
+        )
         if check.fix:
             print(ui.IND0 + " " * (width + 5) + ui.c("→ " + check.fix, "GRAY"))
     print()
     failed = [c for c in checks if c.status == "fail"]
     warned = [c for c in checks if c.status == "warn"]
     if failed:
-        ui.error("%d problem%s to fix before this tester works fully"
-                 % (len(failed), "" if len(failed) == 1 else "s"))
+        ui.error(
+            "%d problem%s to fix before this tester works fully"
+            % (len(failed), "" if len(failed) == 1 else "s")
+        )
         return 1
     if warned:
-        ui.success("ready — %d optional thing%s not set up (see → above)"
-                   % (len(warned), "" if len(warned) == 1 else "s"))
+        ui.success(
+            "ready — %d optional thing%s not set up (see → above)"
+            % (len(warned), "" if len(warned) == 1 else "s")
+        )
     else:
         ui.success("everything is ready")
     return 0
@@ -1065,8 +1270,12 @@ def run_feedback(sh, kind=None, exercise=None):
     """--feedback / the menu's "f" / practice's `feedback`: open (or print)
     the prefilled issue form. Asks which kind when `kind` is None."""
     from . import feedback
+
     if kind is None:
-        rows = [(str(i), label, "") for i, (_k, label) in enumerate(feedback.KIND_LABELS, 1)]
+        rows = [
+            (str(i), label, "")
+            for i, (_k, label) in enumerate(feedback.KIND_LABELS, 1)
+        ]
         ui.menu(rows)
         try:
             choice = ui.ask("\n  What kind of feedback? ").strip()
@@ -1077,29 +1286,41 @@ def run_feedback(sh, kind=None, exercise=None):
         kind = feedback.KIND_LABELS[int(choice) - 1][0]
     url = feedback.issue_url(kind, tester_label(sh), exercise)
     if feedback.open_in_browser(url):
-        ui.success("opened the form in your browser — nothing is sent until you submit it")
+        ui.success(
+            "opened the form in your browser — "
+            "nothing is sent until you submit it"
+        )
     else:
-        ui.info("open this link to give feedback (nothing is sent until you submit it):")
+        ui.info(
+            "open this link to give feedback "
+            "(nothing is sent until you submit it):"
+        )
     print("  " + url)
     return 0
 
 
 def auto_sync_enabled():
     from . import settings
+
     return bool(settings.load_config().get("auto_sync"))
 
 
 def set_auto_sync(on):
     """--auto-sync on|off. Returns a process exit code."""
     from . import settings, sync
+
     if not settings.update_config("auto_sync", bool(on)):
         ui.error("could not write %s" % settings.CONFIG_PATH)
         return 1
     if on:
-        ui.success("auto-sync on — every session pulls first and pushes when it ends")
+        ui.success(
+            "auto-sync on — every session pulls first and pushes when it ends"
+        )
         if not sync.is_configured(settings.DATA_DIR):
-            ui.note("sync isn't set up on this device yet: "
-                    "make sync-setup REPO=<your private repo> (see docs/sync.md)")
+            ui.note(
+                "sync isn't set up on this device yet: "
+                "make sync-setup REPO=<your private repo> (see docs/sync.md)"
+            )
     else:
         ui.success("auto-sync off — run `make sync` yourself")
     return 0
@@ -1111,16 +1332,29 @@ def auto_sync(sh, cfg, when):
     (offline, …) is only ever a one-line warning — never a reason not to
     practise."""
     from . import settings, sync
+
     if not auto_sync_enabled() or not sync.is_configured(settings.DATA_DIR):
         return None
-    ui.info("auto-sync (%s) …" % ("pulling your progress" if when == "start"
-                                  else "pushing your progress"))
+    ui.info(
+        "auto-sync (%s) …"
+        % (
+            "pulling your progress"
+            if when == "start"
+            else "pushing your progress"
+        )
+    )
     try:
         result = sync.sync(settings.DATA_DIR, sync_dirs(sh, cfg))
     except (sync.SyncError, OSError) as exc:
-        ui.warn("auto-sync skipped — %s (your progress stays here; `make sync` later)" % exc)
+        ui.warn(
+            "auto-sync skipped — %s "
+            "(your progress stays here; `make sync` later)" % exc
+        )
         return None
     ui.note("🔄 " + result.summary())
     for backup in result.backups:
-        ui.note("a newer version came from the repo — your older one is kept at %s" % backup)
+        ui.note(
+            "a newer version came from the repo — your older one is kept at %s"
+            % backup
+        )
     return result

@@ -27,8 +27,13 @@ def record(tool, exercise, level, ok, passed, total, mode):
     """Append one grading event. `tool` is "py" or "c"; `mode` is
     "exam" / "practice" / "train" / "grade" / "exam-complete"."""
     entry = {
-        "ts": time.time(), "tool": tool, "exercise": exercise,
-        "level": level, "ok": bool(ok), "passed": passed, "total": total,
+        "ts": time.time(),
+        "tool": tool,
+        "exercise": exercise,
+        "level": level,
+        "ok": bool(ok),
+        "passed": passed,
+        "total": total,
         "mode": mode,
     }
     try:
@@ -66,8 +71,11 @@ def consecutive_fails(tool, exercise):
     and failed, ignoring --exam attempts — the exam is one-shot per
     exercise anyway, and this is used to decide when to nudge a stuck
     student in practice/training, never during the exam itself."""
-    events = [e for e in load_all(tool)
-             if e.get("exercise") == exercise and e.get("mode") != "exam"]
+    events = [
+        e
+        for e in load_all(tool)
+        if e.get("exercise") == exercise and e.get("mode") != "exam"
+    ]
     events.sort(key=lambda e: e.get("ts", 0))
     streak = 0
     for e in reversed(events):
@@ -97,7 +105,11 @@ def weakest_exercises(tool, candidate_names):
         row["attempts"] += 1
         if e.get("ok"):
             row["passes"] += 1
-    weak = [name for name, row in per_exercise.items() if row["passes"] < row["attempts"]]
+    weak = [
+        name
+        for name, row in per_exercise.items()
+        if row["passes"] < row["attempts"]
+    ]
 
     def rank_key(name):
         row = per_exercise[name]
@@ -110,15 +122,22 @@ def weakest_exercises(tool, candidate_names):
 
 def best_exam_time(tool):
     """Fastest recorded full-exam completion (seconds), or None."""
-    times = [e["seconds"] for e in load_all(tool)
-             if e.get("mode") == "exam-complete" and "seconds" in e]
+    times = [
+        e["seconds"]
+        for e in load_all(tool)
+        if e.get("mode") == "exam-complete" and "seconds" in e
+    ]
     return min(times) if times else None
 
 
 def record_exam_complete(tool, seconds, attempts, score):
     entry = {
-        "ts": time.time(), "tool": tool, "mode": "exam-complete",
-        "seconds": seconds, "attempts": attempts, "score": score,
+        "ts": time.time(),
+        "tool": tool,
+        "mode": "exam-complete",
+        "seconds": seconds,
+        "attempts": attempts,
+        "score": score,
     }
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -135,7 +154,9 @@ def summarize(tool=None):
     (attempts, passes), and the best full-exam time if any.
     """
     events = [e for e in load_all(tool) if e.get("mode") != "exam-complete"]
-    completions = [e for e in load_all(tool) if e.get("mode") == "exam-complete"]
+    completions = [
+        e for e in load_all(tool) if e.get("mode") == "exam-complete"
+    ]
 
     per_exercise = {}
     for e in events:
@@ -153,7 +174,9 @@ def summarize(tool=None):
     return {
         "total_attempts": total_attempts,
         "total_passes": total_passes,
-        "pass_rate": (total_passes / total_attempts) if total_attempts else 0.0,
+        "pass_rate": (total_passes / total_attempts)
+        if total_attempts
+        else 0.0,
         "per_exercise": per_exercise,
         "exam_completions": len(completions),
         "best_seconds": best_seconds,
@@ -166,8 +189,15 @@ def exercise_status(tool, names):
     in the exam counts as much as one in practice). status is "passed"
     (at least once), "failed" (tried, never passed) or "untried"."""
     wanted = set(names)
-    rows = {name: {"status": "untried", "attempts": 0, "passes": 0, "last_ts": None}
-            for name in names}
+    rows = {
+        name: {
+            "status": "untried",
+            "attempts": 0,
+            "passes": 0,
+            "last_ts": None,
+        }
+        for name in names
+    }
     for e in load_all(tool):
         name = e.get("exercise")
         if name not in wanted:
@@ -191,7 +221,9 @@ def readiness(tool, standard_levels):
         names = sorted(standard_levels[level])
         status = exercise_status(tool, names)
         passed = sum(1 for n in names if status[n]["status"] == "passed")
-        out.append((level, passed, len(names), [(n, status[n]) for n in names]))
+        out.append(
+            (level, passed, len(names), [(n, status[n]) for n in names])
+        )
     return out
 
 
@@ -209,13 +241,21 @@ def drill_queue(tool, candidate_names, n=5):
     """
     status = exercise_status(tool, candidate_names)
     weak = weakest_exercises(tool, list(candidate_names))
-    untried = [name for name in candidate_names if status[name]["status"] == "untried"]
-    stale = sorted((name for name in candidate_names
-                    if status[name]["status"] != "untried" and name not in weak),
-                   key=lambda name: status[name]["last_ts"] or 0)
-    first_weak = weak[:(n + 1) // 2]
+    untried = [
+        name for name in candidate_names if status[name]["status"] == "untried"
+    ]
+    stale = sorted(
+        (
+            name
+            for name in candidate_names
+            if status[name]["status"] != "untried" and name not in weak
+        ),
+        key=lambda name: status[name]["last_ts"] or 0,
+    )
+    n_first = (n + 1) // 2
+    first_weak = weak[:n_first]
     queue = []
-    for name in first_weak + untried + stale + weak[len(first_weak):]:
+    for name in first_weak + untried + stale + weak[n_first:]:
         if name not in queue:
             queue.append(name)
     return queue[:n]
@@ -225,7 +265,7 @@ def daily_activity(tool, days=28, now=None):
     """[(attempts, passes)] for each of the last `days` days, oldest first
     (today last) — the stats screen's activity chart."""
     now = time.time() if now is None else now
-    today = datetime.date.fromtimestamp(now).toordinal()     # local calendar day
+    today = datetime.date.fromtimestamp(now).toordinal()  # local calendar day
     counts = [[0, 0] for _ in range(days)]
     for e in load_all(tool):
         if not e.get("exercise"):
@@ -243,7 +283,7 @@ def practice_streak(tool, now=None):
     activity = daily_activity(tool, days=366, now=now)
     days = [attempts > 0 for attempts, _ in activity]
     if not days[-1]:
-        days = days[:-1]            # nothing yet today doesn't break a streak
+        days = days[:-1]  # nothing yet today doesn't break a streak
     streak = 0
     for active in reversed(days):
         if not active:

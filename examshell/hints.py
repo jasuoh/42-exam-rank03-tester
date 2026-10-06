@@ -53,25 +53,37 @@ SIGN_FLIP = "sign_flip"
 EMPTY_EXPECTED = "empty_expected"
 
 _GENERIC_HINTS = {
-    TIMEOUT: ("Looks like an infinite loop — check your stopping "
-              "condition, especially for the smallest possible input "
-              "(empty, 0, a single element)."),
-    CRASH: ("A crash almost always points at memory access, not wrong "
-            "logic — a null pointer, an out-of-bounds access, or an "
-            "off-by-one in a loop bound are the usual suspects."),
-    LEAK: ("Valgrind found a leak — some malloc'd block is never freed "
-           "on at least one path (an early return, an error case, only "
-           "freeing part of a list or array). Trace every malloc to a "
-           "matching free on every path, including the ones you don't "
-           "expect to hit."),
-    OFF_BY_ONE: ("Your result is off by exactly 1 — a classic "
-                 "off-by-one, often a < vs. <= or a stray +1/-1 "
-                 "somewhere in a loop bound."),
-    SIGN_FLIP: ("The sign is wrong — maybe a condition that's being "
-                "evaluated backwards?"),
-    EMPTY_EXPECTED: ("The expected value here is 'empty' — did you "
-                     "handle the empty-input (or 0-element) case "
-                     "separately?"),
+    TIMEOUT: (
+        "Looks like an infinite loop — check your stopping "
+        "condition, especially for the smallest possible input "
+        "(empty, 0, a single element)."
+    ),
+    CRASH: (
+        "A crash almost always points at memory access, not wrong "
+        "logic — a null pointer, an out-of-bounds access, or an "
+        "off-by-one in a loop bound are the usual suspects."
+    ),
+    LEAK: (
+        "Valgrind found a leak — some malloc'd block is never freed "
+        "on at least one path (an early return, an error case, only "
+        "freeing part of a list or array). Trace every malloc to a "
+        "matching free on every path, including the ones you don't "
+        "expect to hit."
+    ),
+    OFF_BY_ONE: (
+        "Your result is off by exactly 1 — a classic "
+        "off-by-one, often a < vs. <= or a stray +1/-1 "
+        "somewhere in a loop bound."
+    ),
+    SIGN_FLIP: (
+        "The sign is wrong — maybe a condition that's being "
+        "evaluated backwards?"
+    ),
+    EMPTY_EXPECTED: (
+        "The expected value here is 'empty' — did you "
+        "handle the empty-input (or 0-element) case "
+        "separately?"
+    ),
 }
 
 

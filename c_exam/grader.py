@@ -45,16 +45,20 @@ import time
 
 from examshell.grader import MAX_TIMEOUTS, Report
 
-DEFAULT_TIMEOUT = 5        # seconds per case (program mode) / per whole run (function mode)
+DEFAULT_TIMEOUT = (
+    5  # seconds per case (program mode) / per whole run (function mode)
+)
 DEFAULT_CC = "cc"
-COMPILE_TIMEOUT = 20       # seconds for a single compiler invocation
-DEFAULT_FUZZ = 8           # random extra cases per exercise (function-kind, safe args only)
+COMPILE_TIMEOUT = 20  # seconds for a single compiler invocation
+DEFAULT_FUZZ = (
+    8  # random extra cases per exercise (function-kind, safe args only)
+)
 
 # valgrind isn't available at all on Apple Silicon macOS — this is squarely
 # a "real 42 school machine" (Linux) feature. Off by default, opt-in via
 # --valgrind, and a no-op with a clear note when the binary isn't on PATH
 # (same best-effort posture as --cc pointing at a missing compiler).
-VALGRIND_TIMEOUT_MULT = 5     # valgrind runs much slower than the bare binary
+VALGRIND_TIMEOUT_MULT = 5  # valgrind runs much slower than the bare binary
 VALGRIND_ERROR_EXITCODE = 99
 
 # Every line valgrind itself writes (an error, a leak record, ...) is
@@ -124,8 +128,13 @@ def shell_arg(arg):
     """`arg` quoted so the whole command can be pasted into bash as-is —
     $'...' when it holds a tab/newline (they'd be invisible otherwise)."""
     if any(ch in arg for ch in "\t\n\r"):
-        escaped = (arg.replace("\\", "\\\\").replace("'", "\\'")
-                   .replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r"))
+        escaped = (
+            arg.replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\t", "\\t")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+        )
         return "$'" + escaped + "'"
     return shlex.quote(arg)
 
@@ -145,7 +154,9 @@ class CFailure(object):
         if self.args is None:
             return "%s()  [case %d]" % (function, self.index)
         if self.program:
-            return " ".join(["./" + function] + [shell_arg(a) for a in self.args])
+            return " ".join(
+                ["./" + function] + [shell_arg(a) for a in self.args]
+            )
         return "%s(%s)" % (function, ", ".join(repr(a) for a in self.args))
 
 
@@ -153,8 +164,14 @@ class CFailure(object):
 #  C LITERAL ENCODING
 # ══════════════════════════════════════════════════════════════
 def c_char_literal(ch):
-    escapes = {"\\": "\\\\", "'": "\\'", "\n": "\\n", "\t": "\\t",
-               "\r": "\\r", "\0": "\\0"}
+    escapes = {
+        "\\": "\\\\",
+        "'": "\\'",
+        "\n": "\\n",
+        "\t": "\\t",
+        "\r": "\\r",
+        "\0": "\\0",
+    }
     if ch in escapes:
         body = escapes[ch]
     elif 32 <= ord(ch) < 127:
@@ -429,18 +446,30 @@ FIXED_CALLBACK_KINDS = {
 # a fixed callback with its own contract, ...) is graded on its curated
 # cases only, same as before this existed. "program"-kind exercises get
 # their own shape-based argv fuzzing instead (see ARGV_SHAPES below).
-FUZZABLE_VALUE_KINDS = {"int", "int_ptr", "char", "str", "int_arr", "int_list", "buf"}
+FUZZABLE_VALUE_KINDS = {
+    "int",
+    "int_ptr",
+    "char",
+    "str",
+    "int_arr",
+    "int_list",
+    "buf",
+}
 
-_FUZZ_STR_ALPHABET = ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                      "0123456789 _-.")
+_FUZZ_STR_ALPHABET = (
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-."
+)
 
 
 def _fuzz_str(rng, max_len):
-    return "".join(rng.choice(_FUZZ_STR_ALPHABET) for _ in range(rng.randint(0, max_len)))
+    return "".join(
+        rng.choice(_FUZZ_STR_ALPHABET) for _ in range(rng.randint(0, max_len))
+    )
 
 
 def _fuzz_value(kind, rng):
-    """One random value for a single "safe" arg kind (see FUZZABLE_VALUE_KINDS)."""
+    """One random value for a single "safe" arg kind (see
+    FUZZABLE_VALUE_KINDS)."""
     if kind in ("int", "int_ptr"):
         return rng.randint(-1000, 1000)
     if kind == "char":
@@ -454,7 +483,9 @@ def _fuzz_value(kind, rng):
         # stay well under it so a correct solution never legitimately
         # overflows the very buffer the harness itself provides.
         return _fuzz_str(rng, 40)
-    raise ValueError("kind %r has no fuzz generator" % (kind,))  # pragma: no cover
+    raise ValueError(
+        "kind %r has no fuzz generator" % (kind,)
+    )  # pragma: no cover
 
 
 # ── argv fuzzing  ·  "program"-kind exercises ─────────────────────────
@@ -497,7 +528,9 @@ def _fuzz_sentence(rng):
 def _fuzz_small_alphabet(rng, max_len=12):
     """A string over a tiny alphabet, so two of them actually overlap
     (union/inter) and repeat characters (the 'no doubles' traps)."""
-    return "".join(rng.choice("abcdeAB12 ") for _ in range(rng.randint(0, max_len)))
+    return "".join(
+        rng.choice("abcdeAB12 ") for _ in range(rng.randint(0, max_len))
+    )
 
 
 def _fuzz_subsequence_pair(rng):
@@ -512,15 +545,24 @@ def _fuzz_subsequence_pair(rng):
 
 
 def _fuzz_camel(rng):
-    words = ["".join(rng.choice("abcdefghijklmnopqrstuvwxyz")
-                     for _ in range(rng.randint(1, 5))) for _ in range(rng.randint(1, 4))]
+    words = [
+        "".join(
+            rng.choice("abcdefghijklmnopqrstuvwxyz")
+            for _ in range(rng.randint(1, 5))
+        )
+        for _ in range(rng.randint(1, 4))
+    ]
     return words[0] + "".join(w.capitalize() for w in words[1:])
 
 
 def _fuzz_snake(rng):
-    return "_".join("".join(rng.choice("abcdefghijklmnopqrstuvwxyz")
-                            for _ in range(rng.randint(1, 5)))
-                    for _ in range(rng.randint(1, 4)))
+    return "_".join(
+        "".join(
+            rng.choice("abcdefghijklmnopqrstuvwxyz")
+            for _ in range(rng.randint(1, 5))
+        )
+        for _ in range(rng.randint(1, 4))
+    )
 
 
 def _fuzz_do_op(rng):
@@ -528,16 +570,18 @@ def _fuzz_do_op(rng):
     left = rng.randint(-1000, 1000)
     right = rng.randint(-1000, 1000)
     if op in "/%" and right == 0:
-        right = rng.choice((-7, 3, 5))     # the subject never divides by 0
+        right = rng.choice((-7, 3, 5))  # the subject never divides by 0
     return [str(left), op, str(right)]
 
 
 def _fuzz_search_and_replace(rng):
     text = _fuzz_sentence(rng)
     pool = [c for c in text if c not in " \t"] or ["a"]
-    search = rng.choice(pool) if rng.random() < 0.8 else rng.choice(_WORD_CHARS)
+    search = (
+        rng.choice(pool) if rng.random() < 0.8 else rng.choice(_WORD_CHARS)
+    )
     replace = rng.choice(_WORD_CHARS + _PUNCT)
-    if rng.random() < 0.15:                # not a single character -> "\n"
+    if rng.random() < 0.15:  # not a single character -> "\n"
         replace += rng.choice(_WORD_CHARS)
     return [text, search, replace]
 
@@ -545,19 +589,30 @@ def _fuzz_search_and_replace(rng):
 # shape -> (generator for the RIGHT argv, how many args that is)
 ARGV_SHAPES = {
     "sentence": (lambda rng: [_fuzz_sentence(rng)], 1),
-    "sentences": (lambda rng: [_fuzz_sentence(rng) for _ in range(rng.randint(1, 3))], None),
-    "two_strings": (lambda rng: [_fuzz_small_alphabet(rng), _fuzz_small_alphabet(rng)], 2),
+    "sentences": (
+        lambda rng: [_fuzz_sentence(rng) for _ in range(rng.randint(1, 3))],
+        None,
+    ),
+    "two_strings": (
+        lambda rng: [_fuzz_small_alphabet(rng), _fuzz_small_alphabet(rng)],
+        2,
+    ),
     "subsequence": (_fuzz_subsequence_pair, 2),
     "camel": (lambda rng: [_fuzz_camel(rng)], 1),
     "snake": (lambda rng: [_fuzz_snake(rng)], 1),
     "positive_int": (lambda rng: [str(rng.randint(1, 100000))], 1),
     "non_negative_int": (lambda rng: [str(rng.randint(0, 1 << 20))], 1),
     "small_positive_int": (lambda rng: [str(rng.randint(1, 3000))], 1),
-    "two_positive_ints": (lambda rng: [str(rng.randint(1, 10000)),
-                                       str(rng.randint(1, 10000))], 2),
+    "two_positive_ints": (
+        lambda rng: [str(rng.randint(1, 10000)), str(rng.randint(1, 10000))],
+        2,
+    ),
     "do_op": (_fuzz_do_op, 3),
     "search_and_replace": (_fuzz_search_and_replace, 3),
-    "any_args": (lambda rng: [_fuzz_word(rng) for _ in range(rng.randint(0, 12))], None),
+    "any_args": (
+        lambda rng: [_fuzz_word(rng) for _ in range(rng.randint(0, 12))],
+        None,
+    ),
 }
 
 
@@ -597,14 +652,14 @@ def _fuzz_remove_if_case(rng):
     if roll < 0.15 or not values:
         ref = rng.choice(pool + [9])
     elif roll < 0.35:
-        ref = values[0]                                     # head matches
+        ref = values[0]  # head matches
     elif roll < 0.5:
-        ref = values[-1]                                    # tail matches
+        ref = values[-1]  # tail matches
     elif roll < 0.65:
         ref = values[0]
-        values = [ref] * len(values)                        # every node goes
+        values = [ref] * len(values)  # every node goes
     elif roll < 0.8:
-        ref = 9                                             # nothing matches
+        ref = 9  # nothing matches
     else:
         ref = rng.choice(values)
     return [values, ref]
@@ -616,16 +671,28 @@ def _fuzz_flood_fill_case(rng):
     off the grid (curated cases already pin that down)."""
     width, height = rng.randint(1, 6), rng.randint(1, 6)
     symbols = rng.choice(("01", "012", "0"))
-    grid = ["".join(rng.choice(symbols) for _ in range(width)) for _ in range(height)]
+    grid = [
+        "".join(rng.choice(symbols) for _ in range(width))
+        for _ in range(height)
+    ]
     roll = rng.random()
     if roll < 0.3:
-        begin = (rng.choice((0, width - 1)), rng.choice((0, height - 1)))   # corner
+        begin = (
+            rng.choice((0, width - 1)),
+            rng.choice((0, height - 1)),
+        )  # corner
     elif roll < 0.5:
-        begin = (rng.randint(0, width - 1), rng.choice((0, height - 1)))    # edge
+        begin = (
+            rng.randint(0, width - 1),
+            rng.choice((0, height - 1)),
+        )  # edge
     elif roll < 0.95:
         begin = (rng.randint(0, width - 1), rng.randint(0, height - 1))
     else:
-        begin = (width + rng.randint(0, 2), height + rng.randint(0, 2))     # off the grid
+        begin = (
+            width + rng.randint(0, 2),
+            height + rng.randint(0, 2),
+        )  # off the grid
     return [grid, (width, height), begin]
 
 
@@ -634,10 +701,11 @@ def _fuzz_atoi_base_case(rng):
     in an int, written in that base in mixed case — sometimes negative,
     sometimes cut short by a digit too big for the base, a stray '-'/'+' or
     a space. Never a LEADING '+' or space: the subject doesn't say, and a
-    student reusing their ft_atoi rightly skips them. (The generic fuzzer would pass bases like 558 or -17 and
-    overflow the result: behaviour the subject never defines.)"""
+    student reusing their ft_atoi rightly skips them. (The generic fuzzer
+    would pass bases like 558 or -17 and overflow the result: behaviour the
+    subject never defines.)"""
     base = rng.randint(2, 16)
-    value = rng.choice((rng.randint(0, base ** 3), rng.randint(0, 2 ** 31 - 1)))
+    value = rng.choice((rng.randint(0, base**3), rng.randint(0, 2**31 - 1)))
     digits = ""
     while True:
         digits = "0123456789abcdef"[value % base] + digits
@@ -650,7 +718,10 @@ def _fuzz_atoi_base_case(rng):
     roll = rng.random()
     if roll < 0.3:
         cut = rng.randint(1, len(digits))
-        bad = rng.choice(["-", "+", " ", "g", "z"] + (["0123456789abcdef"[base]] if base < 16 else []))
+        bad = rng.choice(
+            ["-", "+", " ", "g", "z"]
+            + (["0123456789abcdef"[base]] if base < 16 else [])
+        )
         digits = digits[:cut] + bad + digits[cut:]
     elif roll < 0.35:
         digits = rng.choice(("", "-", "--1"))
@@ -674,8 +745,10 @@ def is_fuzzable(ex):
         return ex.get("fuzz_argv") in ARGV_SHAPES
     if ex.get("fuzz_cases") in CASE_FUZZERS:
         return True
-    return all(k in FUZZABLE_VALUE_KINDS or k in FIXED_CALLBACK_KINDS
-               for k in ex.get("args", ()))
+    return all(
+        k in FUZZABLE_VALUE_KINDS or k in FIXED_CALLBACK_KINDS
+        for k in ex.get("args", ())
+    )
 
 
 def build_fuzz_cases(ex, rng, n):
@@ -690,7 +763,8 @@ def build_fuzz_cases(ex, rng, n):
 
 
 def _emit_args(ex, args):
-    """Build (decl lines, call-argument expressions, {arg_index: (kind, var)})."""
+    """Build (decl lines, call-argument expressions,
+    {arg_index: (kind, var)})."""
     decls, call_args, refs = [], [], {}
     ai = 0
     for i, kind in enumerate(ex["args"]):
@@ -727,8 +801,10 @@ def _emit_args(ex, args):
             items = ", ".join(str(int(v)) for v in value) or "0"
             vals_name = name + "_vals"
             decls.append("int %s[%d] = {%s};" % (vals_name, cap, items))
-            decls.append("t_list *%s = build_list(%s, %d);"
-                         % (name, vals_name, len(value)))
+            decls.append(
+                "t_list *%s = build_list(%s, %d);"
+                % (name, vals_name, len(value))
+            )
             call_args.append(name)
             refs[i] = ("int_list", name)
         elif kind == "buf":
@@ -740,8 +816,10 @@ def _emit_args(ex, args):
             items = ", ".join(str(int(v)) for v in value) or "0"
             vals_name = name + "_vals"
             decls.append("int %s[%d] = {%s};" % (vals_name, cap, items))
-            decls.append("t_list *%s = build_voidlist(%s, %d);"
-                         % (name, vals_name, len(value)))
+            decls.append(
+                "t_list *%s = build_voidlist(%s, %d);"
+                % (name, vals_name, len(value))
+            )
             call_args.append(("&" if kind == "voidlist_ptr" else "") + name)
             refs[i] = (kind, name)
         elif kind == "point":
@@ -752,7 +830,9 @@ def _emit_args(ex, args):
             row_names = []
             for r, row in enumerate(value):
                 row_name = "%s_row%d" % (name, r)
-                decls.append("char %s[] = %s;" % (row_name, c_string_literal(row)))
+                decls.append(
+                    "char %s[] = %s;" % (row_name, c_string_literal(row))
+                )
                 row_names.append(row_name)
             decls.append("char *%s[] = {%s};" % (name, ", ".join(row_names)))
             call_args.append(name)
@@ -783,14 +863,18 @@ def render_call(ex, args, index=None):
         for i in ex.get("print_after_args", ()):
             kind, name = refs[i][0], refs[i][1]
             if kind == "int_arr":
-                lines.append("print_int_array(" + name + ", " + name + "_size);")
+                lines.append(
+                    "print_int_array(" + name + ", " + name + "_size);"
+                )
             elif kind == "int_ptr":
                 lines.append('printf("%d\\n", ' + name + ");")
             elif kind == "voidlist_ptr":
                 lines.append("print_voidlist(" + name + ");")
             elif kind == "char_grid":
                 rows = refs[i][2]
-                lines.append("print_char_grid(" + name + ", " + str(rows) + ");")
+                lines.append(
+                    "print_char_grid(" + name + ", " + str(rows) + ");"
+                )
     elif returns == "int":
         lines.append("int ret = " + call_expr + ";")
         lines.append('printf("%d\\n", ret);')
@@ -846,7 +930,9 @@ def needs_list_h(ex):
 
 
 def needs_ft_list_h(ex):
-    return "voidlist" in ex.get("args", ()) or "voidlist_ptr" in ex.get("args", ())
+    return "voidlist" in ex.get("args", ()) or "voidlist_ptr" in ex.get(
+        "args", ()
+    )
 
 
 def needs_flood_fill_h(ex):
@@ -865,8 +951,11 @@ def header_filename(ex):
 
 
 def header_content(filename):
-    return {"list.h": LIST_H_CONTENT, "ft_list.h": FT_LIST_H_CONTENT,
-           "flood_fill.h": FLOOD_FILL_H_CONTENT}[filename]
+    return {
+        "list.h": LIST_H_CONTENT,
+        "ft_list.h": FT_LIST_H_CONTENT,
+        "flood_fill.h": FLOOD_FILL_H_CONTENT,
+    }[filename]
 
 
 def needed_helpers_c(ex):
@@ -877,8 +966,9 @@ def needed_helpers_c(ex):
     calls e.g. build_list() always has it defined, not just the real
     harness."""
     helpers = ""
-    needs_array_printer = (("int_arr" in ex["args"] and ex.get("print_after_args"))
-                           or ex.get("returns") == "int_arr")
+    needs_array_printer = (
+        "int_arr" in ex["args"] and ex.get("print_after_args")
+    ) or ex.get("returns") == "int_arr"
     if needs_array_printer:
         helpers += PRINT_INT_ARRAY_HELPER
     if "int_list" in ex.get("args", ()):
@@ -913,19 +1003,28 @@ def generate_harness(ex, cases=None):
     """
     if cases is None:
         cases = ex["cases"]
-    blocks = "\n".join(render_call(ex, args, index=i)
-                       for i, args in enumerate(cases))
+    blocks = "\n".join(
+        render_call(ex, args, index=i) for i, args in enumerate(cases)
+    )
     header = header_filename(ex)
     header_include = '#include "%s"\n' % header if header else ""
-    preamble = HARNESS_PREAMBLE.format(prototype=ex["prototype"],
-                                       header_include=header_include,
-                                       helpers=needed_helpers_c(ex))
+    preamble = HARNESS_PREAMBLE.format(
+        prototype=ex["prototype"],
+        header_include=header_include,
+        helpers=needed_helpers_c(ex),
+    )
     # stdout is a pipe when graded (never a TTY), so libc fully-buffers it —
     # printf()'s bytes would only flush at exit, landing *after* every raw
     # write() the student's own function makes and scrambling case order.
     # Unbuffering keeps printf and write interleaved in true call order.
     setup = "    setvbuf(stdout, NULL, _IONBF, 0);\n"
-    return preamble + "\nint main(void)\n{\n" + setup + blocks + "\n    return 0;\n}\n"
+    return (
+        preamble
+        + "\nint main(void)\n{\n"
+        + setup
+        + blocks
+        + "\n    return 0;\n}\n"
+    )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -938,7 +1037,8 @@ def _strip_comments_and_strings(src):
     Python tool's ast-based `find_imports` but C has no stdlib parser."""
     out, i, n = [], 0, len(src)
     while i < n:
-        two = src[i:i + 2]
+        pair_end = i + 2
+        two = src[i:pair_end]
         if two == "/*":
             end = src.find("*/", i + 2)
             i = n if end == -1 else end + 2
@@ -964,7 +1064,9 @@ def _is_duplicate_main(link_error):
     relevant to "function"-kind grading — "program"-kind exercises expect
     (and require) the student to define main()."""
     low = link_error.lower()
-    return "main" in low and ("duplicate symbol" in low or "multiple definition" in low)
+    return "main" in low and (
+        "duplicate symbol" in low or "multiple definition" in low
+    )
 
 
 def find_forbidden(stripped_src, forbidden_names):
@@ -990,7 +1092,8 @@ def _real_chars(src):
     the UNTOUCHED original text once it knows where that token really is."""
     i, n = 0, len(src)
     while i < n:
-        two = src[i:i + 2]
+        pair_end = i + 2
+        two = src[i:pair_end]
         if two == "/*":
             end = src.find("*/", i + 2)
             i = n if end == -1 else end + 2
@@ -1054,7 +1157,8 @@ def extract_function_source(filepath, function_name):
         elif ch == "}" and body_start is not None:
             depth -= 1
             if depth == 0:
-                return src[sig_start:i + 1].strip()
+                sig_end = i + 1
+                return src[sig_start:sig_end].strip()
     return None
 
 
@@ -1067,8 +1171,13 @@ def compile_c(sources, output, cc=DEFAULT_CC, extra_flags=(), include_dirs=()):
         cmd += ["-I", d]
     cmd += list(extra_flags) + list(sources) + ["-o", output]
     try:
-        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=COMPILE_TIMEOUT, text=True)
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=COMPILE_TIMEOUT,
+            text=True,
+        )
     except subprocess.TimeoutExpired:
         return False, "compiler timed out after %ds" % COMPILE_TIMEOUT
     return proc.returncode == 0, proc.stderr
@@ -1078,9 +1187,15 @@ def run_bin(path, timeout=DEFAULT_TIMEOUT, argv=None):
     """Returns (stdout, crash_note). crash_note is None on a clean exit."""
     cmd = [path] + list(argv or ())
     try:
-        proc = subprocess.run(cmd, stdin=subprocess.DEVNULL,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=timeout, text=True, errors="replace")
+        proc = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+            text=True,
+            errors="replace",
+        )
     except subprocess.TimeoutExpired:
         return "", "TIMEOUT"
     if proc.returncode < 0:
@@ -1106,18 +1221,31 @@ def run_valgrind(path, timeout=DEFAULT_TIMEOUT, argv=None):
     Never raises — a valgrind-side problem (timeout) is reported through
     `detail` like any other finding, not as an exception.
     """
-    cmd = ["valgrind", "--leak-check=full", "--show-leak-kinds=all",
-           "--errors-for-leak-kinds=all",
-           "--error-exitcode=%d" % VALGRIND_ERROR_EXITCODE, "-q",
-           path] + list(argv or ())
+    cmd = [
+        "valgrind",
+        "--leak-check=full",
+        "--show-leak-kinds=all",
+        "--errors-for-leak-kinds=all",
+        "--error-exitcode=%d" % VALGRIND_ERROR_EXITCODE,
+        "-q",
+        path,
+    ] + list(argv or ())
     try:
-        proc = subprocess.run(cmd, stdin=subprocess.DEVNULL,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                              timeout=timeout * VALGRIND_TIMEOUT_MULT,
-                              text=True, errors="replace")
+        proc = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout * VALGRIND_TIMEOUT_MULT,
+            text=True,
+            errors="replace",
+        )
     except subprocess.TimeoutExpired:
-        return False, "valgrind timed out — the program may just be slow " \
-                      "under instrumentation, not necessarily an infinite loop"
+        return (
+            False,
+            "valgrind timed out — the program may just be slow "
+            "under instrumentation, not necessarily an infinite loop",
+        )
     # --error-exitcode only overrides the exit code when valgrind ITSELF
     # found an error; a clean run passes the TRACED PROGRAM's own exit
     # code straight through, which can coincidentally equal
@@ -1128,7 +1256,10 @@ def run_valgrind(path, timeout=DEFAULT_TIMEOUT, argv=None):
     # startup/summary banners, never an actual finding) — checking for
     # that is what actually tells "valgrind found something" apart from
     # "the program's own exit code happened to match".
-    if proc.returncode == VALGRIND_ERROR_EXITCODE and _VALGRIND_REPORT_RE.search(proc.stderr):
+    if (
+        proc.returncode == VALGRIND_ERROR_EXITCODE
+        and _VALGRIND_REPORT_RE.search(proc.stderr)
+    ):
         return False, proc.stderr[:800]
     return True, ""
 
@@ -1147,9 +1278,20 @@ def split_cases(output):
 # ══════════════════════════════════════════════════════════════
 #  GRADE
 # ══════════════════════════════════════════════════════════════
-def grade(ex_name, ex, rendu_dir, cc=DEFAULT_CC, timeout=DEFAULT_TIMEOUT,
-          strict_norm=False, filepath=None, rng=None, fuzz=0,
-          valgrind=False, strict_valgrind=False, strict_forbidden=False):
+def grade(
+    ex_name,
+    ex,
+    rendu_dir,
+    cc=DEFAULT_CC,
+    timeout=DEFAULT_TIMEOUT,
+    strict_norm=False,
+    filepath=None,
+    rng=None,
+    fuzz=0,
+    valgrind=False,
+    strict_valgrind=False,
+    strict_forbidden=False,
+):
     """Grade one exercise. `rng`/`fuzz` only ever apply to "function"-kind
     exercises whose args are all "safe" to randomise (see is_fuzzable) —
     every other exercise is graded on its curated cases alone, same as
@@ -1160,21 +1302,58 @@ def grade(ex_name, ex, rendu_dir, cc=DEFAULT_CC, timeout=DEFAULT_TIMEOUT,
     same as Python's --strict-imports; this project's own default stays
     lenient so a beginner's warning-only feedback loop isn't lost."""
     if ex.get("kind") == "program":
-        return _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                              valgrind, strict_valgrind, strict_forbidden, rng, fuzz)
-    return _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                           rng, fuzz, valgrind, strict_valgrind, strict_forbidden)
+        return _grade_program(
+            ex_name,
+            ex,
+            rendu_dir,
+            cc,
+            timeout,
+            strict_norm,
+            filepath,
+            valgrind,
+            strict_valgrind,
+            strict_forbidden,
+            rng,
+            fuzz,
+        )
+    return _grade_function(
+        ex_name,
+        ex,
+        rendu_dir,
+        cc,
+        timeout,
+        strict_norm,
+        filepath,
+        rng,
+        fuzz,
+        valgrind,
+        strict_valgrind,
+        strict_forbidden,
+    )
 
 
-def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                    rng=None, fuzz=0, valgrind=False, strict_valgrind=False,
-                    strict_forbidden=False):
+def _grade_function(
+    ex_name,
+    ex,
+    rendu_dir,
+    cc,
+    timeout,
+    strict_norm,
+    filepath,
+    rng=None,
+    fuzz=0,
+    valgrind=False,
+    strict_valgrind=False,
+    strict_forbidden=False,
+):
     report = Report(ex_name, ex["function"])
     path = filepath or os.path.join(rendu_dir, ex_name + ".c")
     started = time.time()
 
     if not os.path.isfile(path):
-        return report.fail("FILE_MISSING", "expected your solution at %s" % path)
+        return report.fail(
+            "FILE_MISSING", "expected your solution at %s" % path
+        )
 
     cases = list(ex["cases"])
     if fuzz and rng is not None and is_fuzzable(ex):
@@ -1193,7 +1372,8 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
     forbidden = find_forbidden(stripped, ex.get("forbidden", ()))
     if forbidden:
         report.warnings.append(
-            "forbidden call found for this exercise: %s" % ", ".join(forbidden))
+            "forbidden call found for this exercise: %s" % ", ".join(forbidden)
+        )
         if strict_forbidden:
             return report.fail("FORBIDDEN_CALL", ", ".join(forbidden))
 
@@ -1202,7 +1382,9 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         include_dirs = []
         header = header_filename(ex)
         if header:
-            with open(os.path.join(workdir, header), "w", encoding="utf-8") as fh:
+            with open(
+                os.path.join(workdir, header), "w", encoding="utf-8"
+            ) as fh:
                 fh.write(header_content(header))
             include_dirs.append(workdir)
 
@@ -1216,9 +1398,11 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         try:
             harness_src = generate_harness(ex, cases)
         except Exception as exc:
-            return report.fail("BANK_ERROR",
-                               "%s: harness codegen crashed (%s: %s)"
-                               % (ex_name, type(exc).__name__, exc))
+            return report.fail(
+                "BANK_ERROR",
+                "%s: harness codegen crashed (%s: %s)"
+                % (ex_name, type(exc).__name__, exc),
+            )
         harness_path = os.path.join(workdir, "harness.c")
         with open(harness_path, "w", encoding="utf-8") as fh:
             fh.write(harness_src)
@@ -1228,44 +1412,61 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
             fh.write(ex["oracle_c"])
 
         ref_bin = os.path.join(workdir, "ref")
-        ok, err = compile_c([oracle_path, harness_path], ref_bin, cc,
-                            include_dirs=include_dirs)
+        ok, err = compile_c(
+            [oracle_path, harness_path], ref_bin, cc, include_dirs=include_dirs
+        )
         if not ok:
             # A real bank/codegen bug, not the student's fault — never let it
             # surface as a raw traceback mid-exam (fuzz cases make this path
-            # reachable even for exercises whose curated cases always compiled).
-            return report.fail("BANK_ERROR",
-                               "%s: reference implementation fails to compile:\n%s"
-                               % (ex_name, err[:800]))
+            # reachable even for exercises whose curated cases always
+            # compiled).
+            return report.fail(
+                "BANK_ERROR",
+                "%s: reference implementation fails to compile:\n%s"
+                % (ex_name, err[:800]),
+            )
 
         student_bin = os.path.join(workdir, "student")
         extra = ["-Werror"] if strict_norm else []
-        ok, err = compile_c([path, harness_path], student_bin, cc,
-                            extra_flags=extra, include_dirs=include_dirs)
+        ok, err = compile_c(
+            [path, harness_path],
+            student_bin,
+            cc,
+            extra_flags=extra,
+            include_dirs=include_dirs,
+        )
         if not ok:
             if _is_duplicate_main(err):
                 return report.fail(
                     "FORBIDDEN_MAIN",
                     "define only %s() — the tester supplies its own main()"
-                    % ex["function"])
+                    % ex["function"],
+                )
             return report.fail("COMPILE_ERROR", err[:800])
         if err.strip():
             report.warnings.append(
                 "compiler warning (fix it — the real exam compiles with "
-                "-Wall -Wextra too; --strict-norm makes this fatal):\n" + err[:500])
+                "-Wall -Wextra too; --strict-norm makes this fatal):\n"
+                + err[:500]
+            )
 
         ref_out, ref_crash = run_bin(ref_bin, timeout)
         if ref_crash:
-            return report.fail("BANK_ERROR", "%s: reference binary %s"
-                               % (ex_name, ref_crash))
+            return report.fail(
+                "BANK_ERROR", "%s: reference binary %s" % (ex_name, ref_crash)
+            )
 
         stu_out, stu_crash = run_bin(student_bin, timeout)
         report.duration = time.time() - started
 
         if stu_crash == "TIMEOUT":
-            return report.fail("TIMEOUT", "no result after %ds — infinite loop?" % timeout)
+            return report.fail(
+                "TIMEOUT", "no result after %ds — infinite loop?" % timeout
+            )
         if stu_crash:
-            report.warnings.append("your program crashed: " + stu_crash.split(":", 1)[1])
+            report.warnings.append(
+                "your program crashed: " + stu_crash.split(":", 1)[1]
+            )
 
         if valgrind and have_valgrind():
             # one valgrind pass covers every case: the harness's own main()
@@ -1281,7 +1482,8 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 report.warnings.append(
                     "valgrind reported memory error(s) (leaks, invalid "
                     "reads/writes, ...) — fix them before the real exam, "
-                    "leaked/invalid memory is graded there too:\n" + vg_detail)
+                    "leaked/invalid memory is graded there too:\n" + vg_detail
+                )
                 if strict_valgrind:
                     return report.fail("VALGRIND_ERRORS", vg_detail)
 
@@ -1300,7 +1502,13 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 # the harness's own trailing newline, so ui.py's failure
                 # list doesn't grow a stray blank line per entry.
                 report.failures.append(
-                    CFailure(i, expected.rstrip("\n"), got.rstrip("\n"), args=cases[i]))
+                    CFailure(
+                        i,
+                        expected.rstrip("\n"),
+                        got.rstrip("\n"),
+                        args=cases[i],
+                    )
+                )
         # Updated (not just set once above) so a valgrind pass — much
         # slower than the bare binary, see VALGRIND_TIMEOUT_MULT — is
         # counted too, the same way _grade_program's single end-of-loop
@@ -1312,17 +1520,30 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
-                   valgrind=False, strict_valgrind=False, strict_forbidden=False,
-                   rng=None, fuzz=0):
-    """"program"-kind exercises: the student's file compiles ALONE (it IS
+def _grade_program(
+    ex_name,
+    ex,
+    rendu_dir,
+    cc,
+    timeout,
+    strict_norm,
+    filepath,
+    valgrind=False,
+    strict_valgrind=False,
+    strict_forbidden=False,
+    rng=None,
+    fuzz=0,
+):
+    """ "program"-kind exercises: the student's file compiles ALONE (it IS
     the main()), and is run once per case with that case's argv."""
     report = Report(ex_name, ex["function"])
     path = filepath or os.path.join(rendu_dir, ex_name + ".c")
     started = time.time()
 
     if not os.path.isfile(path):
-        return report.fail("FILE_MISSING", "expected your solution at %s" % path)
+        return report.fail(
+            "FILE_MISSING", "expected your solution at %s" % path
+        )
 
     with open(path, encoding="utf-8", errors="replace") as fh:
         raw = fh.read()
@@ -1330,7 +1551,8 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
     forbidden = find_forbidden(stripped, ex.get("forbidden", ()))
     if forbidden:
         report.warnings.append(
-            "forbidden call found for this exercise: %s" % ", ".join(forbidden))
+            "forbidden call found for this exercise: %s" % ", ".join(forbidden)
+        )
         if strict_forbidden:
             return report.fail("FORBIDDEN_CALL", ", ".join(forbidden))
 
@@ -1343,9 +1565,11 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         ref_bin = os.path.join(workdir, "ref")
         ok, err = compile_c([oracle_path], ref_bin, cc)
         if not ok:
-            return report.fail("BANK_ERROR",
-                               "%s: reference program fails to compile:\n%s"
-                               % (ex_name, err[:800]))
+            return report.fail(
+                "BANK_ERROR",
+                "%s: reference program fails to compile:\n%s"
+                % (ex_name, err[:800]),
+            )
 
         student_bin = os.path.join(workdir, "student")
         extra = ["-Werror"] if strict_norm else []
@@ -1355,7 +1579,9 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         if err.strip():
             report.warnings.append(
                 "compiler warning (fix it — the real exam compiles with "
-                "-Wall -Wextra too; --strict-norm makes this fatal):\n" + err[:500])
+                "-Wall -Wextra too; --strict-norm makes this fatal):\n"
+                + err[:500]
+            )
 
         run_valgrind_ok = valgrind and have_valgrind()
         vg_issues = []
@@ -1367,25 +1593,42 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         for i, argv in enumerate(cases):
             ref_out, ref_crash = run_bin(ref_bin, timeout, argv=argv)
             if ref_crash:
-                return report.fail("BANK_ERROR", "%s: reference program %s on case %d"
-                                   % (ex_name, ref_crash, i))
+                return report.fail(
+                    "BANK_ERROR",
+                    "%s: reference program %s on case %d"
+                    % (ex_name, ref_crash, i),
+                )
             # Same bail-out as the Python sandbox (examshell/grader.py's
             # MAX_TIMEOUTS): an infinite loop would otherwise cost the full
             # timeout on EVERY remaining case — 30s+ of staring at a spinner.
             if streak >= MAX_TIMEOUTS:
-                report.failures.append(CFailure(i, ref_out,
-                                                "[skipped after %d timeouts]" % streak,
-                                                args=argv, program=True))
+                report.failures.append(
+                    CFailure(
+                        i,
+                        ref_out,
+                        "[skipped after %d timeouts]" % streak,
+                        args=argv,
+                        program=True,
+                    )
+                )
                 continue
             stu_out, stu_crash = run_bin(student_bin, timeout, argv=argv)
             streak = streak + 1 if stu_crash == "TIMEOUT" else 0
             if stu_crash:
                 note = stu_crash.split(":", 1)[-1]
-                report.warnings.append("case %d %s: %s"
-                                       % (i, "timed out" if stu_crash == "TIMEOUT"
-                                          else "crashed", note))
-                report.failures.append(CFailure(i, ref_out,
-                                                "[%s]" % note, args=argv, program=True))
+                report.warnings.append(
+                    "case %d %s: %s"
+                    % (
+                        i,
+                        "timed out" if stu_crash == "TIMEOUT" else "crashed",
+                        note,
+                    )
+                )
+                report.failures.append(
+                    CFailure(
+                        i, ref_out, "[%s]" % note, args=argv, program=True
+                    )
+                )
                 continue
             if stu_out == ref_out:
                 report.passed += 1
@@ -1396,9 +1639,12 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                 # of the most common real exam failures. Stripped, the two
                 # sides could look identical while the case still fails.
                 report.failures.append(
-                    CFailure(i, ref_out, stu_out, args=argv, program=True))
+                    CFailure(i, ref_out, stu_out, args=argv, program=True)
+                )
             if run_valgrind_ok:
-                vg_clean, vg_detail = run_valgrind(student_bin, timeout, argv=argv)
+                vg_clean, vg_detail = run_valgrind(
+                    student_bin, timeout, argv=argv
+                )
                 if not vg_clean:
                     vg_issues.append((i, vg_detail))
                     if strict_valgrind:
@@ -1407,16 +1653,23 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         if vg_issues:
             # Appended before the strict_valgrind fail-out below too — see
             # the matching comment in _grade_function.
-            more = (" (+%d more case%s)" % (len(vg_issues) - 1,
-                    "" if len(vg_issues) == 2 else "s") if len(vg_issues) > 1 else "")
+            more = (
+                " (+%d more case%s)"
+                % (len(vg_issues) - 1, "" if len(vg_issues) == 2 else "s")
+                if len(vg_issues) > 1
+                else ""
+            )
             report.warnings.append(
-                "valgrind reported memory error(s) (leaks, invalid reads/writes, "
-                "...) on case %d%s — fix them before the real exam, leaked/invalid "
-                "memory is graded there too:\n%s"
-                % (vg_issues[0][0], more, vg_issues[0][1]))
+                "valgrind reported memory error(s) (leaks, invalid "
+                "reads/writes, ...) on case %d%s — fix them before the real "
+                "exam, leaked/invalid memory is graded there too:\n%s"
+                % (vg_issues[0][0], more, vg_issues[0][1])
+            )
             if strict_valgrind:
-                return report.fail("VALGRIND_ERRORS", "case %d: %s"
-                                   % (vg_issues[0][0], vg_issues[0][1]))
+                return report.fail(
+                    "VALGRIND_ERRORS",
+                    "case %d: %s" % (vg_issues[0][0], vg_issues[0][1]),
+                )
 
         report.duration = time.time() - started
         return report
@@ -1427,8 +1680,16 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
 # ══════════════════════════════════════════════════════════════
 #  BANK SELF-TEST  (make c-check)
 # ══════════════════════════════════════════════════════════════
-def selftest(exercises, groups, cc=DEFAULT_CC, timeout=DEFAULT_TIMEOUT,
-             rng=None, fuzz=0, valgrind=False, log=print):
+def selftest(
+    exercises,
+    groups,
+    cc=DEFAULT_CC,
+    timeout=DEFAULT_TIMEOUT,
+    rng=None,
+    fuzz=0,
+    valgrind=False,
+    log=print,
+):
     """Validate the whole C bank. Returns the number of problems found.
 
     `rng`/`fuzz` run every fuzzable exercise's oracle (as "student") against
@@ -1459,42 +1720,70 @@ def selftest(exercises, groups, cc=DEFAULT_CC, timeout=DEFAULT_TIMEOUT,
                 bad("%s: subject does not mention the exercise name" % name)
             prototype = ex.get("prototype", "")
             if _KR_FUNC_PTR_RE.search(prototype):
-                bad("%s: prototype declares a K&R-style empty-parens function "
-                    "pointer (%s) — GCC's C23 default reads () as \"takes no "
-                    "arguments\", not \"unspecified\", so a real call to it fails "
-                    "to compile; write out the parameter types instead"
-                    % (name, _KR_FUNC_PTR_RE.search(prototype).group()))
+                bad(
+                    "%s: prototype declares a K&R-style empty-parens function "
+                    "pointer (%s) — GCC's C23 default reads () as \"takes "
+                    'no arguments", not "unspecified", so a real call to it '
+                    "fails to compile; write out the parameter types instead"
+                    % (name, _KR_FUNC_PTR_RE.search(prototype).group())
+                )
             if kind == "function":
                 for args in ex["cases"]:
-                    want = sum(1 for k in ex["args"] if k not in FIXED_CALLBACK_KINDS)
+                    want = sum(
+                        1 for k in ex["args"] if k not in FIXED_CALLBACK_KINDS
+                    )
                     if len(args) != want:
-                        bad("%s: a case has %d value(s), expected %d "
-                            "(matching 'args')" % (name, len(args), want))
+                        bad(
+                            "%s: a case has %d value(s), expected %d "
+                            "(matching 'args')" % (name, len(args), want)
+                        )
                         break
                 try:
-                    generate_harness(ex)   # must not crash — grade() regenerates it
+                    generate_harness(
+                        ex
+                    )  # must not crash — grade() regenerates it
                 except Exception as exc:
-                    bad("%s: harness codegen crashed (%s: %s)"
-                        % (name, type(exc).__name__, exc))
+                    bad(
+                        "%s: harness codegen crashed (%s: %s)"
+                        % (name, type(exc).__name__, exc)
+                    )
                     continue
 
             path = os.path.join(workdir, name + ".c")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(ex["oracle_c"])
 
-            report = grade(name, ex, workdir, cc=cc, timeout=timeout, filepath=path,
-                           rng=rng, fuzz=fuzz, valgrind=valgrind, strict_valgrind=valgrind)
+            report = grade(
+                name,
+                ex,
+                workdir,
+                cc=cc,
+                timeout=timeout,
+                filepath=path,
+                rng=rng,
+                fuzz=fuzz,
+                valgrind=valgrind,
+                strict_valgrind=valgrind,
+            )
             if report.fatal:
                 bad("%s: %s (%s)" % (name, report.fatal, report.detail))
                 continue
             if not report.ok:
-                bad("%s: oracle fails its own %s, e.g. case %d"
-                    % (name, "harness" if kind == "function" else "run",
-                       report.failures[0].index))
+                bad(
+                    "%s: oracle fails its own %s, e.g. case %d"
+                    % (
+                        name,
+                        "harness" if kind == "function" else "run",
+                        report.failures[0].index,
+                    )
+                )
                 continue
             fuzzed = " (+fuzz)" if fuzz and is_fuzzable(ex) else ""
             vg_tag = " (+valgrind)" if valgrind and have_valgrind() else ""
-            log("  ok    %-32s %3d tests%s%s" % (name, report.total, fuzzed, vg_tag))
+            log(
+                "  ok    %-32s %3d tests%s%s"
+                % (name, report.total, fuzzed, vg_tag)
+            )
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
     return problems

@@ -38,6 +38,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **C crash report** — the case the program crashed on shows
   `[crashed: SIGSEGV]` instead of an empty result, later cases show
   `[not run — crashed on case N]`.
+- **Test gaps found by mutation testing** (each bank oracle altered by
+  one operator/constant, then run against its own tests):
+  `py_island_matrix_counter` didn't catch a missing `0 <=` bound (Python's
+  `matrix[-1]` silently wraps around and joins islands on opposite edges);
+  `py_three_sum` didn't catch broken duplicate skipping or a stuck `hi`;
+  `py_number_base_converter` never fed base 1 or 37 a digit that would
+  still parse. New curated cases cover all three.
 
 ## 0.6.0 — 2026-10-01
 

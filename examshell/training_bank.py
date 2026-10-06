@@ -814,6 +814,14 @@ TRAINING_EXERCISES: Dict[str, Exercise] = {
             [[3, -2, 1, 0]],
             [[-2, 0, 1, 1, 2]],
             [[1, -1, -1, 0]],
+            # Several triplets per first value: skipping too far after a
+            # match (or not moving at all) loses or loops on one of them.
+            [[-5, 1, 4, 2, 3]],
+            [[-5, 1, 4, 2, 3, 9]],  # also needs the sum-too-big branch
+            [[4, 7, -1, 0, -7, -3, 8, -1, 5]],
+            # duplicates on the high side right after a match
+            [[3, 1, 4, 2, 7, -5, 4]],
+            [[7, 4, -2, -5, 7, -8, 4]],
         ],
     },
     "py_spiral_matrix": {

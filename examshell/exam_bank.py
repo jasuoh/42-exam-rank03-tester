@@ -1595,6 +1595,9 @@ EXERCISES: Dict[str, Exercise] = {
             ["100", 10, 1],
             ["777", 8, 16],
             ["deadBEEF", 16, 36],
+            # Out-of-range bases with digits that would still parse.
+            ["0", 1, 10],
+            ["1", 37, 10],
         ],
     },
     "py_pattern_tracker": {

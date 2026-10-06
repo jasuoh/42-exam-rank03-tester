@@ -928,6 +928,12 @@ EXERCISES: Dict[str, Exercise] = {
             ["mixed CaSe TeXt"],
             [" "],
             ["a b c"],
+            # Only a space separates words: str.title() also capitalises
+            # after '-', '\'' and digits, which the subject never asks for.
+            ["hello-world"],
+            ["it's a test"],
+            ["42abc DEF"],
+            ["snake_case word"],
         ],
     },
     "py_leet_speak": {

@@ -24,6 +24,9 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   `main(int argc, char **argv)` for a program that never gets an argument,
   so a correct solution written into it failed the exam's `-Werror` on the
   unused parameters. Programs without arguments now get `main(void)`.
+- **`py_capitalizer` tests** — `text.title()` passed every test although it
+  also capitalises after `-`, `'` and digits (`"it's"` → `"It'S"`). New
+  curated cases pin down that only a space starts a new word.
 
 ## 0.6.0 — 2026-10-01
 

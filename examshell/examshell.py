@@ -96,6 +96,7 @@ class Config(object):
         self.relaxed = getattr(args, "relaxed", False)
         self.time_limit = getattr(args, "time_limit", None)   # minutes
         self.blind = getattr(args, "blind", False)
+        self.bare_stub = getattr(args, "bare_stub", False)    # forced on in the exam
         self.no_update_check = getattr(args, "no_update_check", False)
 
 # ══════════════════════════════════════════════════════════════
@@ -111,7 +112,7 @@ EXAM_PROMPT = "exam"
 PRACTICE_PROMPT = "practice"
 # Config flags the exam forces on unless --relaxed: the real moulinette
 # allows no import at all.
-STRICT_EXAM_FLAGS = ("strict_imports",)
+STRICT_EXAM_FLAGS = ("strict_imports", "bare_stub")   # bare_stub: see write_stub()
 
 EXAM_COMMANDS = [
     ("grademe", "test your solution (you advance only at 100%)"),
@@ -337,7 +338,16 @@ def write_stub(ex_name, cfg):
         "rank": RANK.label.replace("Exam ", ""),
         "short": ex_name[3:] if ex_name.startswith("py_") else ex_name,
     }
-    if len(parts) == 1:
+    if getattr(cfg, "bare_stub", False):
+        # The exam (unless --relaxed): like the real one, just the
+        # signature(s) — no self-check, no example cases.
+        samples = []
+        body = "# %s — 42 Exam %s\n\n%s" % (ex_name, shared["rank"], "\n\n".join(
+            "%s\n    pass\n" % ((_signature_for(ex["subject"], part["function"])
+                                  if len(parts) > 1 else _signature_of(ex["subject"]))
+                                 or "def %s():" % part["function"])
+            for part in parts))
+    elif len(parts) == 1:
         samples = _sample_cases(ex)
         body = STUB_TEMPLATE.format(
             signature=_signature_of(ex["subject"]) or "def %s():" % ex["function"],
@@ -365,6 +375,9 @@ def write_stub(ex_name, cfg):
             fh.write(body)
     except OSError as exc:
         return False, "error", "cannot create %s: %s" % (path, exc)
+    if getattr(cfg, "bare_stub", False):
+        return True, "success", ("created %s  (bare, like the real exam — "
+                                 "--relaxed for the self-check stub)" % path)
     return True, "success", ("created %s  (%d quick self-check case%s included)"
                              % (path, len(samples), "" if len(samples) == 1 else "s"))
 

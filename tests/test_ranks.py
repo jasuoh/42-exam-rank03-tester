@@ -275,6 +275,21 @@ class MultiFunctionExerciseTests(unittest.TestCase):
         self.assertTrue(report.failures[0].call("compress")
                         .startswith("decompress("))
 
+    def test_exam_stub_is_bare_and_still_importable(self):
+        cfg = examshell.exam_config(_cfg(self.tmp.name))
+        examshell.use_rank("05")
+        self.addCleanup(examshell.use_rank)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(examshell.make_stub("py_compress_decompress", cfg))
+        with open(os.path.join(self.tmp.name, "py_compress_decompress.py"),
+                  encoding="utf-8") as fh:
+            content = fh.read()
+        self.assertIn("def compress(", content)
+        self.assertIn("def decompress(", content)
+        self.assertNotIn("__main__", content)
+        self.assertNotIn("_tests", content)
+        exec(compile(content, "py_compress_decompress.py", "exec"), {"__name__": "x"})
+
     def test_stub_defines_both_functions_and_is_importable(self):
         cfg = _cfg(self.tmp.name)
         examshell.use_rank("05")

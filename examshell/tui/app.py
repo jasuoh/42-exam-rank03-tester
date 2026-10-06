@@ -284,7 +284,9 @@ class SplitScreen(Screen):
         self.query_one("#results-pane").border_title = title
 
     def action_stub(self):
-        ok, kind, message = self.app.sh.write_stub(self.ex_name, self.app.cfg)
+        run = getattr(self, "run", None)          # ExamScreen: the exam's own config
+        cfg = run.cfg if run is not None else self.app.cfg
+        ok, kind, message = self.app.sh.write_stub(self.ex_name, cfg)
         self.notify(message, severity="information" if ok else
                     ("warning" if kind == "warn" else "error"))
 

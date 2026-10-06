@@ -1547,12 +1547,25 @@ def _grade_function(
         ref_chunks = split_cases(ref_out)
         stu_chunks = split_cases(stu_out)
         report.total = n
+        # On a crash (SIGSEGV, ...) the last case that started is the one
+        # that crashed, and nothing after it ran — say so in the report
+        # instead of an empty "got" and a vague "no output".
+        crash = (
+            stu_crash.split(":", 1)[1]
+            if stu_crash and stu_crash.startswith("CRASHED:")
+            else None
+        )
+        crashed_at = max(stu_chunks) if crash and stu_chunks else None
         for i in range(n):
             expected = ref_chunks.get(i, "")
             got = stu_chunks.get(i, "[no output — crashed or exited early?]")
             if got == expected:
                 report.passed += 1
             else:
+                if crashed_at is not None and i == crashed_at and not got:
+                    got = "[crashed: %s]" % crash
+                elif crashed_at is not None and i > crashed_at:
+                    got = "[not run — crashed on case %d]" % crashed_at
                 # comparison above is on the raw chunks (exactness matters
                 # for void-printing exercises); only the *display* strips
                 # the harness's own trailing newline, so ui.py's failure

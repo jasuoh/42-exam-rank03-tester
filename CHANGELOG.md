@@ -27,6 +27,14 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **`py_capitalizer` tests** — `text.title()` passed every test although it
   also capitalises after `-`, `'` and digits (`"it's"` → `"It'S"`). New
   curated cases pin down that only a space starts a new word.
+- **`--doctor` honours `--no-update-check`** — it used to ask GitHub anyway.
+- **Resume prompt** — a typo at "Resume saved exam? [Y/n]" counted as
+  "no" and threw the saved exam away; anything but y/n now asks again.
+- **Redemption badge** — needs an exercise you failed and then passed; a
+  first-try pass alone no longer unlocks it.
+- **C crash report** — the case the program crashed on shows
+  `[crashed: SIGSEGV]` instead of an empty result, later cases show
+  `[not run — crashed on case N]`.
 
 ## 0.6.0 — 2026-10-01
 

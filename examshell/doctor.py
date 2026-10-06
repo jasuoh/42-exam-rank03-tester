@@ -96,7 +96,10 @@ def check_install() -> Check:
 
 def check_update(
     fetch: Optional[Callable[[], Optional[str]]] = None,
+    opt_out: bool = False,
 ) -> Check:
+    if opt_out:
+        return Check(OK, "Updates", "check turned off (--no-update-check)")
     if not update_check.enabled():
         return Check(
             OK, "Updates", "check turned off (%s)" % update_check.ENV_OPT_OUT
@@ -284,9 +287,15 @@ def run_checks(
     cc: str = "cc",
     c_required: bool = False,
     fetch: Optional[Callable[[], Optional[str]]] = None,
+    no_update_check: bool = False,
 ) -> List[Check]:
-    """Every check, in display order."""
-    checks = [check_python(), check_install(), check_update(fetch)]
+    """Every check, in display order. `no_update_check` (the CLI flag)
+    skips the GitHub lookup, like EXAMSHELL_NO_UPDATE_CHECK does."""
+    checks = [
+        check_python(),
+        check_install(),
+        check_update(fetch, opt_out=no_update_check),
+    ]
     checks += check_extras()
     checks += [
         check_compiler(cc, required=c_required),

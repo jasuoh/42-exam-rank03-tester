@@ -647,13 +647,13 @@ def exam_mode(sh: Tester, cfg: TesterConfig) -> None:
     saved = session_store.load(sh.TOOL)
     if saved:
         try:
-            ans = ui.ask(
-                "  Resume saved exam for %s — level %d? [Y/n]: "
+            resume = ui.confirm(
+                "  Resume saved exam for %s — level %d?"
                 % (saved["login"], saved["level"])
-            ).lower()
+            )
         except ui.Abort:
             return
-        if ans in ("", "y", "yes"):
+        if resume:
             run.resume(saved)
             ui.note("Resumed at level %d." % session.level)
         else:
@@ -1324,7 +1324,9 @@ def run_doctor(sh: Tester, cfg: TesterConfig) -> int:
     sh.banner()
     print()
     checks = doctor.run_checks(
-        cc=getattr(cfg, "cc", "cc"), c_required=sh.SYNC_SLOT == "c_rendu"
+        cc=getattr(cfg, "cc", "cc"),
+        c_required=sh.SYNC_SLOT == "c_rendu",
+        no_update_check=cfg.no_update_check,
     )
     width = max(len(c.name) for c in checks)
     for check in checks:

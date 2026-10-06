@@ -281,6 +281,22 @@ def ask(label: str) -> str:
         raise Abort() from None
 
 
+def confirm(question: str, default: bool = True) -> bool:
+    """A yes/no prompt (Enter = `default`). Anything that isn't a clear
+    yes or no asks again instead of guessing — a typo must never answer
+    for the student (e.g. throw away a saved exam). Ctrl-C raises Abort."""
+    label = "%s %s: " % (question, "[Y/n]" if default else "[y/N]")
+    while True:
+        answer = ask(label).lower()
+        if answer == "":
+            return default
+        if answer in ("y", "yes", "j", "ja"):
+            return True
+        if answer in ("n", "no", "nein"):
+            return False
+        warn("please answer y or n")
+
+
 def pause(label: str = "  Press Enter to continue…") -> None:
     try:
         if _rich:

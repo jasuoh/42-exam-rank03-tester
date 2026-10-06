@@ -641,6 +641,8 @@ EXERCISES: Dict[str, Exercise] = {
             [],
             ["a", "b"],
             ["MiXeD CaSe"],
+            # 'z'/'Z' are the classic off-by-one bound
+            ["zZ az AZ"],
         ],
     },
     # ── LEVEL 2 ────────────────────────────────────────────────
@@ -709,6 +711,9 @@ EXERCISES: Dict[str, Exercise] = {
             ["2147483647"],
             ["-2147483648"],
             ["   +  5"],
+            # a 0 inside the number (not only a leading one)
+            ["105"],
+            ["-1000"],
         ],
     },
     "is_power_of_2": {
@@ -943,6 +948,8 @@ EXERCISES: Dict[str, Exercise] = {
             [],
             ["a", "b"],
             ["Hello"],
+            # 'z' <-> 'a' at both ends of the alphabet
+            ["zZ aA"],
         ],
     },
     "camel_to_snake": {
@@ -1492,6 +1499,8 @@ EXERCISES: Dict[str, Exercise] = {
             [],
             ["a", "b"],
             ["oneword"],
+            # one empty argument
+            [""],
         ],
     },
     "print_bits": {
@@ -1892,6 +1901,8 @@ EXERCISES: Dict[str, Exercise] = {
             ["abc", ""],
             [],
             ["a"],
+            # the very first character already missing
+            ["o", "zc"],
         ],
     },
     "epur_str": {
@@ -2309,7 +2320,14 @@ EXERCISES: Dict[str, Exercise] = {
             return (0);
         }
         """),
-        "cases": [["1", "2", "3"], [], ["a"], ["a", "b", "c", "d", "e"]],
+        "cases": [
+            ["1", "2", "3"],
+            [],
+            ["a"],
+            ["a", "b", "c", "d", "e"],
+            # two digits in the answer
+            ["a", "a", "a", "a", "a", "a", "a", "a", "a", "a"],
+        ],
     },
     "print_hex": {
         "level": 3,
@@ -3407,6 +3425,8 @@ EXERCISES: Dict[str, Exercise] = {
             [],
             [""],
             ["a", "b"],
+            # 'z' repeats 26 times — the off-by-one bound
+            ["zZ"],
         ],
     },
     "fprime": {
@@ -3489,6 +3509,11 @@ EXERCISES: Dict[str, Exercise] = {
             ["42", "21"],
             ["804577"],
             ["8333325"],
+            # prime squares and powers: no trailing '*1', no 'p*p' left whole
+            ["4"],
+            ["9"],
+            ["529"],
+            ["67712"],
         ],
     },
     "ft_itoa": {
@@ -3662,6 +3687,9 @@ EXERCISES: Dict[str, Exercise] = {
             [""],
             [],
             ["a", "b"],
+            # a one-letter word at the very start
+            ["J"],
+            ["a bc"],
         ],
     },
     "rostring": {
@@ -4192,6 +4220,11 @@ EXERCISES: Dict[str, Exercise] = {
             ["race a car"],
             ["Was it a car or a cat I saw"],
             ["a", "b"],
+            # 'z' must count as a letter too
+            ["4z"],
+            ["zaz"],
+            ["Za"],  # 'Z' is a letter …
+            ["Zz"],  # … and lower-cases to 'z'
         ],
     },
     "longest_word_str": {

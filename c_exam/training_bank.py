@@ -649,6 +649,8 @@ TRAINING_EXERCISES: Dict[str, Exercise] = {
             [[1, 1, 1, 1]],
             [[3, 3]],
             [[-5, 0, 5, 10]],
+            # exactly two elements
+            [[-21, 36]],
         ],
     },
 }

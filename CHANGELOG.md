@@ -45,6 +45,14 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   `py_three_sum` didn't catch broken duplicate skipping or a stuck `hi`;
   `py_number_base_converter` never fed base 1 or 37 a digit that would
   still parse. New curated cases cover all three.
+- **C bank: test gaps found the same way** (oracles mutated in C, each
+  mutant compiled and graded, survivors re-run with 200 fuzz cases).
+  The classic `c < 'z'` / `c < 'Z'` off-by-one passed `ulstr`,
+  `alpha_mirror`, `repeat_alpha` and `is_palindrome_str` — no case had a
+  `z` or `Z`. Also covered now: `fprime` on prime squares and powers,
+  `paramsum` with 10 arguments, `rev_wstr` with a one-letter first word,
+  `last_word ""`, `wdmatch` failing on the first character, `max_gap`
+  with two elements, `ft_atoi` with a `0` inside the number.
 
 ## 0.6.0 — 2026-10-01
 

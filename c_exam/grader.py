@@ -629,7 +629,35 @@ def _fuzz_flood_fill_case(rng):
     return [grid, (width, height), begin]
 
 
+def _fuzz_atoi_base_case(rng):
+    """ft_atoi_base: a base the subject allows (2-16) and a number that fits
+    in an int, written in that base in mixed case — sometimes negative,
+    sometimes cut short by a digit too big for the base, a stray '-'/'+' or
+    a space. (The generic fuzzer would pass bases like 558 or -17 and
+    overflow the result: behaviour the subject never defines.)"""
+    base = rng.randint(2, 16)
+    value = rng.choice((rng.randint(0, base ** 3), rng.randint(0, 2 ** 31 - 1)))
+    digits = ""
+    while True:
+        digits = "0123456789abcdef"[value % base] + digits
+        value //= base
+        if not value:
+            break
+    digits = "".join(c.upper() if rng.random() < 0.5 else c for c in digits)
+    if rng.random() < 0.4:
+        digits = "-" + digits
+    roll = rng.random()
+    if roll < 0.3:
+        cut = rng.randint(1, len(digits))
+        bad = rng.choice(["-", "+", " ", "g", "z"] + (["0123456789abcdef"[base]] if base < 16 else []))
+        digits = digits[:cut] + bad + digits[cut:]
+    elif roll < 0.35:
+        digits = rng.choice(("", "-", "+1", " 1", "--1"))
+    return [digits, base]
+
+
 CASE_FUZZERS = {
+    "atoi_base": _fuzz_atoi_base_case,
     "list_foreach": _fuzz_foreach_case,
     "list_remove_if": _fuzz_remove_if_case,
     "flood_fill": _fuzz_flood_fill_case,

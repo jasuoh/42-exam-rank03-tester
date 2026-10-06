@@ -10,6 +10,9 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 ## Unreleased
 
 ### Changed
+- **`make lint` = ruff + flake8 + `mypy --strict`**, and CI runs it as its
+  own job. The whole code base (package, tests, tools) is type-annotated
+  and flake8-clean; `make install` brings flake8 and mypy.
 - **Bare `stub` in the exam** — like the real exam, `stub` now writes only
   the prototype/signature: no `main()`, no `SELF_TEST` block, no examples
   or self-check (C and Python, terminal and full-screen app). `--relaxed`

@@ -20,18 +20,10 @@ PY = $(shell for p in .venv/bin/python venv/bin/python; do [ -x $$p ] && echo $$
 
 SRC_PKG     := examshell
 C_PKG       := c_exam
-SOURCES     := $(SRC_PKG)/__main__.py $(SRC_PKG)/examshell.py \
-               $(SRC_PKG)/grader.py $(SRC_PKG)/ui.py $(SRC_PKG)/bank_common.py \
-               $(SRC_PKG)/exam_bank.py $(SRC_PKG)/exam_bank_r04.py \
-               $(SRC_PKG)/exam_bank_r05.py $(SRC_PKG)/ranks.py \
-               $(SRC_PKG)/training_bank.py \
-               $(SRC_PKG)/settings.py $(SRC_PKG)/stats.py \
-               $(SRC_PKG)/session_store.py $(SRC_PKG)/report_export.py \
-               $(SRC_PKG)/version.py $(SRC_PKG)/case_labels.py $(SRC_PKG)/update_check.py \
-               $(SRC_PKG)/shell_common.py $(SRC_PKG)/sync.py $(SRC_PKG)/doctor.py $(SRC_PKG)/feedback.py $(wildcard $(SRC_PKG)/tui/*.py) \
-               $(C_PKG)/__main__.py $(C_PKG)/examshell.py $(C_PKG)/grader.py \
-               $(C_PKG)/bank.py $(C_PKG)/training_bank.py \
-               $(wildcard tests/*.py)
+# Every Python file of the project (lint, format). A wildcard, not a list:
+# a hand-kept list silently left new modules unlinted.
+SOURCES     := $(wildcard $(SRC_PKG)/*.py $(SRC_PKG)/tui/*.py $(C_PKG)/*.py \
+                          src/*.py tools/*.py tests/*.py)
 RENDU       ?= rendu
 
 CC          ?= cc
@@ -54,6 +46,7 @@ C_ARGS := $(FLAGS) $(if $(SEED),--seed $(SEED),) $(if $(C_RENDU),--rendu $(C_REN
 BOLD  := \033[1m
 CYAN  := \033[96m
 GREEN := \033[92m
+RED   := \033[91m
 DIM   := \033[90m
 OFF   := \033[0m
 
@@ -97,7 +90,7 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make unit" "fast unit tests for grader/ui/examshell logic"
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make check" "self-test every exam bank + the training bank"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make test" "unit + check"
-	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make lint" "compile-check + ruff/pyflakes if installed"
+	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make lint" "parse check + ruff, flake8, mypy --strict"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make format" "run ruff format if installed"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
@@ -256,6 +249,22 @@ lint:
 	else \
 		printf "$(DIM)  (install ruff or pyflakes for a deeper lint)$(OFF)\n"; \
 	fi
+	@# flake8 (pycodestyle + pyflakes, default 79 columns) and mypy --strict
+	@# (config in pyproject.toml). Both are in uv's dev group — `make install`
+	@# brings them. Missing tools are skipped with a note, unless
+	@# LINT_STRICT=1 (what CI sets): then a missing tool fails the lint.
+	@for tool in flake8 mypy; do \
+		if ! $(PY) -m $$tool --version >/dev/null 2>&1; then \
+			if [ -n "$(LINT_STRICT)" ]; then \
+				printf "$(RED)✖$(OFF) $$tool is not installed (make install)\n"; exit 1; \
+			fi; \
+			printf "$(DIM)  ($$tool not installed — make install for the full lint)$(OFF)\n"; \
+		elif [ $$tool = flake8 ]; then \
+			$(PY) -m flake8 $(SOURCES) && printf "$(GREEN)✔$(OFF) flake8\n" || exit 1; \
+		else \
+			$(PY) -m mypy --strict && printf "$(GREEN)✔$(OFF) mypy --strict\n" || exit 1; \
+		fi; \
+	done
 
 format:
 	@if $(PY) -m ruff --version >/dev/null 2>&1; then $(PY) -m ruff format $(SOURCES); \

@@ -1738,7 +1738,13 @@ EXERCISES = {
         "cases": [
             ["101", 2], ["ff", 16], ["FF", 16], ["777", 8],
             ["-101", 2], ["z", 16], ["123", 10],
+            ["fF", 16], ["12fdb3", 16], ["-Ff", 16],     # mixed case
+            ["102", 2], ["19", 8], ["ag", 16],           # digit too big for the base
+            ["1-1", 10], ["--1", 10], ["+1", 10],        # '-' only as the very first char
+            ["", 10], ["-", 10], ["-0", 10], ["0", 2],
+            ["7fffffff", 16], ["2147483647", 10],         # INT_MAX
         ],
+        "fuzz_cases": "atoi_base",
     },
     "ft_range": {
         "level": 3, "function": "ft_range",

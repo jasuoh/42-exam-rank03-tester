@@ -226,6 +226,36 @@ class MakeStubTests(unittest.TestCase):
                 content = fh.read()
             self.assertIn("int array_sum(int *arr, unsigned int size)", content)
 
+    def test_exam_stub_is_bare_like_the_real_exam(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = shell_common.exam_config(examshell._SH, _cfg(tmp))
+            self.assertTrue(cfg.bare_stub)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(examshell.make_stub("ft_atoi_base", cfg))
+                self.assertTrue(examshell.make_stub("rotone", cfg))
+                self.assertTrue(examshell.make_stub("ft_list_size", cfg))
+            with open(tmp + "/ft_atoi_base.c", encoding="utf-8") as fh:
+                content = fh.read()
+            self.assertIn("int ft_atoi_base(const char *str, int str_base)", content)
+            for helper in ("main", "SELF_TEST", "printf", "#include"):
+                self.assertNotIn(helper, content)
+            with open(tmp + "/rotone.c", encoding="utf-8") as fh:
+                content = fh.read()
+            self.assertIn("int main(int argc, char **argv)", content)
+            self.assertNotIn("/tmp/t", content)
+            with open(tmp + "/ft_list_size.c", encoding="utf-8") as fh:
+                self.assertIn('#include "list.h"', fh.read())
+
+    def test_relaxed_exam_keeps_the_full_stub(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = _cfg(tmp)
+            base.relaxed = True
+            cfg = shell_common.exam_config(examshell._SH, base)
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertTrue(examshell.make_stub("ft_atoi_base", cfg))
+            with open(tmp + "/ft_atoi_base.c", encoding="utf-8") as fh:
+                self.assertIn("SELF_TEST", fh.read())
+
     def test_list_needing_exercise_also_writes_list_h(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = _cfg(tmp)

@@ -633,7 +633,8 @@ def _fuzz_atoi_base_case(rng):
     """ft_atoi_base: a base the subject allows (2-16) and a number that fits
     in an int, written in that base in mixed case — sometimes negative,
     sometimes cut short by a digit too big for the base, a stray '-'/'+' or
-    a space. (The generic fuzzer would pass bases like 558 or -17 and
+    a space. Never a LEADING '+' or space: the subject doesn't say, and a
+    student reusing their ft_atoi rightly skips them. (The generic fuzzer would pass bases like 558 or -17 and
     overflow the result: behaviour the subject never defines.)"""
     base = rng.randint(2, 16)
     value = rng.choice((rng.randint(0, base ** 3), rng.randint(0, 2 ** 31 - 1)))
@@ -652,7 +653,7 @@ def _fuzz_atoi_base_case(rng):
         bad = rng.choice(["-", "+", " ", "g", "z"] + (["0123456789abcdef"[base]] if base < 16 else []))
         digits = digits[:cut] + bad + digits[cut:]
     elif roll < 0.35:
-        digits = rng.choice(("", "-", "+1", " 1", "--1"))
+        digits = rng.choice(("", "-", "--1"))
     return [digits, base]
 
 

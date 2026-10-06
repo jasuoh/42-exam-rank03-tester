@@ -7,6 +7,20 @@ Versions follow `examshell/version.py`; when a merge to `main` bumps it,
 `.github/workflows/release.yml` tags it and publishes that version's section
 below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
+## Unreleased
+
+### Changed
+- **Bare `stub` in the exam** — like the real exam, `stub` now writes only
+  the prototype/signature: no `main()`, no `SELF_TEST` block, no examples
+  or self-check (C and Python, terminal and full-screen app). `--relaxed`
+  (`make exam FLAGS=--relaxed`, `make tui FLAGS=--relaxed`) and practice
+  keep the full helper stub.
+
+### Fixed
+- **`ft_atoi_base` tests** — random cases stay within the subject (base
+  2-16, no int overflow); more curated edge cases; a leading `+` or space
+  is no longer tested, since the subject doesn't define it.
+
 ## 0.6.0 — 2026-10-01
 
 ### Added

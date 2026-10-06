@@ -76,6 +76,7 @@ class Config(object):
         self.relaxed = getattr(args, "relaxed", False)
         self.time_limit = getattr(args, "time_limit", None)   # minutes
         self.blind = getattr(args, "blind", False)
+        self.bare_stub = getattr(args, "bare_stub", False)    # forced on in the exam
         self.no_update_check = getattr(args, "no_update_check", False)
 
 # ══════════════════════════════════════════════════════════════
@@ -90,8 +91,9 @@ SOURCE_EXT = ".c"
 EXAM_PROMPT = "c-exam"
 PRACTICE_PROMPT = "c-practice"
 # Config flags the exam forces on unless --relaxed: the real exam compiles
-# with -Wall -Wextra -Werror, and a forbidden call fails it.
-STRICT_EXAM_FLAGS = ("strict_norm", "strict_forbidden")
+# with -Wall -Wextra -Werror, a forbidden call fails it, and `stub` gives
+# you a bare file — no main(), no self-test, no examples.
+STRICT_EXAM_FLAGS = ("strict_norm", "strict_forbidden", "bare_stub")
 
 EXAM_COMMANDS = [
     ("grademe", "compile & test your solution (you advance only at 100%)"),
@@ -276,6 +278,25 @@ int main(int argc, char **argv)
 """
 
 
+# The exam's stub (cfg.bare_stub): like the real exam, you start from an
+# empty file — just the prototype, no main(), no self-test, no examples.
+BARE_FUNCTION_STUB_TEMPLATE = """\
+/* {name} — 42 Exam Rank 02 */
+{includes}
+{definition}
+{{
+}}
+"""
+
+BARE_PROGRAM_STUB_TEMPLATE = """\
+/* {name} — 42 Exam Rank 02 */
+
+int main(int argc, char **argv)
+{{
+}}
+"""
+
+
 def _definition_header(prototype):
     """'void ft_putstr(char *str);' -> 'void ft_putstr(char *str)' (no ';')."""
     return prototype.rstrip(";").rstrip()
@@ -289,14 +310,22 @@ def write_stub(ex_name, cfg):
     path = os.path.join(cfg.rendu, ex_name + ".c")
     if os.path.exists(path):
         return False, "warn", "%s already exists — not touching it" % path
+    bare = getattr(cfg, "bare_stub", False)
     try:
         os.makedirs(cfg.rendu, exist_ok=True)
-        if ex.get("kind") == "program":
+        if ex.get("kind") == "program" and bare:
+            content = BARE_PROGRAM_STUB_TEMPLATE.format(name=ex_name)
+        elif ex.get("kind") == "program":
             first_case = next((c for c in ex["cases"] if c), [])
             example_args = "".join(" " + shlex.quote(a) for a in first_case)
             content = PROGRAM_STUB_TEMPLATE.format(
                 name=ex_name, assignment=ex["subject"].splitlines()[0],
                 path=path, short=ex_name, example_args=example_args)
+        elif bare:
+            header = grader.header_filename(ex)
+            content = BARE_FUNCTION_STUB_TEMPLATE.format(
+                name=ex_name, includes="\n#include \"%s\"\n" % header if header else "",
+                definition=_definition_header(ex["prototype"]))
         else:
             header = grader.header_filename(ex)
             includes = "\n#include \"%s\"\n" % header if header else ""
@@ -317,7 +346,8 @@ def write_stub(ex_name, cfg):
                     fh.write(grader.header_content(header))
     except OSError as exc:
         return False, "error", "cannot create %s: %s" % (path, exc)
-    return True, "success", "created %s" % path
+    return True, "success", "created %s%s" % (
+        path, "  (bare, like the real exam — --relaxed for the full stub)" if bare else "")
 
 
 def make_stub(ex_name, cfg):

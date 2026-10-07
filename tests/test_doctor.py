@@ -57,11 +57,19 @@ class DoctorCheckTests(unittest.TestCase):
         self.assertIn("make sync-setup", check.fix)
 
     def test_update_check(self) -> None:
-        with mock.patch.dict(os.environ, {update_check.ENV_OPT_OUT: ""}):
+        # a cache of its own: the real ~/.examshell/update_check.json would
+        # otherwise keep "v99.0.0" and announce it as an update for a day
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        cache = os.path.join(tmp, "update_check.json")
+        with mock.patch.dict(
+            os.environ, {update_check.ENV_OPT_OUT: ""}
+        ), mock.patch.object(update_check, "DATA_DIR", tmp), mock.patch.object(
+            update_check, "CACHE_PATH", cache
+        ):
             newer = doctor.check_update(fetch=lambda: "v99.0.0")
-        self.assertIn(
-            newer.status, ("warn", "ok")
-        )  # cached result may be fresher
+        self.assertEqual(newer.status, "warn")
+        self.assertIn("99.0.0", newer.detail)
         with mock.patch.dict(os.environ, {update_check.ENV_OPT_OUT: "1"}):
             self.assertIn("turned off", doctor.check_update().detail)
 

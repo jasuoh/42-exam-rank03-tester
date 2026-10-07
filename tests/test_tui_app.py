@@ -28,8 +28,10 @@ from examshell.grader import Report
 
 HAVE_TEXTUAL = tui.available()
 if HAVE_TEXTUAL:
+    from rich.syntax import Syntax
     from textual.app import App
-    from textual.widgets import OptionList
+    from textual.coordinate import Coordinate
+    from textual.widgets import DataTable, OptionList
 
     from examshell.tui import app as tui_app
 
@@ -110,10 +112,19 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 app.screen.query_one("#results-pane").border_title, "✔ passed"
             )
+            self.assertEqual(len(screen.log_entries), 1)
         self.assertEqual(
             stats.exercise_status("py", ["py_inter"])["py_inter"]["status"],
             "passed",
         )
+
+    async def test_side_panels_hide_on_narrow_terminals(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(140, 36)) as pilot:
+            self.assertTrue(app.screen.query_one("#menu-right").display)
+            await pilot.resize_terminal(80, 24)
+            await pilot.pause()
+            self.assertFalse(app.screen.query_one("#menu-right").display)
 
     async def test_watch_mode_regrades_on_save(self) -> None:
         path = os.path.join(self.rendu, "py_inter.py")
@@ -193,6 +204,105 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(summary.result.passed)
         self.assertIsNone(session_store.load("py"))
         self.assertEqual(len(stats.exam_history("py")), 1)
+
+    async def test_redraw_is_ignored_while_grading(self) -> None:
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu, relaxed=True), start="exam"
+        )
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.press(*"bob", "enter")
+            exam = app.screen
+            assert isinstance(exam, tui_app.ExamScreen)
+            first = exam.run.current_ex
+            exam.grading = True  # a grade still running in its worker
+            await pilot.press("n")
+            self.assertEqual(exam.run.current_ex, first)
+
+    async def test_picker_preview_follows_the_cursor(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.press("down", "enter")  # Practice
+            picker = app.screen
+            await pilot.press("down", "down")
+            await pilot.pause()
+            table: DataTable[str] = picker.query_one("#table", DataTable)
+            name = table.coordinate_to_cell_key(Coordinate(2, 0)).row_key.value
+            self.assertEqual(
+                picker.query_one("#preview-pane").border_title, "📄 %s" % name
+            )
+            await pilot.press("enter")  # open it, come back
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertEqual(table.cursor_row, 2)
+            await pilot.press("slash", *"zzqqxx")  # no match clears it
+            await pilot.pause()
+            self.assertIsNone(picker.query_one("#preview-pane").border_title)
+
+    async def test_drill_keeps_its_session_log_across_exercises(self) -> None:
+        report = Report("x", "f")
+        report.total = report.passed = 1
+        outcome = shell_common.GradeOutcome(report, "unused")
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(shell_common, "grade", return_value=outcome):
+            async with app.run_test(size=(140, 36)) as pilot:
+                app.push_screen(
+                    tui_app.PracticeScreen(
+                        "py_inter",
+                        mode="drill",
+                        queue=["py_inter", "py_inter"],
+                    )
+                )
+                await pilot.pause()
+                await pilot.press("g")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                await pilot.press("n")
+                await pilot.pause()
+                screen = app.screen
+                assert isinstance(screen, tui_app.PracticeScreen)
+                self.assertEqual(screen.position, 1)
+                self.assertEqual(len(screen.log_entries), 1)
+
+    async def test_code_pane_follows_the_solution_file(self) -> None:
+        path = os.path.join(self.rendu, "py_inter.py")
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, tui_app.PracticeScreen)
+            code = screen.query_one("#code", tui_app.Copyable)
+            self.assertIn("press t for a stub", str(code.source))
+            with open(path, "w") as fh:
+                fh.write(GOOD_INTER)
+            screen.refresh_code()  # what the 1s timer does
+            await pilot.pause()
+            title = screen.query_one("#code-pane").border_title
+            self.assertIn("saved", str(title))
+            assert isinstance(code.source, Syntax)
+            self.assertIn("def inter", code.source.code)
+
+    async def test_subject_and_code_can_be_copied(self) -> None:
+        with open(os.path.join(self.rendu, "py_inter.py"), "w") as fh:
+            fh.write(GOOD_INTER)
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.pause()
+            for wid, piece in (
+                ("#subject", "Assignment name"),
+                ("#code", "def inter(s1, s2):"),
+            ):
+                app.screen.query_one(wid).text_select_all()
+                await pilot.pause()
+                copied = app.screen.get_selected_text() or ""
+                self.assertIn(piece, copied)
+                self.assertFalse(
+                    any(line != line.rstrip() for line in copied.split("\n"))
+                )
+                app.screen.clear_selection()
 
     async def test_readiness_and_stats_screens_open(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))

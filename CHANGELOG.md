@@ -17,6 +17,16 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   found.
 
 ### Changed
+- **Full-screen app uses wide terminals** — the menu's right side is now a
+  dashboard (stat tiles, 4-week activity, readiness chips per level); the
+  exercise picker previews the highlighted subject; practice and exam show
+  **your solution file** under the subject (live, re-read on every save),
+  a compact "this session" log of every grading under the results, and as
+  many failing tests as the results pane fits; stats split into overview
+  and per-exercise columns. Below 120 columns the side panels hide.
+- **Copy text out of the full-screen app** — drag over the subject, your
+  code, the results or the picker preview with the mouse, then ctrl+c.
+  Needs Textual 2.0+ (the `tui` extra now asks for it).
 - **The exam clock keeps running while an exam is saved** — `quit` and a
   later resume no longer pause it, so `--time-limit` can't be stretched by
   quitting; a resume after the limit ran out ends with "TIME'S UP". Total
@@ -31,6 +41,9 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- Full-screen exam: pressing `n` while a grade was still running drew a new
+  exercise and then showed (and could pass the level with) the old one's
+  result. `n` now waits for the grade.
 - **`ft_atoi_base` tests** — random cases stay within the subject (base
   2-16, no int overflow); more curated edge cases; a leading `+` or space
   is no longer tested, since the subject doesn't define it.

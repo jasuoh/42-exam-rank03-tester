@@ -21,8 +21,7 @@ from typing import (
 )
 
 from rich import box
-from rich.console import RenderableType
-from rich.console import Group
+from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -255,15 +254,14 @@ def sparkline(values: Sequence[float]) -> Text:
     return text
 
 
-def stats_view(
+def stats_overview(
     summary: Dict[str, Any],
     activity: Sequence[Tuple[int, int]],
     streak: int,
     history: Sequence[Event],
     fmt_duration: Callable[[float], str],
 ) -> Group:
-    """The stats screen: headline numbers, a 4-week activity chart, recent
-    exams and the per-exercise pass rates (worst first)."""
+    """Headline numbers, a 4-week activity chart and the recent exams."""
     head = Table.grid(padding=(0, 3))
     for _ in range(4):
         head.add_column(justify="center")
@@ -292,7 +290,7 @@ def stats_view(
     chart = Text("last 4 weeks  ", style="bold")
     chart.append_text(sparkline([a for a, _ in activity]))
     chart.append("  %d attempts" % sum(a for a, _ in activity), style="dim")
-    blocks += [chart, Text("")]
+    blocks.append(chart)
 
     if history:
         exams = Table(
@@ -300,6 +298,7 @@ def stats_view(
             box=box.SIMPLE,
             title_style="bold",
             header_style="dim",
+            title_justify="left",
         )
         exams.add_column("time")
         exams.add_column("attempts", justify="right")
@@ -310,39 +309,69 @@ def stats_view(
                 str(e.get("attempts", "")),
                 "%s/100" % e.get("score", ""),
             )
-        blocks += [exams]
-
-    if summary["per_exercise"]:
-        per = Table(
-            title="per exercise (worst first)",
-            box=box.SIMPLE,
-            title_style="bold",
-            header_style="dim",
-        )
-        per.add_column("exercise")
-        per.add_column("pass rate")
-        per.add_column("", justify="right")
-        rows = sorted(
-            summary["per_exercise"].items(),
-            key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]),
-        )
-        for name, row in rows:
-            rate = row["passes"] / float(row["attempts"])
-            style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
-            per.add_row(
-                name,
-                bar(row["passes"], row["attempts"], 16, style),
-                "%d/%d" % (row["passes"], row["attempts"]),
-            )
-        blocks.append(per)
-    else:
-        blocks.append(
-            Text(
-                "no grading history yet — practice something first",
-                style="dim italic",
-            )
-        )
+        blocks += [Text(""), exams]
     return Group(*blocks)
+
+
+def per_exercise_view(summary: Dict[str, Any]) -> RenderableType:
+    """Every exercise you've graded, by pass rate (worst first)."""
+    if not summary["per_exercise"]:
+        return Text(
+            "no grading history yet — practice something first",
+            style="dim italic",
+        )
+    per = Table(box=box.SIMPLE, header_style="dim", expand=True)
+    per.add_column("exercise")
+    per.add_column("pass rate", ratio=1)
+    per.add_column("", justify="right")
+    rows = sorted(
+        summary["per_exercise"].items(),
+        key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]),
+    )
+    for name, row in rows:
+        rate = row["passes"] / float(row["attempts"])
+        style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
+        per.add_row(
+            name,
+            bar(row["passes"], row["attempts"], 16, style),
+            "%d/%d" % (row["passes"], row["attempts"]),
+        )
+    return per
+
+
+def attempt_log(entries: Sequence[Tuple[str, str, Report]]) -> Text:
+    """This session's gradings, newest first: (clock, exercise, Report)."""
+    if not entries:
+        return Text("nothing graded yet", style="dim italic")
+    text = Text(no_wrap=True, overflow="ellipsis")
+    for clock, name, report in reversed(entries):
+        text.append(clock + "  ", style="dim")
+        text.append("✔ " if report.ok else "✖ ", style=OK if report.ok else KO)
+        text.append(name + "  ", style="bold")
+        if report.fatal:
+            text.append(report.fatal_title, style=KO)
+        else:
+            text.append("%d/%d" % (report.passed, report.total), style="dim")
+        text.append("\n")
+    text.rstrip()
+    return text
+
+
+def to_text(renderable: RenderableType, width: int, console: Console) -> Text:
+    """Flatten any rich renderable into styled Text laid out at `width` —
+    same look, but plain text underneath, so it can be selected and
+    copied."""
+    text = Text(no_wrap=True)
+    lines = console.render_lines(
+        renderable, console.options.update_width(width), pad=False
+    )
+    for i, line in enumerate(lines):
+        if i:
+            text.append("\n")
+        for segment in line:
+            if not segment.control:
+                text.append(segment.text, segment.style)
+    return text
 
 
 def logo(subtitle: str) -> Text:

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import random
+import time
 from typing import (
     Any,
     Dict,
@@ -30,12 +31,14 @@ from typing import (
 )
 
 from rich.console import Group, RenderableType
+from rich.syntax import Syntax
 from rich.text import Text
-from textual import work
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
+from textual.selection import Selection
 from textual.timer import Timer
 from textual.widgets import (
     DataTable,
@@ -45,11 +48,12 @@ from textual.widgets import (
     OptionList,
     Static,
 )
+from textual.visual import VisualType
 from textual.widgets.option_list import Option
 
 from .. import session_store, shell_common, stats, ui, update_check
 from .._types import Event, Tester, TesterConfig
-from ..grader import BankError
+from ..grader import BankError, Report
 from ..shell_common import ExamResult, ExamRun, GradeOutcome
 from ..sync import SyncResult
 from ..version import __version__
@@ -61,6 +65,11 @@ THEMES = {
     "highcontrast": "textual-dark",
 }
 WATCH_INTERVAL = 1.0  # seconds between solution-file checks
+# below this many columns, side panels (dashboard, preview) hide
+NARROW = 120
+
+# one line of the "this session" log: (clock, exercise, report)
+LogEntry = Tuple[str, str, Report]
 
 _ResultT = TypeVar("_ResultT")
 
@@ -72,6 +81,42 @@ class AppScreen(Screen[_ResultT]):
     @property
     def app(self) -> ExamShellApp:  # type: ignore[override]
         return cast("ExamShellApp", super().app)
+
+
+class Copyable(Static):
+    """A Static whose content can be selected with the mouse and copied
+    (ctrl+c). Textual only selects plain text, so tables/panels/syntax
+    are flattened to Text at the widget's width, again on every resize."""
+
+    def __init__(self, content: VisualType = "", **kwargs: Any) -> None:
+        super().__init__(content, **kwargs)
+        self.source: VisualType = content
+
+    def update(self, content: VisualType = "", *, layout: bool = True) -> None:
+        self.source = content
+        self.refit()
+
+    def on_resize(self) -> None:
+        self.refit()
+
+    def get_selection(self, selection: Selection) -> Optional[Tuple[str, str]]:
+        """Copied text without the padding that fills code backgrounds."""
+        result = super().get_selection(selection)
+        if result is None:
+            return None
+        text, end = result
+        return "\n".join(line.rstrip() for line in text.split("\n")), end
+
+    def refit(self) -> None:
+        width = self.size.width
+        if width and not isinstance(self.source, (str, Text)):
+            # only rich renderables are ever put in here
+            flat = render.to_text(
+                cast(RenderableType, self.source), width, self.app.console
+            )
+            Static.update(self, flat)
+        else:
+            Static.update(self, self.source)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -224,39 +269,23 @@ class MenuScreen(AppScreen[None]):
 
     def glance(self) -> RenderableType:
         sh = self.app.sh
-        levels = stats.readiness(sh.TOOL, sh.STANDARD_LEVELS)
+        tool = sh.TOOL
         parts: List[RenderableType] = [
-            Text("Exam readiness", style="bold"),
-            Text(""),
-        ]
-        for level, passed, count, _ in levels:
-            line = Text("Level %d  " % level, style="yellow")
-            line.append_text(render.bar(passed, count, 14))
-            line.append("  %d/%d" % (passed, count), style="dim")
-            parts.append(line)
-        streak = stats.practice_streak(sh.TOOL)
-        parts += [
-            Text(""),
-            Text(
-                "🔥 %d-day practice streak" % streak
-                if streak
-                else "no practice today yet",
-                style="bold" if streak else "dim",
+            render.stats_overview(
+                stats.summarize(tool),
+                stats.daily_activity(tool),
+                stats.practice_streak(tool),
+                [],
+                shell_common.fmt_duration,
             ),
+            Text(""),
+            Text(""),
+            render.readiness_view(stats.readiness(tool, sh.STANDARD_LEVELS)),
         ]
         notice = self.app.update_notice.get("notice")
         if notice:
-            parts += [
-                Text(""),
-                Text(
-                    "🔔 " + notice,
-                    style="bold magenta",
-                ),
-            ]
-        parts += [
-            Text(""),
-            Text("v%s" % __version__, style="dim"),
-        ]
+            parts += [Text(""), Text("🔔 " + notice, style="bold magenta")]
+        parts += [Text(""), Text("v%s" % __version__, style="dim")]
         return Group(*parts)
 
     def on_option_list_option_selected(
@@ -317,10 +346,16 @@ class PickerScreen(AppScreen[None]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(
-            placeholder="type to filter by name or function …", id="filter"
-        )
-        yield DataTable(id="table", cursor_type="row", zebra_stripes=True)
+        with Horizontal(id="picker-body"):
+            with Vertical(id="picker-left"):
+                yield Input(
+                    placeholder="type to filter by name or function …",
+                    id="filter",
+                )
+                yield DataTable(
+                    id="table", cursor_type="row", zebra_stripes=True
+                )
+            yield VerticalScroll(Copyable(id="preview"), id="preview-pane")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -349,7 +384,10 @@ class PickerScreen(AppScreen[None]):
         self.status = stats.exercise_status(
             sh.TOOL, [e[2] for e in self.entries]
         )
+        table: DataTable[str] = self.query_one(DataTable)
+        row = table.cursor_row
         self.fill(self.query_one("#filter", Input).value)
+        table.move_cursor(row=row)
 
     def fill(self, query: str) -> None:
         table: DataTable[str] = self.query_one(DataTable)
@@ -374,6 +412,12 @@ class PickerScreen(AppScreen[None]):
                 entry[3],
                 key=name,
             )
+        if not table.row_count:
+            pane = self.query_one("#preview-pane")
+            pane.border_title = pane.border_subtitle = None
+            self.query_one("#preview", Copyable).update(
+                render.waiting_view("no exercise matches")
+            )
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self.fill(event.value)
@@ -383,6 +427,26 @@ class PickerScreen(AppScreen[None]):
 
     def action_focus_filter(self) -> None:
         self.query_one("#filter", Input).focus()
+
+    def on_data_table_row_highlighted(
+        self, event: DataTable.RowHighlighted
+    ) -> None:
+        if event.row_key is None:
+            return
+        name = cast(str, event.row_key.value)  # rows are keyed by name
+        row = self.status[name]
+        pane = self.query_one("#preview-pane")
+        pane.border_title = "📄 %s" % name
+        pane.border_subtitle = (
+            "%d/%d passed" % (row["passes"], row["attempts"])
+            if row["attempts"]
+            else "never tried"
+        )
+        self.query_one("#preview", Copyable).update(
+            ui.subject_blocks(
+                self.app.sh.ALL_EXERCISES[name], code_background=None
+            )
+        )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         mode = "practice" if self.pool == "exam" else "train"
@@ -397,15 +461,32 @@ class SplitScreen(AppScreen[None]):
     """Subject on the left, grading results on the right. Subclasses decide
     what grading means (practice vs exam)."""
 
-    ex_name: str
+    def __init__(self) -> None:
+        super().__init__()
+        self.ex_name = ""  # empty while the exam still asks for the login
+        self.code_mtime: Optional[float] = None
+        self.log_entries: List[LogEntry] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(id="status")
         with Horizontal(id="split"):
-            yield VerticalScroll(Static(id="subject"), id="subject-pane")
-            yield VerticalScroll(Static(id="results"), id="results-pane")
+            with Vertical(id="split-left"):
+                yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
+                yield VerticalScroll(Copyable(id="code"), id="code-pane")
+            with Vertical(id="split-right"):
+                yield VerticalScroll(Copyable(id="results"), id="results-pane")
+                yield VerticalScroll(
+                    Static(render.attempt_log([]), id="log"), id="log-pane"
+                )
         yield Footer()
+
+    def on_mount(self) -> None:
+        self.set_interval(1.0, self.refresh_code)
+        self.query_one("#log-pane").border_title = "this session"
+        self.query_one("#log", Static).update(
+            render.attempt_log(self.log_entries)
+        )
 
     def show_exercise(self, ex_name: str) -> None:
         sh = self.app.sh
@@ -416,7 +497,7 @@ class SplitScreen(AppScreen[None]):
         pane.border_subtitle = shell_common.solution_path(
             sh, ex_name, self.app.cfg
         )
-        self.query_one("#subject", Static).update(
+        self.query_one("#subject", Copyable).update(
             ui.subject_blocks(ex, code_background=None)
         )  # the theme's own code background
         self.set_results(
@@ -425,11 +506,73 @@ class SplitScreen(AppScreen[None]):
                 % shell_common.solution_path(sh, ex_name, self.app.cfg)
             )
         )
+        self.refresh_code(force=True)
+
+    def refresh_code(self, force: bool = False) -> None:
+        """Your solution file under the subject — re-read whenever it's
+        saved."""
+        if not self.ex_name:
+            return
+        path = shell_common.solution_path(
+            self.app.sh, self.ex_name, self.app.cfg
+        )
+        try:
+            mtime: Optional[float] = os.path.getmtime(path)
+        except OSError:
+            mtime = None
+        if not force and mtime == self.code_mtime:
+            return
+        self.code_mtime = mtime
+        pane = self.query_one("#code-pane")
+        code = self.query_one("#code", Copyable)
+        if mtime is None:
+            pane.border_title = "your code"
+            code.update(
+                render.waiting_view(
+                    "no %s yet — write it in your editor, or press t for a "
+                    "stub" % os.path.basename(path)
+                )
+            )
+            return
+        with open(path, errors="replace") as fh:
+            source = fh.read()
+        pane.border_title = "your code · saved %s" % time.strftime(
+            "%H:%M:%S", time.localtime(mtime)
+        )
+        code.update(
+            Syntax(
+                source,
+                "c" if path.endswith(".c") else "python",
+                theme="monokai",
+                line_numbers=True,
+                word_wrap=True,
+            )
+        )
+
+    def log_report(self, report: Report) -> None:
+        self.log_entries.append(
+            (time.strftime("%H:%M:%S"), report.exercise, report)
+        )
+        self.query_one("#log", Static).update(
+            render.attempt_log(self.log_entries)
+        )
+
+    def fails_that_fit(
+        self, report: Report, hint: Optional[str] = None
+    ) -> int:
+        """At least --show-fails, more when the results pane has room (one
+        failing test takes ~4 lines) — but never pushing the warnings or
+        the hint below the fold."""
+        reserve = 6 + 2 * len(report.warnings)
+        if hint:
+            reserve += len(hint) // 40 + 4
+        height = self.query_one("#results-pane").size.height
+        return max(self.app.cfg.show_fails or 6, (height - reserve) // 4)
 
     def set_results(
         self, renderable: RenderableType, title: str = "results"
     ) -> None:
-        self.query_one("#results", Static).update(renderable)
+        self.query_one("#results", Copyable).update(renderable)
         self.query_one("#results-pane").border_title = title
 
     def action_stub(self) -> None:
@@ -474,6 +617,7 @@ class PracticeScreen(SplitScreen):
         self.watch_mtime: Optional[float] = None
 
     def on_mount(self) -> None:
+        super().on_mount()
         self.show_exercise(self.start_ex)
         self.update_status()
 
@@ -524,8 +668,9 @@ class PracticeScreen(SplitScreen):
     def show_outcome(self, outcome: GradeOutcome) -> None:
         self.grading = False
         report = outcome.report
+        self.log_report(report)
         view = render.report_view(
-            report, report.function, self.app.cfg.show_fails or 6
+            report, report.function, self.fails_that_fit(report, outcome.hint)
         )
         if outcome.hint:
             view = Group(view, Text(""), render.hint_view(outcome.hint))
@@ -574,14 +719,11 @@ class PracticeScreen(SplitScreen):
     def action_next(self) -> None:
         if self.queue and self.position + 1 < len(self.queue):
             nxt = self.position + 1
-            self.app.switch_screen(
-                PracticeScreen(
-                    self.queue[nxt],
-                    mode="drill",
-                    queue=self.queue,
-                    position=nxt,
-                )
+            screen = PracticeScreen(
+                self.queue[nxt], mode="drill", queue=self.queue, position=nxt
             )
+            screen.log_entries = self.log_entries
+            self.app.switch_screen(screen)
 
 
 class ExamScreen(SplitScreen):
@@ -602,6 +744,7 @@ class ExamScreen(SplitScreen):
         self.over = False
 
     def on_mount(self) -> None:
+        super().on_mount()
         app = self.app
         self.run = shell_common.ExamRun(app.sh, app.cfg)
         self.set_results(render.waiting_view("Starting the exam …"))
@@ -706,12 +849,13 @@ class ExamScreen(SplitScreen):
         if self.over:
             return
         report = outcome.report
+        self.log_report(report)
         blind = getattr(self.run.cfg, "blind", False)
         self.set_results(
             render.report_view(
                 report,
                 report.function,
-                self.app.cfg.show_fails or 6,
+                self.fails_that_fit(report),
                 blind=blind,
             ),
             "✔ passed" if report.ok else "✖ failed",
@@ -732,7 +876,7 @@ class ExamScreen(SplitScreen):
         self.load_level()
 
     def action_redraw(self) -> None:
-        if self.over:
+        if self.over or self.grading:
             return
         if not self.run.redraw():
             self.notify(
@@ -782,7 +926,7 @@ class SummaryScreen(AppScreen[None]):
     def compose(self) -> ComposeResult:
         yield Header()
         yield VerticalScroll(
-            Static(render.exam_result_view(self.result), id="summary"),
+            Copyable(render.exam_result_view(self.result), id="summary"),
             id="summary-pane",
         )
         yield Footer()
@@ -837,20 +981,31 @@ class StatsScreen(AppScreen[None]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield VerticalScroll(Static(id="stats"), id="stats-pane")
+        with Horizontal(id="stats-body"):
+            yield VerticalScroll(Static(id="stats"), id="stats-pane")
+            yield VerticalScroll(
+                Static(id="per-exercise"), id="per-exercise-pane"
+            )
         yield Footer()
 
     def on_mount(self) -> None:
         tool = self.app.sh.TOOL
+        summary = stats.summarize(tool)
         self.query_one("#stats-pane").border_title = "your history"
+        self.query_one(
+            "#per-exercise-pane"
+        ).border_title = "per exercise (worst first)"
         self.query_one("#stats", Static).update(
-            render.stats_view(
-                stats.summarize(tool),
+            render.stats_overview(
+                summary,
                 stats.daily_activity(tool),
                 stats.practice_streak(tool),
                 stats.exam_history(tool),
                 shell_common.fmt_duration,
             )
+        )
+        self.query_one("#per-exercise", Static).update(
+            render.per_exercise_view(summary)
         )
 
 
@@ -862,22 +1017,50 @@ class ExamShellApp(App[None]):
     CSS = """
     Screen { background: $surface; }
     #menu-body { height: 1fr; }
-    #menu-left { width: 3fr; padding: 1 2; }
+    #menu-left { width: 56; padding: 1 1 1 2; }
     #logo { height: 4; content-align: center middle; }
-    #menu { height: 1fr; border: round $accent; padding: 0 1; }
+    #menu {
+        height: auto; max-height: 1fr; border: round $accent; padding: 0 1;
+    }
     #menu-right {
-        width: 2fr; border: round $secondary; padding: 1 2; margin: 1 2 1 0;
+        width: 1fr; border: round $secondary; padding: 1 2; margin: 1 2 1 1;
     }
     #status { height: 1; padding: 0 1; background: $panel; }
-    #split { height: 1fr; }
-    #subject-pane { width: 1fr; border: round $warning; padding: 0 1; }
-    #results-pane { width: 1fr; border: round $accent; padding: 0 1; }
-    #summary-pane, #readiness-pane, #stats-pane {
+    #split, #picker-body, #stats-body { height: 1fr; }
+    #split-left { width: 3fr; }
+    #subject-pane {
+        height: auto; max-height: 60%; border: round $warning; padding: 0 1;
+    }
+    #code-pane {
+        height: 1fr; min-height: 5; border: round $secondary; padding: 0 1;
+    }
+    #split-right { width: 2fr; }
+    #results-pane { height: 1fr; border: round $accent; padding: 0 1; }
+    #log-pane {
+        height: auto; max-height: 10; border: round $secondary; padding: 0 1;
+    }
+    #summary-pane, #readiness-pane {
         border: round $accent; padding: 1 2; margin: 1 2;
     }
+    #stats-pane {
+        width: 1fr; border: round $accent; padding: 1 2; margin: 1 1 1 2;
+    }
+    #per-exercise-pane {
+        width: 1fr; border: round $secondary; padding: 0 1; margin: 1 2 1 1;
+    }
     #summary-pane.passed { border: heavy $success; }
+    #picker-left { width: 2fr; max-width: 72; }
+    #preview-pane {
+        width: 3fr; border: round $warning; padding: 0 1; margin: 0 1 0 0;
+    }
     #filter { margin: 0 1; }
     #table { height: 1fr; margin: 0 1; }
+    .-narrow #menu-right, .-narrow #preview-pane { display: none; }
+    .-narrow #menu-left { width: 1fr; }
+    .-narrow #picker-left { max-width: 100%; }
+    .-narrow #stats-body { layout: vertical; }
+    .-narrow #stats-pane { width: 1fr; height: auto; margin: 1 2 0 2; }
+    .-narrow #per-exercise-pane { width: 1fr; margin: 0 2 1 2; }
     .modal {
         width: 64; height: auto; padding: 1 2; border: thick $accent;
         background: $panel;
@@ -902,7 +1085,11 @@ class ExamShellApp(App[None]):
             return "🐍 Python · %s" % self.sh.RANK.label
         return "🔧 C · Exam Rank 02"
 
+    def on_resize(self, event: events.Resize) -> None:
+        self.set_class(event.size.width < NARROW, "-narrow")
+
     def on_mount(self) -> None:
+        self.set_class(self.size.width < NARROW, "-narrow")
         self.theme = THEMES.get(ui.current_theme(), "textual-dark")
         self.update_notice = update_check.start_background_check(
             getattr(self.cfg, "no_update_check", False)

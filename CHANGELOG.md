@@ -9,6 +9,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
 ## Unreleased
 
+### Added
+- **`make mutate`** (`tools/mutate.py`) — mutation-tests the exercise
+  banks: each reference solution is changed in one small place at a time
+  and graded against its own tests; a change the tests miss is reported
+  with an input that exposes it. This is how the test gaps below were
+  found.
+
 ### Changed
 - **The exam clock keeps running while an exam is saved** — `quit` and a
   later resume no longer pause it, so `--time-limit` can't be stretched by

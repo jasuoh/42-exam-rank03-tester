@@ -52,7 +52,7 @@ OFF   := \033[0m
 
 .DEFAULT_GOAL := help
 .PHONY: help run exam practice list train list-training stub grade grade-all \
-        stats ranks check unit test lint format install venv deps clean fclean re \
+        stats ranks check unit test lint mutate format install venv deps clean fclean re \
         rendu-clean status \
         c-run c-exam c-practice c-list c-train c-list-training c-stub \
         c-grade c-grade-all c-stats c-check c-unit c-test c-status \
@@ -91,6 +91,7 @@ help:
 	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[RANK=04]$(OFF)\n" $(ROWW) "make check" "self-test every exam bank + the training bank"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make test" "unit + check"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make lint" "parse check + ruff, flake8, mypy --strict"
+	@printf "    $(GREEN)%-*s$(OFF) %s $(DIM)[MUT=py|c ONLY=a,b]$(OFF)\n" $(ROWW) "make mutate" "find what the exercise banks fail to test"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make format" "run ruff format if installed"
 	@printf "    $(GREEN)%-*s$(OFF) %s\n" $(ROWW) "make status" "which solutions exist in $(RENDU)/"
 	@printf "  $(BOLD)Environment$(OFF)\n"
@@ -265,6 +266,12 @@ lint:
 			$(PY) -m mypy --strict && printf "$(GREEN)✔$(OFF) mypy --strict\n" || exit 1; \
 		fi; \
 	done
+
+# Mutation-test the banks (tools/mutate.py): exit 1 when a bank lets a
+# plausible bug through. MUT=py|c narrows the language, ONLY=a,b the
+# exercises.
+mutate:
+	@$(PY) tools/mutate.py --lang $(or $(MUT),all) $(if $(ONLY),--only $(ONLY),)
 
 format:
 	@if $(PY) -m ruff --version >/dev/null 2>&1; then $(PY) -m ruff format $(SOURCES); \

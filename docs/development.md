@@ -53,6 +53,18 @@ things:
 
 `make test` runs both.
 
+**`make mutate`** checks the *banks' tests* themselves (`tools/mutate.py`):
+every reference solution is changed in one small place at a time — `<`
+becomes `<=`, a constant moves by one, `and` becomes `or` — and graded
+against its own exercise's tests like a submission. A change the tests
+don't catch is a plausible student bug that would pass; when the bank's
+own fuzzer then finds an input where it gives a different answer, it's
+reported as a **GAP** with that input — add it (or a simpler one) to the
+exercise's `cases`. Run it after adding or changing an exercise
+(`make mutate ONLY=py_my_exercise`; `MUT=py` / `MUT=c` for one tester;
+`python3 tools/mutate.py --show-unproven` also lists survivors without
+such an input). It exits 1 on a gap.
+
 **`make lint`** checks the code itself: every file parses, `ruff check`,
 `flake8` (default settings, 79 columns — `make format` runs `ruff format`
 at that width) and `mypy --strict` over the package, `tests/` and

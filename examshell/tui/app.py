@@ -633,9 +633,11 @@ class ExamScreen(SplitScreen):
         self.app.push_screen(PromptModal("Login", default), self.after_login)
 
     def after_login(self, login: Optional[str]) -> None:
-        self.run.start(login)
+        archived = self.run.start(login)
         cfg = self.run.cfg
         notes: List[str] = []
+        if archived:
+            notes.append("earlier exam solutions moved to %s" % archived)
         if not cfg.relaxed:
             notes.append(
                 "realistic mode: as strict as the real exam, no 'new'"

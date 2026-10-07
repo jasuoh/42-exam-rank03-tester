@@ -177,6 +177,100 @@ class ExamRunTests(_TempDataDir):
         with mock.patch.object(time, "time", return_value=1060.0):
             self.assertTrue(resumed.times_up())
 
+    # issue #15: a new exam starts from an empty rendu/ — solutions to exam
+    # exercises from earlier runs go to rendu/archive/<when>/; a resumed
+    # exam keeps its files where they are.
+    TRAINING = {".py": "py_fizzbuzz_list", ".c": "array_sum"}
+
+    def _write(self, rendu: str, sh: Tester, name: str, text: str) -> str:
+        path = os.path.join(rendu, name + sh.SOURCE_EXT)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
+    def test_new_exam_archives_earlier_exam_solutions(self) -> None:
+        for sh in self.SHELLS:
+            with self.subTest(
+                tester=sh.TOOL
+            ), tempfile.TemporaryDirectory() as rendu:
+                exam_ex = sorted(sh.STANDARD_LEVELS[1])[0]
+                training_ex = self.TRAINING[sh.SOURCE_EXT]
+                self._write(rendu, sh, exam_ex, "old solution\n")
+                self._write(rendu, sh, training_ex, "practice\n")
+                run = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+
+                archive = run.start()
+
+                assert archive is not None
+                self.assertEqual(
+                    os.path.dirname(archive), os.path.join(rendu, "archive")
+                )
+                self.assertEqual(
+                    os.listdir(archive), [exam_ex + sh.SOURCE_EXT]
+                )
+                with open(
+                    os.path.join(archive, exam_ex + sh.SOURCE_EXT),
+                    encoding="utf-8",
+                ) as fh:
+                    self.assertEqual(fh.read(), "old solution\n")
+                # the exercise is gone from rendu/, so a stub starts fresh
+                self.assertFalse(
+                    os.path.exists(
+                        shell_common.solution_path(sh, exam_ex, run.cfg)
+                    )
+                )
+                ok, _, _ = sh.write_stub(exam_ex, run.cfg)
+                self.assertTrue(ok)
+                # anything that isn't an exam exercise stays
+                self.assertTrue(
+                    os.path.isfile(
+                        shell_common.solution_path(sh, training_ex, run.cfg)
+                    )
+                )
+
+    def test_each_new_exam_gets_its_own_archive(self) -> None:
+        sh = py_shell
+        with tempfile.TemporaryDirectory() as rendu:
+            exam_ex = sorted(sh.STANDARD_LEVELS[1])[0]
+            archives = []
+            for text in ("first\n", "second\n"):
+                self._write(rendu, sh, exam_ex, text)
+                with mock.patch.object(time, "time", return_value=1000.0):
+                    run = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+                    archives.append(run.start())
+            self.assertEqual(len(set(archives)), 2)
+            self.assertEqual(
+                len(os.listdir(os.path.join(rendu, "archive"))), 2
+            )
+
+    def test_new_exam_with_nothing_to_archive(self) -> None:
+        sh = py_shell
+        with tempfile.TemporaryDirectory() as rendu:
+            run = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+            self.assertIsNone(run.start())
+            self.assertFalse(os.path.exists(os.path.join(rendu, "archive")))
+        # a rendu/ that doesn't exist yet is fine too
+        run = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+        self.assertIsNone(run.start())
+
+    def test_resume_keeps_the_exams_files(self) -> None:
+        sh = py_shell
+        with tempfile.TemporaryDirectory() as rendu:
+            run = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+            run.start()
+            ex = run.ensure_exercise()
+            path = self._write(rendu, sh, ex, "work in progress\n")
+            run.save()
+
+            resumed = shell_common.ExamRun(sh, _cfg(sh, rendu=rendu))
+            saved = session_store.load(sh.TOOL)
+            assert saved is not None
+            resumed.resume(saved)
+
+            with open(path, encoding="utf-8") as fh:
+                self.assertEqual(fh.read(), "work in progress\n")
+            self.assertFalse(os.path.exists(os.path.join(rendu, "archive")))
+
     def test_time_limit(self) -> None:
         sh = py_shell
         run = shell_common.ExamRun(sh, _cfg(sh, time_limit=1))

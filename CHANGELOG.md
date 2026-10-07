@@ -31,6 +31,12 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- **A new exam starts from an empty `rendu/`** (#15) — drawing an exercise
+  you had already solved meant `stub` refused to create the file, and the
+  old solution sat there in the middle of the exam. Starting a new exam now
+  moves earlier solutions to exam exercises into
+  `rendu/archive/<date-time>/`, one folder per exam; practice-only files
+  stay. Resuming a saved exam keeps its files as they are.
 - **`ft_atoi_base` tests** — random cases stay within the subject (base
   2-16, no int overflow); more curated edge cases; a leading `+` or space
   is no longer tested, since the subject doesn't define it.

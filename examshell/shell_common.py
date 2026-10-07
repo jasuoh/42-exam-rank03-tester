@@ -293,6 +293,35 @@ def exam_config(sh: Tester, cfg: _Config) -> _Config:
     return strict
 
 
+def archive_exam_solutions(sh: Tester, cfg: TesterConfig) -> Optional[str]:
+    """Move every solution to an exam exercise out of cfg.rendu into
+    <rendu>/archive/<now>/ — a new folder each time, so every exam's work
+    stays together. Practice-only files are left alone. Returns the folder,
+    or None if there was nothing to move. The archive is a subdirectory, so
+    grading and sync (both top-level only) skip it."""
+    exam_exercises = {n for pool in sh.STANDARD_LEVELS.values() for n in pool}
+    paths = [
+        path
+        for path in (solution_path(sh, n, cfg) for n in sorted(exam_exercises))
+        if os.path.isfile(path)
+    ]
+    if not paths:
+        return None
+    base = os.path.join(
+        cfg.rendu,
+        "archive",
+        time.strftime("%Y%m%d-%H%M%S", time.localtime(time.time())),
+    )
+    folder, n = base, 1
+    while os.path.exists(folder):
+        n += 1
+        folder = "%s-%d" % (base, n)
+    os.makedirs(folder)
+    for path in paths:
+        os.replace(path, os.path.join(folder, os.path.basename(path)))
+    return folder
+
+
 class ExamRun(object):
     """One exam as pure state and rules — no input, no output.
 
@@ -315,11 +344,16 @@ class ExamRun(object):
         self.resumed = False
 
     # ── lifecycle ─────────────────────────────────────────────────────
-    def start(self, login: Optional[str] = None) -> None:
-        """Begin a fresh exam."""
+    def start(self, login: Optional[str] = None) -> Optional[str]:
+        """Begin a fresh exam, from an empty rendu/ like the real one:
+        solutions to exam exercises left from earlier runs (issue #15) are
+        moved to an archive folder of their own. Returns that folder, or
+        None if there was nothing to move. A resumed exam keeps its files —
+        see resume()."""
         if login:
             self.session.login = login
         self.session.start()
+        return archive_exam_solutions(self.sh, self.cfg)
 
     def resume(self, saved: Event) -> None:
         """Continue a run saved by save() (see session_store).
@@ -674,7 +708,9 @@ def exam_mode(sh: Tester, cfg: TesterConfig) -> None:
             login = ui.ask("  Login (Enter = %s): " % session.login)
         except ui.Abort:
             return
-        run.start(login)
+        archived = run.start(login)
+        if archived:
+            ui.note("earlier exam solutions moved to %s" % archived)
         if cfg.seed is not None:
             ui.note("seed %d — this exam is reproducible" % cfg.seed)
     if not cfg.relaxed:

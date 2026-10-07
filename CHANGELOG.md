@@ -41,6 +41,12 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- **A new exam starts from an empty `rendu/`** (#15) — drawing an exercise
+  you had already solved meant `stub` refused to create the file, and the
+  old solution sat there in the middle of the exam. Starting a new exam now
+  moves earlier solutions to exam exercises into
+  `rendu/archive/<date-time>/`, one folder per exam; practice-only files
+  stay. Resuming a saved exam keeps its files as they are.
 - Full-screen exam: pressing `n` while a grade was still running drew a new
   exercise and then showed (and could pass the level with) the old one's
   result. `n` now waits for the grade.

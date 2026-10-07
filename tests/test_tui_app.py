@@ -188,6 +188,34 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.screen.position, 1)
                 self.assertEqual(len(app.screen.log_entries), 1)
 
+    async def test_code_pane_follows_the_solution_file(self):
+        path = os.path.join(self.rendu, "py_inter.py")
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start=("practice", "py_inter"))
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.pause()
+            screen = app.screen
+            self.assertIn("press t for a stub", str(screen.query_one("#code").source))
+            with open(path, "w") as fh:
+                fh.write(GOOD_INTER)
+            screen.refresh_code()                       # what the 1s timer does
+            await pilot.pause()
+            self.assertIn("saved", screen.query_one("#code-pane").border_title)
+            self.assertIn("def inter", screen.query_one("#code").source.code)
+
+    async def test_subject_and_code_can_be_copied(self):
+        with open(os.path.join(self.rendu, "py_inter.py"), "w") as fh:
+            fh.write(GOOD_INTER)
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start=("practice", "py_inter"))
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.pause()
+            for wid, piece in (("#subject", "Assignment name"), ("#code", "def inter(s1, s2):")):
+                app.screen.query_one(wid).text_select_all()
+                await pilot.pause()
+                copied = app.screen.get_selected_text()
+                self.assertIn(piece, copied)
+                self.assertFalse(any(line != line.rstrip() for line in copied.split("\n")))
+                app.screen.clear_selection()
+
     async def test_readiness_and_stats_screens_open(self):
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         async with app.run_test(size=(120, 36)) as pilot:

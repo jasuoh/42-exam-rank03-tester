@@ -35,6 +35,38 @@ WATCH_INTERVAL = 1.0          # seconds between solution-file checks
 NARROW = 120                  # below this many columns, side panels (dashboard, preview) hide
 
 
+class Copyable(Static):
+    """A Static whose content can be selected with the mouse and copied
+    (ctrl+c). Textual only selects plain text, so tables/panels/syntax
+    are flattened to Text at the widget's width, again on every resize."""
+
+    def __init__(self, content="", **kwargs):
+        super().__init__(content, **kwargs)
+        self.source = content
+
+    def update(self, content=""):
+        self.source = content
+        self.refit()
+
+    def on_resize(self):
+        self.refit()
+
+    def get_selection(self, selection):
+        """Copied text without the padding that fills code backgrounds."""
+        result = super().get_selection(selection)
+        if result is None:
+            return None
+        text, end = result
+        return "\n".join(line.rstrip() for line in text.split("\n")), end
+
+    def refit(self):
+        width = self.size.width
+        if width and not isinstance(self.source, (str, render.Text)):
+            Static.update(self, render.to_text(self.source, width, self.app.console))
+        else:
+            Static.update(self, self.source if self.source is not None else "")
+
+
 # ══════════════════════════════════════════════════════════════
 #  SMALL MODALS
 # ══════════════════════════════════════════════════════════════
@@ -203,7 +235,7 @@ class PickerScreen(Screen):
             with Vertical(id="picker-left"):
                 yield Input(placeholder="type to filter by name or function …", id="filter")
                 yield DataTable(id="table", cursor_type="row", zebra_stripes=True)
-            yield VerticalScroll(Static(id="preview"), id="preview-pane")
+            yield VerticalScroll(Copyable(id="preview"), id="preview-pane")
         yield Footer()
 
     def on_mount(self):
@@ -239,7 +271,7 @@ class PickerScreen(Screen):
         if not table.row_count:
             self.query_one("#preview-pane").border_title = None
             self.query_one("#preview-pane").border_subtitle = None
-            self.query_one("#preview", Static).update(render.waiting_view("no exercise matches"))
+            self.query_one("#preview", Copyable).update(render.waiting_view("no exercise matches"))
 
     def on_input_changed(self, event):
         self.fill(event.value)
@@ -259,7 +291,7 @@ class PickerScreen(Screen):
         pane.border_title = "📄 %s" % name
         pane.border_subtitle = ("%d/%d passed" % (row["passes"], row["attempts"])
                                 if row["attempts"] else "never tried")
-        self.query_one("#preview", Static).update(
+        self.query_one("#preview", Copyable).update(
             ui.subject_blocks(self.app.sh.ALL_EXERCISES[name], code_background=None))
 
     def on_data_table_row_selected(self, event):
@@ -279,9 +311,11 @@ class SplitScreen(Screen):
         yield Static(id="status")
         with Horizontal(id="split"):
             with Vertical(id="split-left"):
-                yield VerticalScroll(Static(id="subject"), id="subject-pane")
+                yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
+                yield VerticalScroll(Copyable(id="code"), id="code-pane")
+            with Vertical(id="split-right"):
+                yield VerticalScroll(Copyable(id="results"), id="results-pane")
                 yield VerticalScroll(Static(render.attempt_log([]), id="log"), id="log-pane")
-            yield VerticalScroll(Static(id="results"), id="results-pane")
         yield Footer()
 
     def show_exercise(self, ex_name):
@@ -291,15 +325,46 @@ class SplitScreen(Screen):
         pane = self.query_one("#subject-pane")
         pane.border_title = "📄 %s" % ex_name
         pane.border_subtitle = shell_common.solution_path(sh, ex_name, self.app.cfg)
-        self.query_one("#subject", Static).update(
+        self.query_one("#subject", Copyable).update(
             ui.subject_blocks(ex, code_background=None))   # the theme's own code background
         self.set_results(render.waiting_view(
             "Write your solution in %s, then press g to grade."
             % shell_common.solution_path(sh, ex_name, self.app.cfg)))
+        self.refresh_code(force=True)
+
+    def refresh_code(self, force=False):
+        """Your solution file under the subject — re-read whenever it's saved."""
+        if self.ex_name is None:                    # exam still asking for the login
+            return
+        path = shell_common.solution_path(self.app.sh, self.ex_name, self.app.cfg)
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            mtime = None
+        if not force and mtime == self.code_mtime:
+            return
+        self.code_mtime = mtime
+        pane = self.query_one("#code-pane")
+        if mtime is None:
+            pane.border_title = "your code"
+            self.query_one("#code", Copyable).update(render.waiting_view(
+                "no %s yet — write it in your editor, or press t for a stub"
+                % os.path.basename(path)))
+            return
+        with open(path, errors="replace") as fh:
+            source = fh.read()
+        pane.border_title = "your code · saved %s" % time.strftime("%H:%M:%S",
+                                                                 time.localtime(mtime))
+        self.query_one("#code", Copyable).update(render.Syntax(
+            source, "c" if path.endswith(".c") else "python", theme="monokai",
+            line_numbers=True, word_wrap=True))
 
     log_entries = None
+    code_mtime = None
+    ex_name = None
 
     def on_mount(self):
+        self.set_interval(1.0, self.refresh_code)
         if self.log_entries is None:
             self.log_entries = []
         self.query_one("#log-pane").border_title = "this session"
@@ -318,7 +383,7 @@ class SplitScreen(Screen):
                    (self.query_one("#results-pane").size.height - reserve) // 4)
 
     def set_results(self, renderable, title="results"):
-        self.query_one("#results", Static).update(renderable)
+        self.query_one("#results", Copyable).update(renderable)
         self.query_one("#results-pane").border_title = title
 
     def action_stub(self):
@@ -594,7 +659,7 @@ class SummaryScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield VerticalScroll(Static(render.exam_result_view(self.result), id="summary"),
+        yield VerticalScroll(Copyable(render.exam_result_view(self.result), id="summary"),
                              id="summary-pane")
         yield Footer()
 
@@ -673,10 +738,12 @@ class ExamShellApp(App):
     #menu-right { width: 1fr; border: round $secondary; padding: 1 2; margin: 1 2 1 1; }
     #status { height: 1; padding: 0 1; background: $panel; }
     #split, #picker-body, #stats-body { height: 1fr; }
-    #split-left { width: 1fr; }
-    #subject-pane { height: auto; max-height: 75%; border: round $warning; padding: 0 1; }
-    #log-pane { height: 1fr; min-height: 4; border: round $secondary; padding: 0 1; }
-    #results-pane { width: 1fr; border: round $accent; padding: 0 1; }
+    #split-left { width: 3fr; }
+    #subject-pane { height: auto; max-height: 60%; border: round $warning; padding: 0 1; }
+    #code-pane { height: 1fr; min-height: 5; border: round $secondary; padding: 0 1; }
+    #split-right { width: 2fr; }
+    #results-pane { height: 1fr; border: round $accent; padding: 0 1; }
+    #log-pane { height: auto; max-height: 10; border: round $secondary; padding: 0 1; }
     #summary-pane, #readiness-pane { border: round $accent; padding: 1 2; margin: 1 2; }
     #stats-pane { width: 1fr; border: round $accent; padding: 1 2; margin: 1 1 1 2; }
     #per-exercise-pane { width: 1fr; border: round $secondary; padding: 0 1; margin: 1 2 1 1; }

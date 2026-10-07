@@ -14,7 +14,7 @@ dependencies = ["rich>=13.0"]
 
 [project.optional-dependencies]
 # the full-screen interface (--tui) — Python 3.9+
-tui = ["textual>=1.0,<9; python_version >= \"3.9\""]
+tui = ["textual>=2.0,<9; python_version >= \"3.9\""]
 
 # `uv tool install "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"`
 # puts both commands on your PATH (see README "Install").

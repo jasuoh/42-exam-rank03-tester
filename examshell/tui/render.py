@@ -11,6 +11,7 @@ alone. The app (app.py) only decides where each one goes on screen.
 from rich import box
 from rich.console import Group
 from rich.panel import Panel
+from rich.syntax import Syntax  # noqa: F401  (re-exported for app.py)
 from rich.table import Table
 from rich.text import Text
 
@@ -254,6 +255,20 @@ def attempt_log(entries):
             text.append("%d/%d" % (report.passed, report.total), style="dim")
         text.append("\n")
     text.rstrip()
+    return text
+
+
+def to_text(renderable, width, console):
+    """Flatten any rich renderable into styled Text laid out at `width` —
+    same look, but plain text underneath, so it can be selected and copied."""
+    text = Text(no_wrap=True)
+    lines = console.render_lines(renderable, console.options.update_width(width), pad=False)
+    for i, line in enumerate(lines):
+        if i:
+            text.append("\n")
+        for segment in line:
+            if not segment.control:
+                text.append(segment.text, segment.style)
     return text
 
 

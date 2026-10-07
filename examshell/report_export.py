@@ -12,11 +12,17 @@ Best-effort like the rest of this package: a write failure is a missed
 convenience, never a reason to fail the exam.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import time
+from typing import TYPE_CHECKING, List, Optional, Sequence
 
 from .settings import DATA_DIR
+
+if TYPE_CHECKING:
+    from .shell_common import Session
 
 REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 
@@ -38,17 +44,25 @@ TOOL_LABELS = {
 }
 
 
-def _safe_login(login):
+def _safe_login(login: str) -> str:
     safe = _UNSAFE_FILENAME_RE.sub("_", login).strip("._")
     return safe or "student"
 
 
-def write_exam_report(tool, session, n_levels, passed, achievements=()):
+def write_exam_report(
+    tool: str,
+    session: Session,
+    n_levels: int,
+    passed: bool,
+    achievements: Sequence[str] = (),
+) -> Optional[str]:
     """Write the report, return its path on success or None on failure."""
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(REPORTS_DIR, "%s_%s_%s.md" % (tool, stamp, _safe_login(session.login)))
+    path = os.path.join(
+        REPORTS_DIR, "%s_%s_%s.md" % (tool, stamp, _safe_login(session.login))
+    )
 
-    lines = []
+    lines: List[str] = []
     title = "Exam PASSED" if passed else "Exam aborted"
     lines.append("# %s — %s" % (title, session.login))
     lines.append("")
@@ -67,9 +81,17 @@ def write_exam_report(tool, session, n_levels, passed, achievements=()):
     lines.append("|---|---|---|---|")
     for level, name, attempts, seconds in session.history:
         secs = int(seconds)
-        lines.append("| %d | %s | %d | %02d:%02d:%02d |"
-                     % (level, name, attempts,
-                        secs // 3600, (secs % 3600) // 60, secs % 60))
+        lines.append(
+            "| %d | %s | %d | %02d:%02d:%02d |"
+            % (
+                level,
+                name,
+                attempts,
+                secs // 3600,
+                (secs % 3600) // 60,
+                secs % 60,
+            )
+        )
     lines.append("")
 
     try:

@@ -59,16 +59,22 @@ Common fields:
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
 import textwrap
+from typing import Dict, List
+
+from examshell._types import Exercise
 
 N_LEVELS = 4
 
 
-def _sub_c(name, prototype, allowed, body):
-    head = ("Assignment name  : " + name + "\n"
-            "Expected files   : " + name + ".c\n"
-            "Allowed functions: " + allowed + "\n"
-            + "-" * 80 + "\n\n")
+def _sub_c(name: str, prototype: str, allowed: str, body: str) -> str:
+    head = (
+        "Assignment name  : " + name + "\n"
+        "Expected files   : " + name + ".c\n"
+        "Allowed functions: " + allowed + "\n" + "-" * 80 + "\n\n"
+    )
     text = textwrap.dedent(body).strip("\n") + "\n\n    " + prototype + "\n"
     return head + text
 
@@ -76,18 +82,26 @@ def _sub_c(name, prototype, allowed, body):
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE BANK
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "ft_putstr": {
-        "level": 1, "function": "ft_putstr",
+        "level": 1,
+        "function": "ft_putstr",
         "standard": True,
         "prototype": "void ft_putstr(char *str);",
-        "args": ["str"], "returns": "void",
-        "hint": ("write() needs an explicit byte count — walk the string "
-                "yourself to find its length (or write one character at a "
-                "time inside the loop) instead of guessing a fixed size; "
-                "an empty string should simply write zero bytes."),
-        "subject": _sub_c("ft_putstr", "void ft_putstr(char *str);", "write", """
+        "args": ["str"],
+        "returns": "void",
+        "hint": (
+            "write() needs an explicit byte count — walk the string "
+            "yourself to find its length (or write one character at a "
+            "time inside the loop) instead of guessing a fixed size; "
+            "an empty string should simply write zero bytes."
+        ),
+        "subject": _sub_c(
+            "ft_putstr",
+            "void ft_putstr(char *str);",
+            "write",
+            """
         Write a function that displays a string on the standard output.
 
         The pointer passed to the function contains the address of the
@@ -96,7 +110,8 @@ EXERCISES = {
         Examples:
             ft_putstr("hello") -> prints: hello
             ft_putstr("")      -> prints nothing
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -113,23 +128,32 @@ EXERCISES = {
         "cases": [["hello"], [""], ["Hello, World!"], ["   "], ["42"], ["a"]],
     },
     "ft_swap": {
-        "level": 1, "function": "ft_swap",
+        "level": 1,
+        "function": "ft_swap",
         "standard": True,
         "prototype": "void ft_swap(int *a, int *b);",
-        "args": ["int_ptr", "int_ptr"], "returns": "void",
+        "args": ["int_ptr", "int_ptr"],
+        "returns": "void",
         "print_after_args": [0, 1],
-        "hint": ("Swap the VALUES the two pointers point to (*a and *b), "
-                "not the pointers themselves — and save the first one "
-                "into a temporary variable before you overwrite it, or "
-                "you'll lose it and end up with both holding the same "
-                "value."),
-        "subject": _sub_c("ft_swap", "void ft_swap(int *a, int *b);", "None", """
+        "hint": (
+            "Swap the VALUES the two pointers point to (*a and *b), "
+            "not the pointers themselves — and save the first one "
+            "into a temporary variable before you overwrite it, or "
+            "you'll lose it and end up with both holding the same "
+            "value."
+        ),
+        "subject": _sub_c(
+            "ft_swap",
+            "void ft_swap(int *a, int *b);",
+            "None",
+            """
         Write a function that swaps the contents of two integers, the
         addresses of which are passed as parameters.
 
         Examples:
             ft_swap(&a, &b)  where a=5, b=10 -> a becomes 10, b becomes 5
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         void ft_swap(int *a, int *b)
         {
@@ -143,13 +167,21 @@ EXERCISES = {
         "cases": [[5, 10], [-3, 7], [0, 0], [1, -1], [100, -100], [42, 42]],
     },
     "rotone": {
-        "level": 1, "function": "rotone", "kind": "program",
+        "level": 1,
+        "function": "rotone",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Both 'z' and 'Z' need to wrap back to the start of "
-                "their own case instead of just doing c + 1, which would "
-                "overshoot past 'z' into '{' or past 'Z' into '['."),
-        "subject": _sub_c("rotone", "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "Both 'z' and 'Z' need to wrap back to the start of "
+            "their own case instead of just doing c + 1, which would "
+            "overshoot past 'z' into '{' or past 'Z' into '['."
+        ),
+        "subject": _sub_c(
+            "rotone",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM (your own main(), argc/argv — not a function
         someone else calls) that takes a string and displays it, replacing
         each of its letters by the next one in alphabetical order.
@@ -162,7 +194,8 @@ EXERCISES = {
             ./rotone "abc"  -> bcd
             ./rotone ""     -> (just a newline)
             ./rotone a b    -> (just a newline, 2 arguments)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -192,18 +225,30 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc"], ["Les stagiaires du staff ne sentent pas toujours tres bon."],
-            ["AkjhZ zLKIJz , 23y "], [], [""], ["a", "b"],
+            ["abc"],
+            ["Les stagiaires du staff ne sentent pas toujours tres bon."],
+            ["AkjhZ zLKIJz , 23y "],
+            [],
+            [""],
+            ["a", "b"],
         ],
     },
     "fizzbuzz": {
-        "level": 1, "function": "fizzbuzz", "kind": "program",
+        "level": 1,
+        "function": "fizzbuzz",
+        "kind": "program",
         "standard": True,
-        "hint": ("Check the 'multiple of both' case before (or instead "
-                "of) the separate multiple-of-3 and multiple-of-5 checks "
-                "— an if/elif chain that checks %3 then %5 will never "
-                "print 'fizzbuzz' for a number like 15."),
-        "subject": _sub_c("fizzbuzz", "int main(void);", "write", """
+        "hint": (
+            "Check the 'multiple of both' case before (or instead "
+            "of) the separate multiple-of-3 and multiple-of-5 checks "
+            "— an if/elif chain that checks %3 then %5 will never "
+            "print 'fizzbuzz' for a number like 15."
+        ),
+        "subject": _sub_c(
+            "fizzbuzz",
+            "int main(void);",
+            "write",
+            """
         Write a PROGRAM that prints the numbers from 1 to 100, each
         separated by a newline.
 
@@ -213,7 +258,8 @@ EXERCISES = {
 
         Examples:
             ./fizzbuzz -> 1\\n2\\nfizz\\n4\\nbuzz\\nfizz\\n7\\n8\\nfizz\\nbuzz\\n...
-        """),
+        """,  # noqa: E501
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -253,16 +299,23 @@ EXERCISES = {
         "cases": [[]],
     },
     "first_word": {
-        "level": 1, "function": "first_word", "kind": "program",
+        "level": 1,
+        "function": "first_word",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Skip any leading spaces/tabs before you start copying "
-                "the word, and stop the moment you hit the next "
-                "separator (or the end of the string) — a string of only "
-                "whitespace has no first word, so the output is just a "
-                "newline."),
-        "subject": _sub_c("first_word", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Skip any leading spaces/tabs before you start copying "
+            "the word, and stop the moment you hit the next "
+            "separator (or the end of the string) — a string of only "
+            "whitespace has no first word, so the output is just a "
+            "newline."
+        ),
+        "subject": _sub_c(
+            "first_word",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays its first
         whitespace-delimited word, followed by a newline. A word is a run
         of characters between spaces/tabs (or the start/end of the
@@ -271,7 +324,8 @@ EXERCISES = {
         Examples:
             ./first_word "hello world" -> hello
             ./first_word "   "          -> (just a newline)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -302,27 +356,40 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello world"], ["   leading spaces here"], ["   "], [],
-            ["a", "b"], ["onlyword"],
+            ["hello world"],
+            ["   leading spaces here"],
+            ["   "],
+            [],
+            ["a", "b"],
+            ["onlyword"],
         ],
     },
     "ft_strcpy": {
-        "level": 1, "function": "ft_strcpy",
+        "level": 1,
+        "function": "ft_strcpy",
         "standard": True,
         "prototype": "char *ft_strcpy(char *s1, char *s2);",
-        "args": ["buf", "str"], "returns": "str", "forbidden": ["strcpy"],
-        "hint": ("The terminating null byte has to be copied too, not "
-                "just the visible characters — and the function must "
-                "return s1 itself, not whatever pointer you were using "
-                "to walk through it."),
-        "subject": _sub_c("ft_strcpy", "char *ft_strcpy(char *s1, char *s2);",
-                         "None", """
+        "args": ["buf", "str"],
+        "returns": "str",
+        "forbidden": ["strcpy"],
+        "hint": (
+            "The terminating null byte has to be copied too, not "
+            "just the visible characters — and the function must "
+            "return s1 itself, not whatever pointer you were using "
+            "to walk through it."
+        ),
+        "subject": _sub_c(
+            "ft_strcpy",
+            "char *ft_strcpy(char *s1, char *s2);",
+            "None",
+            """
         Reproduce the behaviour of the standard strcpy(): copy the string
         s2 (including its terminating null byte) into s1, and return s1.
 
         Examples:
             ft_strcpy(dest, "hello") -> dest becomes "hello", returns dest
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         char *ft_strcpy(char *s1, char *s2)
         {
@@ -339,27 +406,40 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["", "hello"], ["", ""], ["", "a"], ["", "Testing 123"],
+            ["", "hello"],
+            ["", ""],
+            ["", "a"],
+            ["", "Testing 123"],
             ["", "x"],
         ],
     },
     "ft_strlen": {
-        "level": 1, "function": "ft_strlen",
+        "level": 1,
+        "function": "ft_strlen",
         "standard": True,
         "prototype": "int ft_strlen(char *str);",
-        "args": ["str"], "returns": "int", "forbidden": ["strlen"],
-        "hint": ("Your counter must stop at the terminating null byte "
-                "without counting it — advance while the current "
-                "character is non-zero rather than looping to a fixed "
-                "bound, and check the empty string by hand: the loop "
-                "body should never execute, so the answer is already 0."),
-        "subject": _sub_c("ft_strlen", "int ft_strlen(char *str);", "None", """
+        "args": ["str"],
+        "returns": "int",
+        "forbidden": ["strlen"],
+        "hint": (
+            "Your counter must stop at the terminating null byte "
+            "without counting it — advance while the current "
+            "character is non-zero rather than looping to a fixed "
+            "bound, and check the empty string by hand: the loop "
+            "body should never execute, so the answer is already 0."
+        ),
+        "subject": _sub_c(
+            "ft_strlen",
+            "int ft_strlen(char *str);",
+            "None",
+            """
         Write a function that returns the length of a string.
 
         Examples:
             ft_strlen("hello") -> 5
             ft_strlen("")      -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_strlen(char *str)
         {
@@ -374,23 +454,31 @@ EXERCISES = {
         "cases": [["hello"], [""], ["a"], ["Testing 123"], ["   "]],
     },
     "rev_print": {
-        "level": 1, "function": "rev_print", "kind": "program",
+        "level": 1,
+        "function": "rev_print",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Find the string's length first, then walk backwards "
-                "starting from the LAST character (index length - 1) "
-                "down to 0 — starting the backward walk at `length` "
-                "itself reads one byte past the string as your first "
-                "output character."),
-        "subject": _sub_c("rev_print", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Find the string's length first, then walk backwards "
+            "starting from the LAST character (index length - 1) "
+            "down to 0 — starting the backward walk at `length` "
+            "itself reads one byte past the string as your first "
+            "output character."
+        ),
+        "subject": _sub_c(
+            "rev_print",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it reversed,
         followed by a newline. If argc != 2, just a newline.
 
         Examples:
             ./rev_print "abc"         -> cba
             ./rev_print "hello world" -> dlrow olleh
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -416,19 +504,31 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc"], ["hello world"], [""], [], ["a", "b"], ["racecar"],
+            ["abc"],
+            ["hello world"],
+            [""],
+            [],
+            ["a", "b"],
+            ["racecar"],
         ],
     },
     "search_and_replace": {
-        "level": 1, "function": "search_and_replace", "kind": "program",
+        "level": 1,
+        "function": "search_and_replace",
+        "kind": "program",
         "fuzz_argv": "search_and_replace",
         "standard": True,
-        "hint": ("Only the FIRST character of the search and replacement "
-                "arguments matters, even if a longer string is passed "
-                "for either one — and argc must be exactly 4 (program "
-                "name, string, search-char, replace-char), not 3."),
-        "subject": _sub_c("search_and_replace",
-                         "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "Only the FIRST character of the search and replacement "
+            "arguments matters, even if a longer string is passed "
+            "for either one — and argc must be exactly 4 (program "
+            "name, string, search-char, replace-char), not 3."
+        ),
+        "subject": _sub_c(
+            "search_and_replace",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM called search_and_replace that takes 3 arguments:
         a string, a single character to search for, and a single
         character to replace it with. Every occurrence of the 2nd
@@ -439,7 +539,8 @@ EXERCISES = {
         Examples:
             ./search_and_replace "hello world" "o" "0" -> hell0 w0rld
             ./search_and_replace "banana" "a" "e"        -> benene
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -470,22 +571,32 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello world", "o", "0"], ["banana", "a", "e"],
-            ["test", "z", "x"], ["abc", "b", "B"], [],
+            ["hello world", "o", "0"],
+            ["banana", "a", "e"],
+            ["test", "z", "x"],
+            ["abc", "b", "B"],
+            [],
             ["a", "b", "c", "d"],
         ],
     },
     "ulstr": {
-        "level": 1, "function": "ulstr", "kind": "program",
+        "level": 1,
+        "function": "ulstr",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Case-swap only actual letters — leave digits, spaces "
-                "and punctuation untouched — and make sure your two "
-                "range checks ('a'-'z' and 'A'-'Z') are mutually "
-                "exclusive, or a character could get flipped back to its "
-                "original case in the same pass."),
-        "subject": _sub_c("ulstr", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Case-swap only actual letters — leave digits, spaces "
+            "and punctuation untouched — and make sure your two "
+            "range checks ('a'-'z' and 'A'-'Z') are mutually "
+            "exclusive, or a character could get flipped back to its "
+            "original case in the same pass."
+        ),
+        "subject": _sub_c(
+            "ulstr",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and reverses the case of
         every letter (other characters unchanged), followed by a newline.
         If argc != 2, just a newline.
@@ -493,7 +604,8 @@ EXERCISES = {
         Examples:
             ./ulstr "Hello World" -> hELLO wORLD
             ./ulstr "ABCabc123"   -> abcABC123
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -523,21 +635,35 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["Hello World"], ["ABCabc123"], [""], [], ["a", "b"],
+            ["Hello World"],
+            ["ABCabc123"],
+            [""],
+            [],
+            ["a", "b"],
             ["MiXeD CaSe"],
+            # 'z'/'Z' are the classic off-by-one bound
+            ["zZ az AZ"],
         ],
     },
-
     # ── LEVEL 2 ────────────────────────────────────────────────
     "ft_atoi": {
-        "level": 2, "function": "ft_atoi",
+        "level": 2,
+        "function": "ft_atoi",
         "standard": True,
         "prototype": "int ft_atoi(const char *str);",
-        "args": ["str"], "returns": "int", "forbidden": ["atoi"],
-        "hint": ("Order matters: skip whitespace FIRST, then look for a "
-                "single optional sign, then digits — a sign check before "
-                "the whitespace skip misses inputs like '   -17'."),
-        "subject": _sub_c("ft_atoi", "int ft_atoi(const char *str);", "None", """
+        "args": ["str"],
+        "returns": "int",
+        "forbidden": ["atoi"],
+        "hint": (
+            "Order matters: skip whitespace FIRST, then look for a "
+            "single optional sign, then digits — a sign check before "
+            "the whitespace skip misses inputs like '   -17'."
+        ),
+        "subject": _sub_c(
+            "ft_atoi",
+            "int ft_atoi(const char *str);",
+            "None",
+            """
         Write your own version of atoi(): convert the initial portion of
         the string to an int, skipping leading whitespace and honouring an
         optional leading '+' or '-'.
@@ -547,7 +673,8 @@ EXERCISES = {
             ft_atoi("   -17")   -> -17
             ft_atoi("+123abc")  -> 123
             ft_atoi("abc")      -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_atoi(const char *str)
         {
@@ -575,21 +702,38 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["42"], ["   -17"], ["+123abc"], ["abc"], [""], ["  0"],
-            ["2147483647"], ["-2147483648"], ["   +  5"],
+            ["42"],
+            ["   -17"],
+            ["+123abc"],
+            ["abc"],
+            [""],
+            ["  0"],
+            ["2147483647"],
+            ["-2147483648"],
+            ["   +  5"],
+            # a 0 inside the number (not only a leading one)
+            ["105"],
+            ["-1000"],
         ],
     },
     "is_power_of_2": {
-        "level": 2, "function": "is_power_of_2",
+        "level": 2,
+        "function": "is_power_of_2",
         "standard": True,
         "prototype": "int is_power_of_2(unsigned int n);",
-        "args": ["int"], "returns": "int",
-        "hint": ("The classic n & (n - 1) trick breaks for n = 0, since "
-                "n is unsigned: 0 - 1 underflows to UINT_MAX, and 0 & "
-                "UINT_MAX is 0 — which looks like a power of 2 unless "
-                "you special-case it."),
-        "subject": _sub_c("is_power_of_2", "int is_power_of_2(unsigned int n);",
-                         "None", """
+        "args": ["int"],
+        "returns": "int",
+        "hint": (
+            "The classic n & (n - 1) trick breaks for n = 0, since "
+            "n is unsigned: 0 - 1 underflows to UINT_MAX, and 0 & "
+            "UINT_MAX is 0 — which looks like a power of 2 unless "
+            "you special-case it."
+        ),
+        "subject": _sub_c(
+            "is_power_of_2",
+            "int is_power_of_2(unsigned int n);",
+            "None",
+            """
         Write a function that determines if a given number is a power of
         2. Returns 1 if it is, 0 otherwise.
 
@@ -597,7 +741,8 @@ EXERCISES = {
             is_power_of_2(16) -> 1
             is_power_of_2(15) -> 0
             is_power_of_2(0)  -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int is_power_of_2(unsigned int n)
         {
@@ -606,26 +751,46 @@ EXERCISES = {
             return ((n & (n - 1)) == 0);
         }
         """),
-        "cases": [[0], [1], [2], [3], [4], [15], [16], [1024], [1023], [2147483647]],
+        "cases": [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [15],
+            [16],
+            [1024],
+            [1023],
+            [2147483647],
+        ],
     },
     "max": {
-        "level": 2, "function": "max",
+        "level": 2,
+        "function": "max",
         "standard": True,
         "prototype": "int max(int *tab, unsigned int len);",
-        "args": ["int_arr"], "returns": "int",
-        "hint": ("Initialize your running best to tab[0], not to 0 — "
-                "starting from 0 gives the wrong answer whenever every "
-                "element is negative. Handle len == 0 as its own special "
-                "case before touching tab[0], since there's no element "
-                "there to read."),
-        "subject": _sub_c("max", "int max(int *tab, unsigned int len);", "None", """
+        "args": ["int_arr"],
+        "returns": "int",
+        "hint": (
+            "Initialize your running best to tab[0], not to 0 — "
+            "starting from 0 gives the wrong answer whenever every "
+            "element is negative. Handle len == 0 as its own special "
+            "case before touching tab[0], since there's no element "
+            "there to read."
+        ),
+        "subject": _sub_c(
+            "max",
+            "int max(int *tab, unsigned int len);",
+            "None",
+            """
         Write a function that returns the largest number in an array of
         `len` integers. An empty array (len == 0) returns 0.
 
         Examples:
             max([3,7,2,9,4], 5) -> 9
             max([], 0)          -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int max(int *tab, unsigned int len)
         {
@@ -646,20 +811,32 @@ EXERCISES = {
         }
         """),
         "cases": [
-            [[3, 7, 2, 9, 4]], [[]], [[5]], [[-1, -5, -2]], [[0, 0, 0]],
+            [[3, 7, 2, 9, 4]],
+            [[]],
+            [[5]],
+            [[-1, -5, -2]],
+            [[0, 0, 0]],
             [[100, -100, 50]],
         ],
     },
     "rot_13": {
-        "level": 1, "function": "rot_13", "kind": "program",
+        "level": 1,
+        "function": "rot_13",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Only letters shift — everything else (digits, spaces, "
-                "punctuation) passes through untouched. And the shift "
-                "has to wrap around within its own case ('z' -> 'm', "
-                "'Z' -> 'M'), so a plain += 13 without a modulo will "
-                "overshoot past 'z'/'Z'."),
-        "subject": _sub_c("rot_13", "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "Only letters shift — everything else (digits, spaces, "
+            "punctuation) passes through untouched. And the shift "
+            "has to wrap around within its own case ('z' -> 'm', "
+            "'Z' -> 'M'), so a plain += 13 without a modulo will "
+            "overshoot past 'z'/'Z'."
+        ),
+        "subject": _sub_c(
+            "rot_13",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it, replacing
         each of its letters by the letter 13 spaces ahead in alphabetical
         order (ROT13). 'z' becomes 'm', 'Z' becomes 'M', case unaffected.
@@ -668,7 +845,8 @@ EXERCISES = {
         Examples:
             ./rot_13 "abc"  -> nop
             ./rot_13 ""     -> (just a newline)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -698,22 +876,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc"], ["My horse is Amazing."], ["AkjhZ zLKIJz , 23y "],
-            [], [""], ["a", "b"],
+            ["abc"],
+            ["My horse is Amazing."],
+            ["AkjhZ zLKIJz , 23y "],
+            [],
+            [""],
+            ["a", "b"],
         ],
     },
     "alpha_mirror": {
-        "level": 2, "function": "alpha_mirror", "kind": "program",
+        "level": 2,
+        "function": "alpha_mirror",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("The mirror formula is 'z' - (c - 'a') for lowercase "
-                "letters (and the 'Z'/'A' equivalent for uppercase) — "
-                "check it against a couple of pairs by hand ('a' should "
-                "become 'z', 'm' should become 'n') since a sign flip "
-                "here silently mirrors the wrong direction instead of "
-                "crashing."),
-        "subject": _sub_c("alpha_mirror", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "The mirror formula is 'z' - (c - 'a') for lowercase "
+            "letters (and the 'Z'/'A' equivalent for uppercase) — "
+            "check it against a couple of pairs by hand ('a' should "
+            "become 'z', 'm' should become 'n') since a sign flip "
+            "here silently mirrors the wrong direction instead of "
+            "crashing."
+        ),
+        "subject": _sub_c(
+            "alpha_mirror",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it with every
         letter mirrored in the alphabet ('a' <-> 'z', 'b' <-> 'y', ...),
         case unchanged, followed by a newline. If argc != 2, just a
@@ -722,7 +911,8 @@ EXERCISES = {
         Examples:
             ./alpha_mirror "abc" -> zyx
             ./alpha_mirror "Hi!" -> Sr!
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -752,19 +942,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc"], ["My Test String."], [""], [], ["a", "b"], ["Hello"],
+            ["abc"],
+            ["My Test String."],
+            [""],
+            [],
+            ["a", "b"],
+            ["Hello"],
+            # 'z' <-> 'a' at both ends of the alphabet
+            ["zZ aA"],
         ],
     },
     "camel_to_snake": {
-        "level": 2, "function": "camel_to_snake", "kind": "program",
+        "level": 2,
+        "function": "camel_to_snake",
+        "kind": "program",
         "fuzz_argv": "camel",
         "standard": True,
-        "hint": ("Each uppercase letter becomes an underscore PLUS its "
-                "lowercase self, in that order — insert the '_' right "
-                "before the letter, not after, or every word boundary "
-                "ends up shifted by one character."),
-        "subject": _sub_c("camel_to_snake", "int main(int argc, char **argv);",
-                         "malloc, realloc, write", """
+        "hint": (
+            "Each uppercase letter becomes an underscore PLUS its "
+            "lowercase self, in that order — insert the '_' right "
+            "before the letter, not after, or every word boundary "
+            "ends up shifted by one character."
+        ),
+        "subject": _sub_c(
+            "camel_to_snake",
+            "int main(int argc, char **argv);",
+            "malloc, realloc, write",
+            """
         Write a PROGRAM that takes a single lowerCamelCase string (each
         word capitalized except the first) and converts it to
         snake_case (words lowercase, joined by '_'), followed by a
@@ -773,7 +977,8 @@ EXERCISES = {
         Examples:
             ./camel_to_snake "helloWorld"   -> hello_world
             ./camel_to_snake "thisIsATest"  -> this_is_a_test
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -806,22 +1011,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["helloWorld"], ["thisIsATest"], ["single"], [""], [],
+            ["helloWorld"],
+            ["thisIsATest"],
+            ["single"],
+            [""],
+            [],
             ["a", "b"],
         ],
     },
     "do_op": {
-        "level": 2, "function": "do_op", "kind": "program",
+        "level": 2,
+        "function": "do_op",
+        "kind": "program",
         "fuzz_argv": "do_op",
         "standard": True,
-        "hint": ("The operator is a single character — read it with "
-                "argv[2][0], not by comparing the whole argv[2] string — "
-                "and since the subject guarantees valid inputs that fit "
-                "in an int, a plain if/else if chain over '+', '-', '*', "
-                "'/', '%' is all you need, no overflow handling "
-                "required."),
-        "subject": _sub_c("do_op", "int main(int argc, char **argv);",
-                         "atoi, printf, write", """
+        "hint": (
+            "The operator is a single character — read it with "
+            "argv[2][0], not by comparing the whole argv[2] string — "
+            "and since the subject guarantees valid inputs that fit "
+            "in an int, a plain if/else if chain over '+', '-', '*', "
+            "'/', '%' is all you need, no overflow handling "
+            "required."
+        ),
+        "subject": _sub_c(
+            "do_op",
+            "int main(int argc, char **argv);",
+            "atoi, printf, write",
+            """
         Write a PROGRAM that takes three arguments: a base-10 integer, an
         arithmetic operator (one of + - * / %), and another integer. It
         displays the result of that operation, followed by a newline.
@@ -831,7 +1047,8 @@ EXERCISES = {
         Examples:
             ./do_op 3 + 4  -> 7
             ./do_op 20 / 4 -> 5
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdio.h>
         #include <stdlib.h>
@@ -864,24 +1081,36 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["3", "+", "4"], ["10", "-", "6"], ["6", "*", "7"],
-            ["20", "/", "4"], ["10", "%", "3"], ["-5", "+", "5"], [],
+            ["3", "+", "4"],
+            ["10", "-", "6"],
+            ["6", "*", "7"],
+            ["20", "/", "4"],
+            ["10", "%", "3"],
+            ["-5", "+", "5"],
+            [],
         ],
     },
     "ft_strcmp": {
-        "level": 2, "function": "ft_strcmp",
+        "level": 2,
+        "function": "ft_strcmp",
         "standard": True,
         "prototype": "int ft_strcmp(char *s1, char *s2);",
-        "args": ["str", "str"], "returns": "strcmp_sign",
+        "args": ["str", "str"],
+        "returns": "strcmp_sign",
         "forbidden": ["strcmp"],
-        "hint": ("Cast each character to `unsigned char` before "
-                "subtracting — comparing them as plain (signed) `char` "
-                "gives the wrong sign whenever a string contains a byte "
-                ">= 128 — and only the SIGN of your return value is "
-                "checked, so you don't need to reproduce glibc's exact "
-                "magnitude."),
-        "subject": _sub_c("ft_strcmp", "int ft_strcmp(char *s1, char *s2);",
-                         "None", """
+        "hint": (
+            "Cast each character to `unsigned char` before "
+            "subtracting — comparing them as plain (signed) `char` "
+            "gives the wrong sign whenever a string contains a byte "
+            ">= 128 — and only the SIGN of your return value is "
+            "checked, so you don't need to reproduce glibc's exact "
+            "magnitude."
+        ),
+        "subject": _sub_c(
+            "ft_strcmp",
+            "int ft_strcmp(char *s1, char *s2);",
+            "None",
+            """
         Reproduce the behaviour of the standard strcmp(): compare two
         strings. (Only the SIGN of your return value is graded, exactly
         like the real moulinette.)
@@ -889,7 +1118,8 @@ EXERCISES = {
         Examples:
             ft_strcmp("abc", "abc") -> 0
             ft_strcmp("abc", "abd") -> negative
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_strcmp(char *s1, char *s2)
         {
@@ -902,22 +1132,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc", "abc"], ["abc", "abd"], ["abd", "abc"], ["", ""],
-            ["a", ""], ["Hello", "hello"],
+            ["abc", "abc"],
+            ["abc", "abd"],
+            ["abd", "abc"],
+            ["", ""],
+            ["a", ""],
+            ["Hello", "hello"],
         ],
     },
     "ft_strcspn": {
-        "level": 2, "function": "ft_strcspn",
+        "level": 2,
+        "function": "ft_strcspn",
         "standard": True,
         "prototype": "size_t ft_strcspn(const char *s, const char *reject);",
-        "args": ["str", "str"], "returns": "int", "forbidden": ["strcspn"],
-        "hint": ("ft_strcspn stops at the first character of `s` that "
-                "DOES appear in `reject` — it's the complement of "
-                "strspn, so a natural bug is copying strspn's stop "
-                "condition and forgetting to flip found/not-found."),
-        "subject": _sub_c("ft_strcspn",
-                         "size_t ft_strcspn(const char *s, const char *reject);",
-                         "None", """
+        "args": ["str", "str"],
+        "returns": "int",
+        "forbidden": ["strcspn"],
+        "hint": (
+            "ft_strcspn stops at the first character of `s` that "
+            "DOES appear in `reject` — it's the complement of "
+            "strspn, so a natural bug is copying strspn's stop "
+            "condition and forgetting to flip found/not-found."
+        ),
+        "subject": _sub_c(
+            "ft_strcspn",
+            "size_t ft_strcspn(const char *s, const char *reject);",
+            "None",
+            """
         Reproduce the behaviour of the standard strcspn(): return the
         length of the initial segment of `s` made up of characters that
         do NOT appear in `reject`.
@@ -925,7 +1166,8 @@ EXERCISES = {
         Examples:
             ft_strcspn("hello", "l") -> 2
             ft_strcspn("hello", "xyz") -> 5
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_strcspn(char *s, char *reject)
         {
@@ -952,26 +1194,38 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello", "l"], ["hello", "xyz"], ["", "abc"], ["abc", ""],
+            ["hello", "l"],
+            ["hello", "xyz"],
+            ["", "abc"],
+            ["abc", ""],
             ["hello world", "ow"],
         ],
     },
     "ft_strdup": {
-        "level": 2, "function": "ft_strdup",
+        "level": 2,
+        "function": "ft_strdup",
         "standard": True,
         "prototype": "char *ft_strdup(char *src);",
-        "args": ["str"], "returns": "str_owned", "forbidden": ["strdup"],
-        "hint": ("The malloc size needs room for the null terminator too "
-                "— strlen(src) alone is one byte too small; it's "
-                "strlen(src) + 1."),
-        "subject": _sub_c("ft_strdup", "char *ft_strdup(char *src);",
-                         "malloc", """
+        "args": ["str"],
+        "returns": "str_owned",
+        "forbidden": ["strdup"],
+        "hint": (
+            "The malloc size needs room for the null terminator too "
+            "— strlen(src) alone is one byte too small; it's "
+            "strlen(src) + 1."
+        ),
+        "subject": _sub_c(
+            "ft_strdup",
+            "char *ft_strdup(char *src);",
+            "malloc",
+            """
         Reproduce the behaviour of the standard strdup(): return a newly
         malloc'd copy of the string.
 
         Examples:
             ft_strdup("hello") -> a new, independent "hello" string
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
 
@@ -1000,18 +1254,25 @@ EXERCISES = {
         "cases": [["hello"], [""], ["a"], ["Testing 123"]],
     },
     "ft_strpbrk": {
-        "level": 2, "function": "ft_strpbrk",
+        "level": 2,
+        "function": "ft_strpbrk",
         "standard": True,
         "prototype": "char *ft_strpbrk(const char *s1, const char *s2);",
-        "args": ["str", "str"], "returns": "str", "forbidden": ["strpbrk"],
-        "hint": ("Return a POINTER into s1 (s1 + i), not an index or the "
-                "matched character itself — and if nothing in s1 "
-                "matches anything in s2 (including when s2 is empty), "
-                "you must return NULL rather than s1 or a pointer past "
-                "its end."),
-        "subject": _sub_c("ft_strpbrk",
-                         "char *ft_strpbrk(const char *s1, const char *s2);",
-                         "None", """
+        "args": ["str", "str"],
+        "returns": "str",
+        "forbidden": ["strpbrk"],
+        "hint": (
+            "Return a POINTER into s1 (s1 + i), not an index or the "
+            "matched character itself — and if nothing in s1 "
+            "matches anything in s2 (including when s2 is empty), "
+            "you must return NULL rather than s1 or a pointer past "
+            "its end."
+        ),
+        "subject": _sub_c(
+            "ft_strpbrk",
+            "char *ft_strpbrk(const char *s1, const char *s2);",
+            "None",
+            """
         Reproduce the behaviour of the standard strpbrk(): return a
         pointer to the first character in s1 that also appears anywhere
         in s2 (NULL if none does).
@@ -1019,7 +1280,8 @@ EXERCISES = {
         Examples:
             ft_strpbrk("hello", "lo") -> "llo" (points at the first 'l')
             ft_strpbrk("hello", "xyz") -> NULL
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         char *ft_strpbrk(char *s1, char *s2)
         {
@@ -1042,25 +1304,37 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello", "lo"], ["hello", "xyz"], ["abcdef", "fed"],
-            ["", "abc"], ["abc", ""],
+            ["hello", "lo"],
+            ["hello", "xyz"],
+            ["abcdef", "fed"],
+            ["", "abc"],
+            ["abc", ""],
         ],
     },
     "ft_strrev": {
-        "level": 2, "function": "ft_strrev",
+        "level": 2,
+        "function": "ft_strrev",
         "standard": True,
         "prototype": "char *ft_strrev(char *str);",
-        "args": ["buf"], "returns": "str",
-        "hint": ("Watch the empty-string case: computing the last index "
-                "as strlen(str) - 1 without checking for length 0 first "
-                "walks off the front of the buffer with a negative "
-                "index instead of leaving an empty string untouched."),
-        "subject": _sub_c("ft_strrev", "char *ft_strrev(char *str);", "None", """
+        "args": ["buf"],
+        "returns": "str",
+        "hint": (
+            "Watch the empty-string case: computing the last index "
+            "as strlen(str) - 1 without checking for length 0 first "
+            "walks off the front of the buffer with a negative "
+            "index instead of leaving an empty string untouched."
+        ),
+        "subject": _sub_c(
+            "ft_strrev",
+            "char *ft_strrev(char *str);",
+            "None",
+            """
         Write a function that reverses a string IN PLACE and returns it.
 
         Examples:
             ft_strrev("hello") -> "olleh" (str itself is modified)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         char *ft_strrev(char *str)
         {
@@ -1086,22 +1360,34 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello"], [""], ["a"], ["ab"], ["racecar"], ["Testing"],
+            ["hello"],
+            [""],
+            ["a"],
+            ["ab"],
+            ["racecar"],
+            ["Testing"],
         ],
     },
     "ft_strspn": {
-        "level": 2, "function": "ft_strspn",
+        "level": 2,
+        "function": "ft_strspn",
         "standard": True,
         "prototype": "size_t ft_strspn(const char *s, const char *accept);",
-        "args": ["str", "str"], "returns": "int", "forbidden": ["strspn"],
-        "hint": ("ft_strspn measures how many characters from the START "
-                "of `s` are ALL found in `accept` — stop at the very "
-                "first character that ISN'T in `accept`, the opposite "
-                "check from strcspn's 'first character that IS in "
-                "reject'."),
-        "subject": _sub_c("ft_strspn",
-                         "size_t ft_strspn(const char *s, const char *accept);",
-                         "None", """
+        "args": ["str", "str"],
+        "returns": "int",
+        "forbidden": ["strspn"],
+        "hint": (
+            "ft_strspn measures how many characters from the START "
+            "of `s` are ALL found in `accept` — stop at the very "
+            "first character that ISN'T in `accept`, the opposite "
+            "check from strcspn's 'first character that IS in "
+            "reject'."
+        ),
+        "subject": _sub_c(
+            "ft_strspn",
+            "size_t ft_strspn(const char *s, const char *accept);",
+            "None",
+            """
         Reproduce the behaviour of the standard strspn(): return the
         length of the initial segment of `s` made up entirely of
         characters from `accept`.
@@ -1109,7 +1395,8 @@ EXERCISES = {
         Examples:
             ft_strspn("aabbcc", "ab") -> 4
             ft_strspn("hello", "xyz") -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_strspn(char *s, char *accept)
         {
@@ -1136,21 +1423,31 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["aabbcc", "ab"], ["hello", "xyz"], ["", "abc"], ["abc", ""],
+            ["aabbcc", "ab"],
+            ["hello", "xyz"],
+            ["", "abc"],
+            ["abc", ""],
             ["112233", "123"],
         ],
     },
     "last_word": {
-        "level": 2, "function": "last_word", "kind": "program",
+        "level": 2,
+        "function": "last_word",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Scan from the END of the string: first skip past any "
-                "trailing spaces/tabs, then walk backward while you're "
-                "still inside the last word — only skipping LEADING "
-                "whitespace (like first_word does) breaks as soon as "
-                "the input has trailing spaces."),
-        "subject": _sub_c("last_word", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Scan from the END of the string: first skip past any "
+            "trailing spaces/tabs, then walk backward while you're "
+            "still inside the last word — only skipping LEADING "
+            "whitespace (like first_word does) breaks as soon as "
+            "the input has trailing spaces."
+        ),
+        "subject": _sub_c(
+            "last_word",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays its last
         whitespace-delimited word, followed by a newline. If argc != 2,
         or there are no words, just a newline.
@@ -1158,7 +1455,8 @@ EXERCISES = {
         Examples:
             ./last_word "hello world" -> world
             ./last_word "   "          -> (just a newline)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1195,28 +1493,42 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello world"], ["   trailing spaces   "], ["   "], [],
-            ["a", "b"], ["oneword"],
+            ["hello world"],
+            ["   trailing spaces   "],
+            ["   "],
+            [],
+            ["a", "b"],
+            ["oneword"],
+            # one empty argument
+            [""],
         ],
     },
     "print_bits": {
-        "level": 2, "function": "print_bits",
+        "level": 2,
+        "function": "print_bits",
         "standard": True,
         "prototype": "void print_bits(unsigned char octet);",
-        "args": ["int"], "returns": "void",
-        "hint": ("Print from bit 7 down to bit 0 (most significant "
-                "first): test `(octet >> i) & 1` with i counting DOWN "
-                "from 7 to 0 — counting i up from 0 instead prints the "
-                "bits in reverse order."),
-        "subject": _sub_c("print_bits", "void print_bits(unsigned char octet);",
-                         "write", """
+        "args": ["int"],
+        "returns": "void",
+        "hint": (
+            "Print from bit 7 down to bit 0 (most significant "
+            "first): test `(octet >> i) & 1` with i counting DOWN "
+            "from 7 to 0 — counting i up from 0 instead prints the "
+            "bits in reverse order."
+        ),
+        "subject": _sub_c(
+            "print_bits",
+            "void print_bits(unsigned char octet);",
+            "write",
+            """
         Write a function that prints a byte in binary (8 characters, '0'
         or '1'), most significant bit first, with NO trailing newline.
 
         Examples:
             print_bits(2)   -> prints: 00000010
             print_bits(255) -> prints: 11111111
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1237,17 +1549,24 @@ EXERCISES = {
         "cases": [[2], [0], [255], [128], [170], [1]],
     },
     "snake_to_camel": {
-        "level": 2, "function": "snake_to_camel", "kind": "program",
+        "level": 2,
+        "function": "snake_to_camel",
+        "kind": "program",
         "fuzz_argv": "snake",
         "standard": True,
-        "hint": ("Underscores themselves must never appear in the "
-                "output — consume each '_' silently and just remember, "
-                "with a flag, that the NEXT letter needs to be "
-                "uppercased, then clear that flag once you've used it "
-                "so only the letter right after an underscore gets "
-                "capitalized."),
-        "subject": _sub_c("snake_to_camel", "int main(int argc, char **argv);",
-                         "malloc, free, realloc, write", """
+        "hint": (
+            "Underscores themselves must never appear in the "
+            "output — consume each '_' silently and just remember, "
+            "with a flag, that the NEXT letter needs to be "
+            "uppercased, then clear that flag once you've used it "
+            "so only the letter right after an underscore gets "
+            "capitalized."
+        ),
+        "subject": _sub_c(
+            "snake_to_camel",
+            "int main(int argc, char **argv);",
+            "malloc, free, realloc, write",
+            """
         Write a PROGRAM that takes a single snake_case string (words
         lowercase, joined by '_') and converts it to lowerCamelCase (each
         word capitalized except the first, no separators), followed by a
@@ -1256,7 +1575,8 @@ EXERCISES = {
         Examples:
             ./snake_to_camel "hello_world"    -> helloWorld
             ./snake_to_camel "this_is_a_test" -> thisIsATest
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1292,30 +1612,41 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello_world"], ["this_is_a_test"], ["single"], [""], [],
+            ["hello_world"],
+            ["this_is_a_test"],
+            ["single"],
+            [""],
+            [],
             ["a", "b"],
         ],
     },
     "swap_bits": {
-        "level": 2, "function": "swap_bits",
+        "level": 2,
+        "function": "swap_bits",
         "standard": True,
         "prototype": "unsigned char swap_bits(unsigned char octet);",
-        "args": ["int"], "returns": "int",
-        "hint": ("Mask out each nibble before you shift it: "
-                "(octet & 0xF0) >> 4 for the upper half, "
-                "(octet & 0x0F) << 4 for the lower half — shifting "
-                "first and masking after (or not masking at all) lets "
-                "bits from one half bleed into the other."),
-        "subject": _sub_c("swap_bits",
-                         "unsigned char swap_bits(unsigned char octet);",
-                         "None", """
+        "args": ["int"],
+        "returns": "int",
+        "hint": (
+            "Mask out each nibble before you shift it: "
+            "(octet & 0xF0) >> 4 for the upper half, "
+            "(octet & 0x0F) << 4 for the lower half — shifting "
+            "first and masking after (or not masking at all) lets "
+            "bits from one half bleed into the other."
+        ),
+        "subject": _sub_c(
+            "swap_bits",
+            "unsigned char swap_bits(unsigned char octet);",
+            "None",
+            """
         Write a function that takes a byte, swaps its two 4-bit halves
         (nibbles), and returns the result.
 
         Examples:
             swap_bits(0x41) -> 0x14   # 0100 0001 -> 0001 0100
             swap_bits(0)    -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         unsigned char swap_bits(unsigned char octet)
         {
@@ -1330,16 +1661,23 @@ EXERCISES = {
         "cases": [[65], [0], [255], [15], [240], [18]],
     },
     "inter": {
-        "level": 2, "function": "inter", "kind": "program",
+        "level": 2,
+        "function": "inter",
+        "kind": "program",
         "fuzz_argv": "two_strings",
         "standard": True,
-        "hint": ("Two conditions per character of the FIRST string: it must "
-                "appear somewhere in the second string, and it must not have "
-                "appeared earlier in the first string (that's the 'no "
-                "doubles' part — check positions before the current one, "
-                "not what you've printed from the second string)."),
-        "subject": _sub_c("inter", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Two conditions per character of the FIRST string: it must "
+            "appear somewhere in the second string, and it must not have "
+            "appeared earlier in the first string (that's the 'no "
+            "doubles' part — check positions before the current one, "
+            "not what you've printed from the second string)."
+        ),
+        "subject": _sub_c(
+            "inter",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes two strings and displays, without
         doubles, the characters that appear in BOTH strings, in the order
         they appear in the first one, followed by a newline. If argc != 3,
@@ -1349,7 +1687,8 @@ EXERCISES = {
             ./inter "padinton" "paqefwtdjetyiytjneytjoeyjnejeyj" -> padinto
             ./inter "ddf6vewg64f" "gtwthgdwthdwfteewhrtag6h4ffdhsd" -> df6ewg4
             ./inter "rien" "cette phrase ne cache rien" -> rien
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1390,20 +1729,32 @@ EXERCISES = {
             ["padinton", "paqefwtdjetyiytjneytjoeyjnejeyj"],
             ["ddf6vewg64f", "gtwthgdwthdwfteewhrtag6h4ffdhsd"],
             ["rien", "cette phrase ne cache rien"],
-            ["abc", "xyz"], ["aaa", "a"], ["", "abc"], ["abc", ""],
-            [], ["only one"], ["a", "b", "c"],
+            ["abc", "xyz"],
+            ["aaa", "a"],
+            ["", "abc"],
+            ["abc", ""],
+            [],
+            ["only one"],
+            ["a", "b", "c"],
         ],
     },
     "union": {
-        "level": 2, "function": "union", "kind": "program",
+        "level": 2,
+        "function": "union",
+        "kind": "program",
         "fuzz_argv": "two_strings",
         "standard": True,
-        "hint": ("Dedup against everything printed so far, not just "
-                "within the string you're currently scanning — a "
-                "character repeated inside the SAME string (e.g. 'aaa') "
-                "must still only print once."),
-        "subject": _sub_c("union", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Dedup against everything printed so far, not just "
+            "within the string you're currently scanning — a "
+            "character repeated inside the SAME string (e.g. 'aaa') "
+            "must still only print once."
+        ),
+        "subject": _sub_c(
+            "union",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes two strings and displays, without
         duplicates, every character that appears in either one, in the
         order each first appears (scanning the first string then the
@@ -1412,7 +1763,8 @@ EXERCISES = {
         Examples:
             ./union "abc" "bcd" -> abcd
             ./union "aaa" "aaa" -> a
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1468,22 +1820,34 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc", "bcd"], ["hello", "world"], ["aaa", "aaa"],
-            ["", "abc"], ["abc", ""], [], ["x"],
+            ["abc", "bcd"],
+            ["hello", "world"],
+            ["aaa", "aaa"],
+            ["", "abc"],
+            ["abc", ""],
+            [],
+            ["x"],
         ],
     },
     "wdmatch": {
-        "level": 2, "function": "wdmatch", "kind": "program",
+        "level": 2,
+        "function": "wdmatch",
+        "kind": "program",
         "fuzz_argv": "subsequence",
         "standard": True,
-        "hint": ("This is a subsequence check, not 'do these characters "
-                "appear somewhere' — walk both strings with two "
-                "indices, only advancing the first string's index on a "
-                "match, and it's a match only if that index reaches the "
-                "end of the first string by the time the second one "
-                "runs out."),
-        "subject": _sub_c("wdmatch", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "This is a subsequence check, not 'do these characters "
+            "appear somewhere' — walk both strings with two "
+            "indices, only advancing the first string's index on a "
+            "match, and it's a match only if that index reaches the "
+            "end of the first string by the time the second one "
+            "runs out."
+        ),
+        "subject": _sub_c(
+            "wdmatch",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes two strings and checks whether the
         first can be spelled out using characters from the second, in
         order (not necessarily consecutively — i.e. the first is a
@@ -1494,7 +1858,8 @@ EXERCISES = {
         Examples:
             ./wdmatch "abc" "xaxbxc" -> abc
             ./wdmatch "abc" "xbxax"  -> (just a newline)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1530,22 +1895,35 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc", "xaxbxc"], ["abc", "xbxax"], ["", "abc"], ["abc", ""],
-            [], ["a"],
+            ["abc", "xaxbxc"],
+            ["abc", "xbxax"],
+            ["", "abc"],
+            ["abc", ""],
+            [],
+            ["a"],
+            # the very first character already missing
+            ["o", "zc"],
         ],
     },
     "epur_str": {
-        "level": 3, "function": "epur_str", "kind": "program",
+        "level": 3,
+        "function": "epur_str",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Don't write a space the instant you see one — set a "
-                "'need a space before the next word' flag instead, and "
-                "only emit it once you actually reach the next "
-                "non-space character. That naturally collapses runs of "
-                "whitespace and avoids a trailing space when the input "
-                "ends in whitespace."),
-        "subject": _sub_c("epur_str", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Don't write a space the instant you see one — set a "
+            "'need a space before the next word' flag instead, and "
+            "only emit it once you actually reach the next "
+            "non-space character. That naturally collapses runs of "
+            "whitespace and avoids a trailing space when the input "
+            "ends in whitespace."
+        ),
+        "subject": _sub_c(
+            "epur_str",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it with exactly
         one space between words and no leading/trailing whitespace,
         followed by a newline. A word is a run of non-space/tab
@@ -1554,7 +1932,8 @@ EXERCISES = {
         Examples:
             ./epur_str "  hello    world  " -> hello world
             ./epur_str "a   b   c"           -> a b c
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1598,22 +1977,34 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["  hello    world  "], ["a   b   c"], ["single"], ["   "],
-            [""], [], ["a", "b"],
+            ["  hello    world  "],
+            ["a   b   c"],
+            ["single"],
+            ["   "],
+            [""],
+            [],
+            ["a", "b"],
         ],
     },
     "expand_str": {
-        "level": 3, "function": "expand_str", "kind": "program",
+        "level": 3,
+        "function": "expand_str",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("Same idea as collapsing whitespace to a single space, "
-                "except each boundary between words prints exactly "
-                "three spaces — track a 'separator pending' flag and "
-                "only emit those three spaces once you reach the start "
-                "of the next word, so trailing whitespace at the end "
-                "never produces a dangling separator."),
-        "subject": _sub_c("expand_str", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Same idea as collapsing whitespace to a single space, "
+            "except each boundary between words prints exactly "
+            "three spaces — track a 'separator pending' flag and "
+            "only emit those three spaces once you reach the start "
+            "of the next word, so trailing whitespace at the end "
+            "never produces a dangling separator."
+        ),
+        "subject": _sub_c(
+            "expand_str",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it with exactly
         three spaces between words and no leading/trailing whitespace,
         followed by a newline. A word is a run of non-space/tab
@@ -1622,7 +2013,8 @@ EXERCISES = {
         Examples:
             ./expand_str "hello world" -> hello   world
             ./expand_str "a b"          -> a   b
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1666,24 +2058,35 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["  hello    world  "], ["a   b   c"], ["single"], ["   "],
-            [""], [], ["a", "b"],
+            ["  hello    world  "],
+            ["a   b   c"],
+            ["single"],
+            ["   "],
+            [""],
+            [],
+            ["a", "b"],
         ],
     },
     "ft_atoi_base": {
-        "level": 3, "function": "ft_atoi_base",
+        "level": 3,
+        "function": "ft_atoi_base",
         "standard": True,
         "prototype": "int ft_atoi_base(const char *str, int str_base);",
-        "args": ["str", "int"], "returns": "int",
-        "hint": ("A '-' only counts as the sign if it's the very first "
-                "character — one later in the string just means an "
-                "invalid digit, ending the parse right there. Also make "
-                "sure you reject a digit character that's valid in "
-                "general but too large for THIS base (e.g. '2' in base "
-                "2)."),
-        "subject": _sub_c("ft_atoi_base",
-                         "int ft_atoi_base(const char *str, int str_base);",
-                         "None", """
+        "args": ["str", "int"],
+        "returns": "int",
+        "hint": (
+            "A '-' only counts as the sign if it's the very first "
+            "character — one later in the string just means an "
+            "invalid digit, ending the parse right there. Also make "
+            "sure you reject a digit character that's valid in "
+            "general but too large for THIS base (e.g. '2' in base "
+            "2)."
+        ),
+        "subject": _sub_c(
+            "ft_atoi_base",
+            "int ft_atoi_base(const char *str, int str_base);",
+            "None",
+            """
         Write a function that converts a string written in base
         `str_base` (2 to 16, digits "0123456789abcdef", case-insensitive)
         into a base-10 int. A leading '-' is only recognized as the very
@@ -1694,7 +2097,8 @@ EXERCISES = {
             ft_atoi_base("ff", 16)   -> 255
             ft_atoi_base("101", 2)   -> 5
             ft_atoi_base("-101", 2)  -> -5
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         int ft_atoi_base(char *str, int str_base)
         {
@@ -1736,27 +2140,48 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["101", 2], ["ff", 16], ["FF", 16], ["777", 8],
-            ["-101", 2], ["z", 16], ["123", 10],
-            ["fF", 16], ["12fdb3", 16], ["-Ff", 16],     # mixed case
-            ["102", 2], ["19", 8], ["ag", 16],           # digit too big for the base
-            ["1-1", 10], ["--1", 10],                    # '-' only as the very first char
-            ["", 10], ["-", 10], ["-0", 10], ["0", 2],
-            ["7fffffff", 16], ["2147483647", 10],         # INT_MAX
+            ["101", 2],
+            ["ff", 16],
+            ["FF", 16],
+            ["777", 8],
+            ["-101", 2],
+            ["z", 16],
+            ["123", 10],
+            ["fF", 16],
+            ["12fdb3", 16],
+            ["-Ff", 16],  # mixed case
+            ["102", 2],
+            ["19", 8],
+            ["ag", 16],  # digit too big for the base
+            ["1-1", 10],
+            ["--1", 10],  # '-' only as the very first char
+            ["", 10],
+            ["-", 10],
+            ["-0", 10],
+            ["0", 2],
+            ["7fffffff", 16],
+            ["2147483647", 10],  # INT_MAX
         ],
         "fuzz_cases": "atoi_base",
     },
     "ft_range": {
-        "level": 3, "function": "ft_range",
+        "level": 3,
+        "function": "ft_range",
         "standard": True,
         "prototype": "int *ft_range(int start, int end);",
-        "args": ["int", "int"], "returns": "int_arr",
+        "args": ["int", "int"],
+        "returns": "int_arr",
         "return_len": lambda a: abs(a[1] - a[0]) + 1,
-        "hint": ("The element count is abs(end - start) + 1, not "
-                "end - start + 1 — that goes negative (or too small) "
-                "the moment start > end."),
-        "subject": _sub_c("ft_range", "int *ft_range(int start, int end);",
-                         "malloc", """
+        "hint": (
+            "The element count is abs(end - start) + 1, not "
+            "end - start + 1 — that goes negative (or too small) "
+            "the moment start > end."
+        ),
+        "subject": _sub_c(
+            "ft_range",
+            "int *ft_range(int start, int end);",
+            "malloc",
+            """
         Write a function that mallocs an array of ints filled with every
         consecutive value from `start` to `end` inclusive (in ascending
         order even if start > end — that's ft_rrange's job), and returns
@@ -1766,7 +2191,8 @@ EXERCISES = {
             ft_range(1, 3)  -> [1, 2, 3]
             ft_range(-1, 2) -> [-1, 0, 1, 2]
             ft_range(0, 0)  -> [0]
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
 
@@ -1794,24 +2220,32 @@ EXERCISES = {
         "cases": [[1, 3], [-1, 2], [0, 0], [0, -3], [5, 5]],
     },
     "ft_rrange": {
-        "level": 3, "function": "ft_rrange",
+        "level": 3,
+        "function": "ft_rrange",
         "standard": True,
         "prototype": "int *ft_rrange(int start, int end);",
-        "args": ["int", "int"], "returns": "int_arr",
+        "args": ["int", "int"],
+        "returns": "int_arr",
         "return_len": lambda a: abs(a[1] - a[0]) + 1,
-        "hint": ("Don't just call ft_range and reverse it — ft_range's "
-                "own contract stays ascending even when start > end, so "
-                "the two functions need independent fill directions, "
-                "not a shared helper that assumes one order."),
-        "subject": _sub_c("ft_rrange", "int *ft_rrange(int start, int end);",
-                         "malloc", """
+        "hint": (
+            "Don't just call ft_range and reverse it — ft_range's "
+            "own contract stays ascending even when start > end, so "
+            "the two functions need independent fill directions, "
+            "not a shared helper that assumes one order."
+        ),
+        "subject": _sub_c(
+            "ft_rrange",
+            "int *ft_rrange(int start, int end);",
+            "malloc",
+            """
         Like ft_range, but the array runs from `end` down to `start`
         (still inclusive of both ends).
 
         Examples:
             ft_rrange(1, 3)  -> [3, 2, 1]
             ft_rrange(0, -3) -> [-3, -2, -1, 0]
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
 
@@ -1842,21 +2276,29 @@ EXERCISES = {
         "cases": [[1, 3], [-1, 2], [0, 0], [0, -3], [5, 5]],
     },
     "paramsum": {
-        "level": 3, "function": "paramsum", "kind": "program",
+        "level": 3,
+        "function": "paramsum",
+        "kind": "program",
         "fuzz_argv": "any_args",
         "standard": True,
-        "hint": ("argc counts the program's own name too — the number "
-                "of actual arguments passed is argc - 1, not argc "
-                "itself."),
-        "subject": _sub_c("paramsum", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "argc counts the program's own name too — the number "
+            "of actual arguments passed is argc - 1, not argc "
+            "itself."
+        ),
+        "subject": _sub_c(
+            "paramsum",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that displays the number of arguments passed to
         it, followed by a newline. No arguments displays 0.
 
         Examples:
             ./paramsum a b c -> 3
             ./paramsum        -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -1878,22 +2320,36 @@ EXERCISES = {
             return (0);
         }
         """),
-        "cases": [["1", "2", "3"], [], ["a"], ["a", "b", "c", "d", "e"]],
+        "cases": [
+            ["1", "2", "3"],
+            [],
+            ["a"],
+            ["a", "b", "c", "d", "e"],
+            # two digits in the answer
+            ["a", "a", "a", "a", "a", "a", "a", "a", "a", "a"],
+        ],
     },
     "print_hex": {
-        "level": 3, "function": "print_hex", "kind": "program",
+        "level": 3,
+        "function": "print_hex",
+        "kind": "program",
         "fuzz_argv": "non_negative_int",
         "standard": True,
         "forbidden": ["atoi"],
-        "hint": ("atoi is forbidden, so parse the decimal argument "
-                "yourself before converting it to hex. Peeling off "
-                "digits with n % 16 and n /= 16 produces them "
-                "least-significant first, so collect them into a buffer "
-                "and print it backwards — and n == 0 needs its own "
-                "special case, since that peeling loop produces zero "
-                "digits for it."),
-        "subject": _sub_c("print_hex", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "atoi is forbidden, so parse the decimal argument "
+            "yourself before converting it to hex. Peeling off "
+            "digits with n % 16 and n /= 16 produces them "
+            "least-significant first, so collect them into a buffer "
+            "and print it backwards — and n == 0 needs its own "
+            "special case, since that peeling loop produces zero "
+            "digits for it."
+        ),
+        "subject": _sub_c(
+            "print_hex",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a non-negative base-10 number and
         displays it in base 16 (lowercase digits, no leading zeros),
         followed by a newline. If argc != 2, just a newline.
@@ -1901,7 +2357,8 @@ EXERCISES = {
         Examples:
             ./print_hex 255  -> ff
             ./print_hex 4096 -> 1000
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
         #include <unistd.h>
@@ -1942,16 +2399,23 @@ EXERCISES = {
         "cases": [["10"], ["255"], ["0"], ["16"], [], ["4096"]],
     },
     "rstr_capitalizer": {
-        "level": 3, "function": "rstr_capitalizer", "kind": "program",
+        "level": 3,
+        "function": "rstr_capitalizer",
+        "kind": "program",
         "fuzz_argv": "sentences",
         "standard": True,
-        "hint": ("'Last letter' means the last ALPHABETIC character of "
-                "the word, not simply its last character — a word like "
-                "'test.' or 'end!' needs a first pass to locate its last "
-                "actual letter before you can safely uppercase that one "
-                "and lowercase the rest."),
-        "subject": _sub_c("rstr_capitalizer",
-                         "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "'Last letter' means the last ALPHABETIC character of "
+            "the word, not simply its last character — a word like "
+            "'test.' or 'end!' needs a first pass to locate its last "
+            "actual letter before you can safely uppercase that one "
+            "and lowercase the rest."
+        ),
+        "subject": _sub_c(
+            "rstr_capitalizer",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes one or more strings and, for each one,
         uppercases the LAST letter of every word and lowercases the rest
         (a single-letter word is uppercased), printing each argument's
@@ -1959,7 +2423,8 @@ EXERCISES = {
 
         Examples:
             ./rstr_capitalizer "a first test" -> a firsT tesT
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -2037,23 +2502,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["a first little test"], ["ALREADY DONE"],
-            ["  double  spaced  "], [], ["one"],
+            ["a first little test"],
+            ["ALREADY DONE"],
+            ["  double  spaced  "],
+            [],
+            ["one"],
             ["hello world", "second string"],
         ],
     },
     "str_capitalizer": {
-        "level": 3, "function": "str_capitalizer", "kind": "program",
+        "level": 3,
+        "function": "str_capitalizer",
+        "kind": "program",
         "fuzz_argv": "sentences",
         "standard": True,
-        "hint": ("Track a 'start of a new word' flag that gets set on "
-                "every separator character and cleared right after you "
-                "write the first letter of the next word — that way "
-                "multiple separators in a row (or the very start of the "
-                "string) don't cause you to lose track of where a word "
-                "begins."),
-        "subject": _sub_c("str_capitalizer",
-                         "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "Track a 'start of a new word' flag that gets set on "
+            "every separator character and cleared right after you "
+            "write the first letter of the next word — that way "
+            "multiple separators in a row (or the very start of the "
+            "string) don't cause you to lose track of where a word "
+            "begins."
+        ),
+        "subject": _sub_c(
+            "str_capitalizer",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes one or more strings and, for each one,
         uppercases the FIRST letter of every word and lowercases the
         rest, printing each argument's result on its own line. No
@@ -2061,7 +2536,8 @@ EXERCISES = {
 
         Examples:
             ./str_capitalizer "a first test" -> A First Test
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -2110,31 +2586,42 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["a first little test"], ["ALREADY DONE"],
-            ["  double  spaced  "], [], ["one"],
+            ["a first little test"],
+            ["ALREADY DONE"],
+            ["  double  spaced  "],
+            [],
+            ["one"],
             ["hello world", "second string"],
         ],
     },
     "tab_mult": {
-        "level": 3, "function": "tab_mult", "kind": "program",
+        "level": 3,
+        "function": "tab_mult",
+        "kind": "program",
         "fuzz_argv": "small_positive_int",
         "standard": True,
         "forbidden": ["atoi"],
-        "hint": ("atoi is forbidden, so you need your own "
-                "decimal-string-to-int conversion for the argument — "
-                "and since i * n can need more digits than n itself (up "
-                "to two digits more), make sure your own "
-                "number-printing routine handles multi-digit values "
-                "correctly, not just single digits."),
-        "subject": _sub_c("tab_mult", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "atoi is forbidden, so you need your own "
+            "decimal-string-to-int conversion for the argument — "
+            "and since i * n can need more digits than n itself (up "
+            "to two digits more), make sure your own "
+            "number-printing routine handles multi-digit values "
+            "correctly, not just single digits."
+        ),
+        "subject": _sub_c(
+            "tab_mult",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a strictly positive int and displays
         its multiplication table from 1x to 9x, one line each, formatted
         as "i x n = i*n". No arguments: just a newline.
 
         Examples:
             ./tab_mult 9 -> 1 x 9 = 9 ... 9 x 9 = 81 (9 lines)
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
         #include <unistd.h>
@@ -2187,29 +2674,40 @@ EXERCISES = {
         """),
         "cases": [["9"], ["19"], ["1"], [], ["5"]],
     },
-
     # ── LEVEL 4 ────────────────────────────────────────────────
     "ft_split": {
-        "level": 4, "function": "ft_split",
+        "level": 4,
+        "function": "ft_split",
         "standard": True,
         "prototype": "char **ft_split(char *str);",
-        "args": ["str"], "returns": "str_array",
+        "args": ["str"],
+        "returns": "str_array",
         "hint": {
-            "crash": ("Your pointer array needs room for a trailing "
-                     "NULL too — count_words words means count_words + 1 "
-                     "pointers. Same for each word's own buffer: malloc "
-                     "its length plus one for its null terminator."),
-            "leak": ("If you bail out partway through (a failed malloc, "
-                     "an early return) you need to free every word "
-                     "you've already allocated before that point, not "
-                     "just leave them — a leak here almost always means "
-                     "an error path that returns without cleaning up."),
-            "default": ("Count your words (count_words or similar) with "
-                        "exactly the same logic you later use to extract "
-                        "them — a mismatch on multiple consecutive "
-                        "separators is the most common bug here."),
+            "crash": (
+                "Your pointer array needs room for a trailing "
+                "NULL too — count_words words means count_words + 1 "
+                "pointers. Same for each word's own buffer: malloc "
+                "its length plus one for its null terminator."
+            ),
+            "leak": (
+                "If you bail out partway through (a failed malloc, "
+                "an early return) you need to free every word "
+                "you've already allocated before that point, not "
+                "just leave them — a leak here almost always means "
+                "an error path that returns without cleaning up."
+            ),
+            "default": (
+                "Count your words (count_words or similar) with "
+                "exactly the same logic you later use to extract "
+                "them — a mismatch on multiple consecutive "
+                "separators is the most common bug here."
+            ),
         },
-        "subject": _sub_c("ft_split", "char **ft_split(char *str);", "malloc", """
+        "subject": _sub_c(
+            "ft_split",
+            "char **ft_split(char *str);",
+            "malloc",
+            """
         Write a function that takes a string, splits it into words, and
         returns them as a NULL-terminated array of strings. A "word" is a
         part of the string delimited by spaces/tabs/newlines, or by the
@@ -2219,7 +2717,8 @@ EXERCISES = {
             ft_split("hello world") -> ["hello", "world"]
             ft_split("   ")          -> []
             ft_split("")             -> []
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
 
@@ -2310,21 +2809,33 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello world"], [""], ["   "], ["a"],
-            ["  lorem   ipsum  dolor  "], ["one\ttwo\nthree"], ["single"],
+            ["hello world"],
+            [""],
+            ["   "],
+            ["a"],
+            ["  lorem   ipsum  dolor  "],
+            ["one\ttwo\nthree"],
+            ["single"],
         ],
     },
     "ft_list_size": {
-        "level": 3, "function": "ft_list_size",
+        "level": 3,
+        "function": "ft_list_size",
         "standard": True,
         "prototype": "int ft_list_size(t_list *begin_list);",
-        "args": ["int_list"], "returns": "int",
-        "hint": ("Walk the list with a counter that increments once per "
-                "node until you hit NULL — an empty list (begin_list "
-                "itself NULL) should return 0 immediately, without "
-                "dereferencing anything."),
-        "subject": _sub_c("ft_list_size",
-                         "int ft_list_size(t_list *begin_list);", "None", """
+        "args": ["int_list"],
+        "returns": "int",
+        "hint": (
+            "Walk the list with a counter that increments once per "
+            "node until you hit NULL — an empty list (begin_list "
+            "itself NULL) should return 0 immediately, without "
+            "dereferencing anything."
+        ),
+        "subject": _sub_c(
+            "ft_list_size",
+            "int ft_list_size(t_list *begin_list);",
+            "None",
+            """
         Write a function that returns the number of elements in the
         linked list passed to it. You must use the t_list type described
         in list.h (provided): a node holds an int `data` and a `next`
@@ -2333,7 +2844,8 @@ EXERCISES = {
         Examples:
             ft_list_size([1,2,3]) -> 3
             ft_list_size([])       -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include "list.h"
 
@@ -2350,19 +2862,33 @@ EXERCISES = {
             return (count);
         }
         """),
-        "cases": [[[1, 2, 3]], [[]], [[5]], [[1, 2, 3, 4, 5, 6, 7]], [[0, 0, 0]]],
+        "cases": [
+            [[1, 2, 3]],
+            [[]],
+            [[5]],
+            [[1, 2, 3, 4, 5, 6, 7]],
+            [[0, 0, 0]],
+        ],
     },
     "hidenp": {
-        "level": 3, "function": "hidenp", "kind": "program",
+        "level": 3,
+        "function": "hidenp",
+        "kind": "program",
         "fuzz_argv": "subsequence",
         "standard": True,
-        "hint": ("Same subsequence idea as wdmatch: advance through s2 "
-                "one character at a time, but only advance your "
-                "position in s1 when the characters match. The "
-                "empty-string case falls out naturally as 'hidden' "
-                "since your s1 index never has to move to reach its own "
-                "end — don't special-case it away by mistake."),
-        "subject": _sub_c("hidenp", "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "Same subsequence idea as wdmatch: advance through s2 "
+            "one character at a time, but only advance your "
+            "position in s1 when the characters match. The "
+            "empty-string case falls out naturally as 'hidden' "
+            "since your s1 index never has to move to reach its own "
+            "end — don't special-case it away by mistake."
+        ),
+        "subject": _sub_c(
+            "hidenp",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM named hidenp that takes two strings and displays 1
         followed by a newline if the first string is "hidden" in the
         second one, 0 otherwise. s1 is hidden in s2 if every character of
@@ -2373,7 +2899,8 @@ EXERCISES = {
         Examples:
             ./hidenp "abc" "2altrb53c.sse" -> 1
             ./hidenp "abc" "btarc"          -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -2404,21 +2931,31 @@ EXERCISES = {
         """),
         "cases": [
             ["fgex.;", "tyf34gdgf;'ektufjhgdgex.;.;rtjynur6"],
-            ["abc", "2altrb53c.sse"], ["abc", "btarc"], ["", "abc"],
-            ["abc", ""], ["only_one"],
+            ["abc", "2altrb53c.sse"],
+            ["abc", "btarc"],
+            ["", "abc"],
+            ["abc", ""],
+            ["only_one"],
         ],
     },
     "pgcd": {
-        "level": 3, "function": "pgcd", "kind": "program",
+        "level": 3,
+        "function": "pgcd",
+        "kind": "program",
         "fuzz_argv": "two_positive_ints",
         "standard": True,
-        "hint": ("Classic Euclidean algorithm: repeatedly replace (a, b) "
-                "with (b, a % b) until b hits 0 — a common slip is "
-                "overwriting a with b's value before you've saved a's "
-                "OLD value into a temporary, which corrupts the very "
-                "modulo you still needed to compute."),
-        "subject": _sub_c("pgcd", "int main(int argc, char **argv);",
-                         "printf, atoi, malloc, free", """
+        "hint": (
+            "Classic Euclidean algorithm: repeatedly replace (a, b) "
+            "with (b, a % b) until b hits 0 — a common slip is "
+            "overwriting a with b's value before you've saved a's "
+            "OLD value into a temporary, which corrupts the very "
+            "modulo you still needed to compute."
+        ),
+        "subject": _sub_c(
+            "pgcd",
+            "int main(int argc, char **argv);",
+            "printf, atoi, malloc, free",
+            """
         Write a PROGRAM that takes two strings representing two strictly
         positive integers and displays their greatest common divisor,
         followed by a newline. If argc != 3, just a newline.
@@ -2427,7 +2964,8 @@ EXERCISES = {
             ./pgcd 42 10 -> 2
             ./pgcd 42 12 -> 6
             ./pgcd 17 3  -> 1
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdio.h>
         #include <stdlib.h>
@@ -2456,23 +2994,34 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["42", "10"], ["42", "12"], ["14", "77"], ["17", "3"], [],
-            ["100", "100"], ["1", "1"],
+            ["42", "10"],
+            ["42", "12"],
+            ["14", "77"],
+            ["17", "3"],
+            [],
+            ["100", "100"],
+            ["1", "1"],
         ],
     },
     "lcm": {
-        "level": 3, "function": "lcm",
+        "level": 3,
+        "function": "lcm",
         "standard": True,
         "prototype": "unsigned int lcm(unsigned int a, unsigned int b);",
-        "args": ["int", "int"], "returns": "int",
-        "hint": ("Compute a / gcd(a, b) * b, not (a * b) / gcd(a, b) — "
-                "dividing first keeps the intermediate value smaller and "
-                "avoids needless overflow. And treat a == 0 or b == 0 as "
-                "its own special case returning 0, rather than feeding "
-                "a 0 into your GCD loop."),
-        "subject": _sub_c("lcm",
-                         "unsigned int lcm(unsigned int a, unsigned int b);",
-                         "None", """
+        "args": ["int", "int"],
+        "returns": "int",
+        "hint": (
+            "Compute a / gcd(a, b) * b, not (a * b) / gcd(a, b) — "
+            "dividing first keeps the intermediate value smaller and "
+            "avoids needless overflow. And treat a == 0 or b == 0 as "
+            "its own special case returning 0, rather than feeding "
+            "a 0 into your GCD loop."
+        ),
+        "subject": _sub_c(
+            "lcm",
+            "unsigned int lcm(unsigned int a, unsigned int b);",
+            "None",
+            """
         Write a function that returns the LCM (Lowest Common Multiple) of
         two unsigned ints: the smallest positive integer divisible by
         both. If either is 0, the LCM is 0.
@@ -2481,7 +3030,8 @@ EXERCISES = {
             lcm(4, 6)  -> 12
             lcm(21, 6) -> 42
             lcm(0, 5)  -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         unsigned int lcm(unsigned int a, unsigned int b)
         {
@@ -2505,20 +3055,27 @@ EXERCISES = {
         "cases": [[4, 6], [21, 6], [0, 5], [7, 7], [1, 1], [8, 12], [9, 0]],
     },
     "add_prime_sum": {
-        "level": 3, "function": "add_prime_sum", "kind": "program",
+        "level": 3,
+        "function": "add_prime_sum",
+        "kind": "program",
         "fuzz_argv": "small_positive_int",
         "standard": True,
         "forbidden": ["atoi"],
-        "hint": ("atoi is forbidden, so you need your own decimal "
-                "parser for argv[1] — and both a missing argument and "
-                "something that doesn't parse as a valid positive "
-                "number must fall back to printing plain '0' plus a "
-                "newline, not a crash or a garbage sum. Also make sure "
-                "your primality check explicitly rules out values below "
-                "2, since the trial-division loop alone won't naturally "
-                "exclude 0 or 1."),
-        "subject": _sub_c("add_prime_sum", "int main(int argc, char **argv);",
-                         "write, exit", """
+        "hint": (
+            "atoi is forbidden, so you need your own decimal "
+            "parser for argv[1] — and both a missing argument and "
+            "something that doesn't parse as a valid positive "
+            "number must fall back to printing plain '0' plus a "
+            "newline, not a crash or a garbage sum. Also make sure "
+            "your primality check explicitly rules out values below "
+            "2, since the trial-division loop alone won't naturally "
+            "exclude 0 or 1."
+        ),
+        "subject": _sub_c(
+            "add_prime_sum",
+            "int main(int argc, char **argv);",
+            "write, exit",
+            """
         Write a PROGRAM that takes a positive integer as argument and
         displays the sum of all prime numbers <= it, followed by a
         newline. If argc != 2, or the argument is not a positive number,
@@ -2528,7 +3085,8 @@ EXERCISES = {
             ./add_prime_sum 5 -> 10   # 2 + 3 + 5
             ./add_prime_sum 7 -> 17   # 2 + 3 + 5 + 7
             ./add_prime_sum   -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
         #include <unistd.h>
@@ -2596,26 +3154,38 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["5"], ["7"], [], ["-3"], ["abc"], ["1"], ["2"], ["20"],
+            ["5"],
+            ["7"],
+            [],
+            ["-3"],
+            ["abc"],
+            ["1"],
+            ["2"],
+            ["20"],
         ],
     },
-
     # ── LEVEL 4 ────────────────────────────────────────────────
     "sort_list": {
-        "level": 4, "function": "sort_list",
+        "level": 4,
+        "function": "sort_list",
         "standard": True,
         "prototype": "t_list *sort_list(t_list *lst, int (*cmp)(int, int));",
-        "args": ["int_list", "cmp_ascending"], "returns": "int_list",
-        "hint": ("cmp returns non-zero when its two arguments are "
-                "ALREADY in the right order — swap only when it returns "
-                "0, which is easy to get backwards (swapping when it "
-                "returns non-zero instead) and quietly sorts everything "
-                "the wrong way. Swap the node `data` values in place "
-                "rather than relinking `next` pointers, so the list's "
-                "structure never has to change."),
-        "subject": _sub_c("sort_list",
-                         "t_list *sort_list(t_list *lst, int (*cmp)(int, int));",
-                         "None", """
+        "args": ["int_list", "cmp_ascending"],
+        "returns": "int_list",
+        "hint": (
+            "cmp returns non-zero when its two arguments are "
+            "ALREADY in the right order — swap only when it returns "
+            "0, which is easy to get backwards (swapping when it "
+            "returns non-zero instead) and quietly sorts everything "
+            "the wrong way. Swap the node `data` values in place "
+            "rather than relinking `next` pointers, so the list's "
+            "structure never has to change."
+        ),
+        "subject": _sub_c(
+            "sort_list",
+            "t_list *sort_list(t_list *lst, int (*cmp)(int, int));",
+            "None",
+            """
         Write a function that sorts the list given as a parameter, using
         the function pointer `cmp` to select the order, and returns a
         pointer to the first element of the sorted list. Duplicates must
@@ -2630,7 +3200,8 @@ EXERCISES = {
         Examples:
             sort_list([5,3,1,4,2], ascending) -> [1,2,3,4,5]
             sort_list([], ascending)           -> []
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include "list.h"
 
@@ -2658,31 +3229,43 @@ EXERCISES = {
         }
         """),
         "cases": [
-            [[5, 3, 1, 4, 2]], [[]], [[1]], [[2, 1]], [[3, 3, 3]],
+            [[5, 3, 1, 4, 2]],
+            [[]],
+            [[1]],
+            [[2, 1]],
+            [[3, 3, 3]],
             [[-1, -5, 2, 0]],
         ],
     },
     "sort_int_tab": {
-        "level": 4, "function": "sort_int_tab",
+        "level": 4,
+        "function": "sort_int_tab",
         "standard": True,
         "prototype": "void sort_int_tab(int *tab, unsigned int size);",
-        "args": ["int_arr"], "returns": "void", "print_after_args": [0],
-        "hint": ("size is unsigned — if your inner loop bound is "
-                "written as `size - 1` on its own (instead of "
-                "`size - i`, shrinking each pass), that expression "
-                "underflows to a huge number the instant size is 0, and "
-                "you'll read/write past the end of an empty array "
-                "instead of doing nothing."),
-        "subject": _sub_c("sort_int_tab",
-                         "void sort_int_tab(int *tab, unsigned int size);",
-                         "None", """
+        "args": ["int_arr"],
+        "returns": "void",
+        "print_after_args": [0],
+        "hint": (
+            "size is unsigned — if your inner loop bound is "
+            "written as `size - 1` on its own (instead of "
+            "`size - i`, shrinking each pass), that expression "
+            "underflows to a huge number the instant size is 0, and "
+            "you'll read/write past the end of an empty array "
+            "instead of doing nothing."
+        ),
+        "subject": _sub_c(
+            "sort_int_tab",
+            "void sort_int_tab(int *tab, unsigned int size);",
+            "None",
+            """
         Write a function that sorts (in place) an int array of `size`
         elements, in ascending order. Duplicates must be preserved.
 
         Examples:
             sort_int_tab([5,3,1,4,2], 5) -> tab becomes [1,2,3,4,5]
             sort_int_tab([], 0)          -> tab stays []
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         void sort_int_tab(int *tab, unsigned int size)
         {
@@ -2709,24 +3292,34 @@ EXERCISES = {
         }
         """),
         "cases": [
-            [[5, 3, 1, 4, 2]], [[]], [[1]], [[2, 1]], [[3, 3, 3]],
+            [[5, 3, 1, 4, 2]],
+            [[]],
+            [[1]],
+            [[2, 1]],
+            [[3, 3, 3]],
             [[-1, -5, 2, 0]],
         ],
     },
     "reverse_bits": {
-        "level": 2, "function": "reverse_bits",
+        "level": 2,
+        "function": "reverse_bits",
         "standard": True,
         "prototype": "unsigned char reverse_bits(unsigned char octet);",
-        "args": ["int"], "returns": "int",
-        "hint": ("Build the result one bit at a time: take octet's "
-                "lowest bit, shift it into the result from the right "
-                "with `(res << 1) | (octet & 1)`, then shift octet "
-                "right and repeat for exactly 8 iterations — get either "
-                "shift direction backwards and you un-reverse it "
-                "instead."),
-        "subject": _sub_c("reverse_bits",
-                         "unsigned char reverse_bits(unsigned char octet);",
-                         "None", """
+        "args": ["int"],
+        "returns": "int",
+        "hint": (
+            "Build the result one bit at a time: take octet's "
+            "lowest bit, shift it into the result from the right "
+            "with `(res << 1) | (octet & 1)`, then shift octet "
+            "right and repeat for exactly 8 iterations — get either "
+            "shift direction backwards and you un-reverse it "
+            "instead."
+        ),
+        "subject": _sub_c(
+            "reverse_bits",
+            "unsigned char reverse_bits(unsigned char octet);",
+            "None",
+            """
         Write a function that takes a byte, reverses it bit by bit, and
         returns the result. E.g. 0010 0110 becomes 0110 0100.
 
@@ -2734,7 +3327,8 @@ EXERCISES = {
             reverse_bits(38)  -> 100   # 00100110 -> 01100100
             reverse_bits(170) -> 85    # 10101010 -> 01010101
             reverse_bits(0)   -> 0
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         unsigned char reverse_bits(unsigned char octet)
         {
@@ -2755,15 +3349,22 @@ EXERCISES = {
         "cases": [[38], [170], [0], [255], [1], [128]],
     },
     "repeat_alpha": {
-        "level": 1, "function": "repeat_alpha", "kind": "program",
+        "level": 1,
+        "function": "repeat_alpha",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
-        "hint": ("The repeat count is the letter's 1-based alphabet "
-                "position ('a' -> 1, 'b' -> 2, ...) — using the raw "
-                "c - 'a' value (0-based) makes 'a' repeat zero times "
-                "instead of once."),
-        "subject": _sub_c("repeat_alpha", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "The repeat count is the letter's 1-based alphabet "
+            "position ('a' -> 1, 'b' -> 2, ...) — using the raw "
+            "c - 'a' value (0-based) makes 'a' repeat zero times "
+            "instead of once."
+        ),
+        "subject": _sub_c(
+            "repeat_alpha",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays it, repeating
         each alphabetical character as many times as its alphabetical
         index ('a' -> 'a', 'b' -> 'bb', 'e' -> 'eeeee', ...). Case and
@@ -2773,7 +3374,8 @@ EXERCISES = {
         Examples:
             ./repeat_alpha "abc"  -> abbccc
             ./repeat_alpha "Alex." -> Alllllllllllleeeeexxxxxxxxxxxxxxxxxxxxxxxx.
-        """),
+        """,  # noqa: E501
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -2817,22 +3419,36 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["abc"], ["Alex."], ["abacadaba 42!"], [], [""], ["a", "b"],
+            ["abc"],
+            ["Alex."],
+            ["abacadaba 42!"],
+            [],
+            [""],
+            ["a", "b"],
+            # 'z' repeats 26 times — the off-by-one bound
+            ["zZ"],
         ],
     },
     "fprime": {
-        "level": 4, "function": "fprime", "kind": "program",
+        "level": 4,
+        "function": "fprime",
+        "kind": "program",
         "fuzz_argv": "positive_int",
         "standard": True,
-        "hint": ("After the trial-division loop stops (once d*d > n), "
-                "whatever's left in n still needs printing unless "
-                "nothing was ever found — that single check handles "
-                "both a leftover prime bigger than sqrt(the original n) "
-                "and the n == 1 input, so don't only print factors from "
-                "inside the while loop or primes (and 1) print nothing "
-                "at all."),
-        "subject": _sub_c("fprime", "int main(int argc, char **argv);",
-                         "printf, atoi", """
+        "hint": (
+            "After the trial-division loop stops (once d*d > n), "
+            "whatever's left in n still needs printing unless "
+            "nothing was ever found — that single check handles "
+            "both a leftover prime bigger than sqrt(the original n) "
+            "and the n == 1 input, so don't only print factors from "
+            "inside the while loop or primes (and 1) print nothing "
+            "at all."
+        ),
+        "subject": _sub_c(
+            "fprime",
+            "int main(int argc, char **argv);",
+            "printf, atoi",
+            """
         Write a PROGRAM that takes a positive int and displays its prime
         factors on standard output, followed by a newline. Factors are in
         ascending order, separated by '*' (so the printed expression
@@ -2842,7 +3458,8 @@ EXERCISES = {
             ./fprime 225225 -> 3*3*5*5*7*11*13
             ./fprime 42     -> 2*3*7
             ./fprime 1      -> 1
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdio.h>
         #include <stdlib.h>
@@ -2884,21 +3501,40 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["225225"], ["42"], ["9539"], ["1"], [], ["42", "21"],
-            ["804577"], ["8333325"],
+            ["225225"],
+            ["42"],
+            ["9539"],
+            ["1"],
+            [],
+            ["42", "21"],
+            ["804577"],
+            ["8333325"],
+            # prime squares and powers: no trailing '*1', no 'p*p' left whole
+            ["4"],
+            ["9"],
+            ["529"],
+            ["67712"],
         ],
     },
     "ft_itoa": {
-        "level": 4, "function": "ft_itoa",
+        "level": 4,
+        "function": "ft_itoa",
         "standard": True,
         "prototype": "char *ft_itoa(int nbr);",
-        "args": ["int"], "returns": "str_owned",
-        "hint": ("INT_MIN is the nasty edge case: you can't fix its "
-                "sign by negating it (that overflows int, since "
-                "2147483648 doesn't fit), and it needs an 11-character "
-                "buffer plus the null terminator, one more than any "
-                "other int."),
-        "subject": _sub_c("ft_itoa", "char *ft_itoa(int nbr);", "malloc", """
+        "args": ["int"],
+        "returns": "str_owned",
+        "hint": (
+            "INT_MIN is the nasty edge case: you can't fix its "
+            "sign by negating it (that overflows int, since "
+            "2147483648 doesn't fit), and it needs an 11-character "
+            "buffer plus the null terminator, one more than any "
+            "other int."
+        ),
+        "subject": _sub_c(
+            "ft_itoa",
+            "char *ft_itoa(int nbr);",
+            "malloc",
+            """
         Write a function that converts an int into a null-terminated,
         malloc'd string.
 
@@ -2906,7 +3542,8 @@ EXERCISES = {
             ft_itoa(42)  -> "42"
             ft_itoa(-42) -> "-42"
             ft_itoa(0)   -> "0"
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
 
@@ -2950,28 +3587,39 @@ EXERCISES = {
         "cases": [[0], [42], [-42], [2147483647], [-2147483648], [7]],
     },
     "rev_wstr": {
-        "level": 4, "function": "rev_wstr", "kind": "program",
+        "level": 4,
+        "function": "rev_wstr",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
         "hint": {
-            "crash": ("If you malloc a buffer per extracted word, its "
-                     "size has to include room for the null terminator "
-                     "(word length + 1) — sizing it to exactly the "
-                     "word's length overflows the buffer the moment you "
-                     "write that terminator."),
-            "leak": ("You end up mallocing one buffer per word as you "
-                     "walk backward through the string — free each one "
-                     "once you've written it out, or a multi-word input "
-                     "leaks once per extra word instead of just once."),
-            "default": ("Walk from the END of the string extracting "
-                        "words in reverse order, and print a separating "
-                        "space before every word EXCEPT the very first "
-                        "one you output — unconditionally printing a "
-                        "leading space before each word leaves a stray "
-                        "space at the front of the result."),
+            "crash": (
+                "If you malloc a buffer per extracted word, its "
+                "size has to include room for the null terminator "
+                "(word length + 1) — sizing it to exactly the "
+                "word's length overflows the buffer the moment you "
+                "write that terminator."
+            ),
+            "leak": (
+                "You end up mallocing one buffer per word as you "
+                "walk backward through the string — free each one "
+                "once you've written it out, or a multi-word input "
+                "leaks once per extra word instead of just once."
+            ),
+            "default": (
+                "Walk from the END of the string extracting "
+                "words in reverse order, and print a separating "
+                "space before every word EXCEPT the very first "
+                "one you output — unconditionally printing a "
+                "leading space before each word leaves a stray "
+                "space at the front of the result."
+            ),
         },
-        "subject": _sub_c("rev_wstr", "int main(int argc, char **argv);",
-                         "write, malloc, free", """
+        "subject": _sub_c(
+            "rev_wstr",
+            "int main(int argc, char **argv);",
+            "write, malloc, free",
+            """
         Write a PROGRAM that takes a string with words separated by
         single spaces (no leading/trailing spaces) and displays its
         words in REVERSE order, single-space separated, followed by a
@@ -2980,7 +3628,8 @@ EXERCISES = {
         Examples:
             ./rev_wstr "one two three" -> three two one
             ./rev_wstr "single"         -> single
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -3032,33 +3681,51 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["one two three"], ["hello world"], ["single"], [""], [],
+            ["one two three"],
+            ["hello world"],
+            ["single"],
+            [""],
+            [],
             ["a", "b"],
+            # a one-letter word at the very start
+            ["J"],
+            ["a bc"],
         ],
     },
     "rostring": {
-        "level": 4, "function": "rostring", "kind": "program",
+        "level": 4,
+        "function": "rostring",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": True,
         "hint": {
-            "crash": ("If you malloc a buffer to save the first word "
-                     "before printing the rest, size it for that word's "
-                     "length plus one for the null terminator — off by "
-                     "one there corrupts the heap as soon as you write "
-                     "the terminating byte."),
-            "leak": ("Free whatever you malloc'd to hold the saved "
-                     "first word once you're done printing it at the "
-                     "end — it's easy to allocate it, use it, and then "
-                     "just fall through to return without freeing it."),
-            "default": ("Save where the FIRST word ends before you "
-                        "print anything else, so you can still print "
-                        "that same word again at the very end — and a "
-                        "single-word input (no other words to rotate "
-                        "ahead of it) should come out completely "
-                        "unchanged, not with a stray trailing space."),
+            "crash": (
+                "If you malloc a buffer to save the first word "
+                "before printing the rest, size it for that word's "
+                "length plus one for the null terminator — off by "
+                "one there corrupts the heap as soon as you write "
+                "the terminating byte."
+            ),
+            "leak": (
+                "Free whatever you malloc'd to hold the saved "
+                "first word once you're done printing it at the "
+                "end — it's easy to allocate it, use it, and then "
+                "just fall through to return without freeing it."
+            ),
+            "default": (
+                "Save where the FIRST word ends before you "
+                "print anything else, so you can still print "
+                "that same word again at the very end — and a "
+                "single-word input (no other words to rotate "
+                "ahead of it) should come out completely "
+                "unchanged, not with a stray trailing space."
+            ),
         },
-        "subject": _sub_c("rostring", "int main(int argc, char **argv);",
-                         "write, malloc, free", """
+        "subject": _sub_c(
+            "rostring",
+            "int main(int argc, char **argv);",
+            "write, malloc, free",
+            """
         Write a PROGRAM that takes a string and displays it rotated one
         word to the left: the first word moves to the end, the rest keep
         their order, single-space separated, followed by a newline. If
@@ -3067,7 +3734,8 @@ EXERCISES = {
         Examples:
             ./rostring "one two three" -> two three one
             ./rostring "single"         -> single
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -3133,24 +3801,36 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["one two three"], ["hello world"], ["single"], [""], [],
+            ["one two three"],
+            ["hello world"],
+            ["single"],
+            [""],
+            [],
             ["a", "b"],
         ],
     },
     "ft_list_foreach": {
-        "level": 4, "function": "ft_list_foreach",
+        "level": 4,
+        "function": "ft_list_foreach",
         "fuzz_cases": "list_foreach",
         "standard": True,
-        "prototype": "void ft_list_foreach(t_list *begin_list, void (*f)(void *));",
-        "args": ["voidlist", "cb_accumulate"], "returns": "foreach_sum",
-        "hint": ("Call the callback as (*f)(begin_list->data) — pass the "
-                "node's data, not the node itself — and make sure you "
-                "advance to begin_list->next every iteration, or you'll "
-                "spin on the first node forever instead of stopping at "
-                "NULL."),
-        "subject": _sub_c("ft_list_foreach",
-                         "void ft_list_foreach(t_list *begin_list, "
-                         "void (*f)(void *));", "None", """
+        "prototype": (
+            "void ft_list_foreach(t_list *begin_list, void (*f)(void *));"
+        ),
+        "args": ["voidlist", "cb_accumulate"],
+        "returns": "foreach_sum",
+        "hint": (
+            "Call the callback as (*f)(begin_list->data) — pass the "
+            "node's data, not the node itself — and make sure you "
+            "advance to begin_list->next every iteration, or you'll "
+            "spin on the first node forever instead of stopping at "
+            "NULL."
+        ),
+        "subject": _sub_c(
+            "ft_list_foreach",
+            "void ft_list_foreach(t_list *begin_list, void (*f)(void *));",
+            "None",
+            """
         Write a function that walks a linked list and applies a function
         pointer `f` to each element's data, calling it as `(*f)(node->data)`.
         You must use the t_list type described in ft_list.h (provided):
@@ -3162,7 +3842,8 @@ EXERCISES = {
 
         Examples:
             ft_list_foreach([1,2,3], f) -> f is called with 1, then 2, then 3
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include "ft_list.h"
 
@@ -3178,30 +3859,41 @@ EXERCISES = {
         "cases": [[[1, 2, 3]], [[]], [[5]], [[10, -5, 3, 7]], [[0, 0, 0]]],
     },
     "ft_list_remove_if": {
-        "level": 4, "function": "ft_list_remove_if",
+        "level": 4,
+        "function": "ft_list_remove_if",
         "fuzz_cases": "list_remove_if",
         "standard": True,
         "prototype": "void ft_list_remove_if(t_list **begin_list, "
-                     "void *data_ref, int (*cmp)(void *, void *));",
+        "void *data_ref, int (*cmp)(void *, void *));",
         "hint": {
-            "crash": ("If the FIRST node matches, you need to rebind "
-                     "*begin_list itself, not just a 'prev' pointer "
-                     "inside the loop — leaving *begin_list pointing at "
-                     "freed memory is what causes the crash."),
-            "leak": ("Don't forget to free the removed node itself (and "
-                     "its data, if you own it) — since every call "
-                     "removes at least one node, a missing free here "
-                     "shows up as a leak on nearly every test case."),
-            "default": ("If the FIRST node matches, you need to rebind "
-                        "*begin_list itself, not just a 'prev' pointer "
-                        "inside the loop — and don't forget to free the "
-                        "removed node (and its data)."),
+            "crash": (
+                "If the FIRST node matches, you need to rebind "
+                "*begin_list itself, not just a 'prev' pointer "
+                "inside the loop — leaving *begin_list pointing at "
+                "freed memory is what causes the crash."
+            ),
+            "leak": (
+                "Don't forget to free the removed node itself (and "
+                "its data, if you own it) — since every call "
+                "removes at least one node, a missing free here "
+                "shows up as a leak on nearly every test case."
+            ),
+            "default": (
+                "If the FIRST node matches, you need to rebind "
+                "*begin_list itself, not just a 'prev' pointer "
+                "inside the loop — and don't forget to free the "
+                "removed node (and its data)."
+            ),
         },
         "args": ["voidlist_ptr", "int_ptr", "cmp_eq_ints"],
-        "returns": "void", "print_after_args": [0],
-        "subject": _sub_c("ft_list_remove_if",
-                         "void ft_list_remove_if(t_list **begin_list, "
-                         "void *data_ref, int (*cmp)(void *, void *));", "free", """
+        "returns": "void",
+        "print_after_args": [0],
+        "subject": _sub_c(
+            "ft_list_remove_if",
+            "void ft_list_remove_if(t_list **begin_list, "
+            "void *data_ref, int (*cmp)(void *, void *));",
+            "free",
+            """
         Write a function that removes every element of the list whose
         data is "equal" to `data_ref`, per `cmp` (which returns 0 when its
         two void* arguments are equal). You must use the t_list type
@@ -3210,7 +3902,8 @@ EXERCISES = {
         Examples:
             ft_list_remove_if([1,2,3,2,1], &2, cmp) -> list becomes [1,3,1]
             ft_list_remove_if([5,5,5], &5, cmp)      -> list becomes []
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <stdlib.h>
         #include "ft_list.h"
@@ -3246,34 +3939,45 @@ EXERCISES = {
         }
         """),
         "cases": [
-            [[1, 2, 3, 2, 1], 2], [[5, 5, 5], 5], [[1, 2, 3], 9],
-            [[], 4], [[7], 7],
+            [[1, 2, 3, 2, 1], 2],
+            [[5, 5, 5], 5],
+            [[1, 2, 3], 9],
+            [[], 4],
+            [[7], 7],
         ],
     },
     "flood_fill": {
-        "level": 4, "function": "flood_fill",
+        "level": 4,
+        "function": "flood_fill",
         "fuzz_cases": "flood_fill",
         "standard": True,
         "prototype": "void flood_fill(char **tab, t_point size, "
-                     "t_point begin);",
-        "args": ["char_grid", "point", "point"], "returns": "void",
+        "t_point begin);",
+        "args": ["char_grid", "point", "point"],
+        "returns": "void",
         "print_after_args": [0],
         "hint": {
-            "crash": ("Before recursing into a neighbour, check both "
-                     "that it's still inside the grid AND that it still "
-                     "holds the ORIGINAL character — without that second "
-                     "check you'll recurse back into cells you already "
-                     "turned into 'F', which blows the stack."),
-            "default": ("Remember t_point is {x, y} with x = width and "
-                        "y = height — indexing the grid as tab[x][y] "
-                        "instead of tab[y][x], or mixing up which loop "
-                        "bound is width vs. height, gives you a subtly "
-                        "wrong fill rather than a crash, especially on "
-                        "a non-square grid."),
+            "crash": (
+                "Before recursing into a neighbour, check both "
+                "that it's still inside the grid AND that it still "
+                "holds the ORIGINAL character — without that second "
+                "check you'll recurse back into cells you already "
+                "turned into 'F', which blows the stack."
+            ),
+            "default": (
+                "Remember t_point is {x, y} with x = width and "
+                "y = height — indexing the grid as tab[x][y] "
+                "instead of tab[y][x], or mixing up which loop "
+                "bound is width vs. height, gives you a subtly "
+                "wrong fill rather than a crash, especially on "
+                "a non-square grid."
+            ),
         },
-        "subject": _sub_c("flood_fill",
-                         "void flood_fill(char **tab, t_point size, "
-                         "t_point begin);", "None", """
+        "subject": _sub_c(
+            "flood_fill",
+            "void flood_fill(char **tab, t_point size, t_point begin);",
+            "None",
+            """
         Write a function that takes a 2D character grid, its dimensions
         as a t_point (x = width, y = height), and a starting point.
         Starting from `begin`, it fills the whole connected zone of
@@ -3284,7 +3988,8 @@ EXERCISES = {
         Examples:
             flood_fill(["111","101","111"], {3,3}, {0,0})
                 -> ["FFF","F0F","FFF"]   # the outer ring of 1s gets filled
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include "flood_fill.h"
 
@@ -3323,18 +4028,24 @@ EXERCISES = {
             [["111"], (3, 1), (5, 5)],
         ],
     },
-
     # ── EXTRA (practice only — never drawn by `make c-exam`) ────
     "count_vowels": {
-        "level": 1, "function": "count_vowels", "kind": "program",
+        "level": 1,
+        "function": "count_vowels",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": False,
-        "hint": ("Only a, e, i, o, u count as vowels (not 'y') — "
-                "normalize the character's case before comparing (or "
-                "compare against both cases) so 'A' and 'a' are both "
-                "counted correctly."),
-        "subject": _sub_c("count_vowels", "int main(int argc, char **argv);",
-                         "write", """
+        "hint": (
+            "Only a, e, i, o, u count as vowels (not 'y') — "
+            "normalize the character's case before comparing (or "
+            "compare against both cases) so 'A' and 'a' are both "
+            "counted correctly."
+        ),
+        "subject": _sub_c(
+            "count_vowels",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays how many vowels
         (a, e, i, o, u, case-insensitive) it contains, followed by a
         newline. If argc != 2, just a newline.
@@ -3342,7 +4053,8 @@ EXERCISES = {
         Examples:
             ./count_vowels "hello"  -> 2
             ./count_vowels "AEIOU"  -> 5
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -3387,22 +4099,36 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["hello"], ["AEIOUaeiou"], [""], [], ["xyz"],
-            ["The Quick Brown Fox"], ["bcdfg"], ["y"], ["1234!?"],
+            ["hello"],
+            ["AEIOUaeiou"],
+            [""],
+            [],
+            ["xyz"],
+            ["The Quick Brown Fox"],
+            ["bcdfg"],
+            ["y"],
+            ["1234!?"],
             ["a", "b"],
         ],
     },
     "is_palindrome_str": {
-        "level": 2, "function": "is_palindrome_str", "kind": "program",
+        "level": 2,
+        "function": "is_palindrome_str",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": False,
-        "hint": ("A string with zero letters must print 'no', not "
-                "'yes' — your two-pointer scan trivially finishes "
-                "without ever finding a mismatch on an all-punctuation "
-                "input, so you need an explicit 'did I see at least one "
-                "letter' check before declaring a match."),
-        "subject": _sub_c("is_palindrome_str",
-                         "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "A string with zero letters must print 'no', not "
+            "'yes' — your two-pointer scan trivially finishes "
+            "without ever finding a mismatch on an all-punctuation "
+            "input, so you need an explicit 'did I see at least one "
+            "letter' check before declaring a match."
+        ),
+        "subject": _sub_c(
+            "is_palindrome_str",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays "yes" if it is a
         palindrome, "no" otherwise, followed by a newline. Only letters
         are compared, case-insensitively; everything else (spaces,
@@ -3414,7 +4140,8 @@ EXERCISES = {
             ./is_palindrome_str "A man a plan a canal Panama"  -> yes
             ./is_palindrome_str "hello"                        -> no
             ./is_palindrome_str "12 21"                        -> no
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -3480,21 +4207,43 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["racecar"], ["A man a plan a canal Panama"], ["hello"],
-            ["12 21"], [""], [], ["a"], ["ab"], ["Aa"], ["!!!"],
-            ["race a car"], ["Was it a car or a cat I saw"], ["a", "b"],
+            ["racecar"],
+            ["A man a plan a canal Panama"],
+            ["hello"],
+            ["12 21"],
+            [""],
+            [],
+            ["a"],
+            ["ab"],
+            ["Aa"],
+            ["!!!"],
+            ["race a car"],
+            ["Was it a car or a cat I saw"],
+            ["a", "b"],
+            # 'z' must count as a letter too
+            ["4z"],
+            ["zaz"],
+            ["Za"],  # 'Z' is a letter …
+            ["Zz"],  # … and lower-cases to 'z'
         ],
     },
     "longest_word_str": {
-        "level": 3, "function": "longest_word_str", "kind": "program",
+        "level": 3,
+        "function": "longest_word_str",
+        "kind": "program",
         "fuzz_argv": "sentence",
         "standard": False,
-        "hint": ("On a tie, the FIRST longest word wins — that means "
-                "your comparison has to be strictly greater-than "
-                "(replace only when a word is longer, never when equal), "
-                "not greater-than-or-equal."),
-        "subject": _sub_c("longest_word_str",
-                         "int main(int argc, char **argv);", "write", """
+        "hint": (
+            "On a tie, the FIRST longest word wins — that means "
+            "your comparison has to be strictly greater-than "
+            "(replace only when a word is longer, never when equal), "
+            "not greater-than-or-equal."
+        ),
+        "subject": _sub_c(
+            "longest_word_str",
+            "int main(int argc, char **argv);",
+            "write",
+            """
         Write a PROGRAM that takes a string and displays its longest
         space/tab-delimited word, followed by a newline. On a tie, the
         first one wins. No words (empty or all-whitespace input): just a
@@ -3503,7 +4252,8 @@ EXERCISES = {
         Examples:
             ./longest_word_str "the quick brown fox" -> quick
             ./longest_word_str "a bb ccc dd"          -> ccc
-        """),
+        """,
+        ),
         "oracle_c": textwrap.dedent("""
         #include <unistd.h>
 
@@ -3556,8 +4306,14 @@ EXERCISES = {
         }
         """),
         "cases": [
-            ["the quick brown fox"], ["a bb ccc dd"], [""], ["   "], [],
-            ["single"], ["tie tie2 abcd"], ["  lorem   ipsum  dolor  "],
+            ["the quick brown fox"],
+            ["a bb ccc dd"],
+            [""],
+            ["   "],
+            [],
+            ["single"],
+            ["tie tie2 abcd"],
+            ["  lorem   ipsum  dolor  "],
             ["a", "b"],
         ],
     },
@@ -3566,12 +4322,14 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:
-        raise ValueError("c_exam.bank: %s has level %r, expected 1..%d"
-                         % (_name, _lvl, N_LEVELS))
+        raise ValueError(
+            "c_exam.bank: %s has level %r, expected 1..%d"
+            % (_name, _lvl, N_LEVELS)
+        )
     LEVELS[_lvl].append(_name)
     _ex.setdefault("args", [])
     _ex.setdefault("kind", "function")
@@ -3584,9 +4342,13 @@ for _lvl, _pool in LEVELS.items():
 # The real, documented subjects — `make c-exam` draws only from this pool,
 # same split as the Python bank's Standard/Extra (see module docstring).
 # The invented "Extra" exercises stay reachable through practice mode only.
-STANDARD_LEVELS = {lvl: [name for name in pool if EXERCISES[name]["standard"]]
-                   for lvl, pool in LEVELS.items()}
+STANDARD_LEVELS = {
+    lvl: [name for name in pool if EXERCISES[name]["standard"]]
+    for lvl, pool in LEVELS.items()
+}
 
 for _lvl, _pool in STANDARD_LEVELS.items():
     if not _pool:
-        raise ValueError("c_exam.bank: level %d has no standard exercise" % _lvl)
+        raise ValueError(
+            "c_exam.bank: level %d has no standard exercise" % _lvl
+        )

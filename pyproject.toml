@@ -27,7 +27,12 @@ Repository = "https://github.com/jasuoh/42-exam-tester"
 
 # Tools for working ON the tester (uv sync installs these by default).
 [dependency-groups]
-dev = ["ruff>=0.4"]
+dev = [
+    "ruff>=0.4",
+    # linting the tester itself (make lint, CI) — the tester runs on 3.8
+    "flake8>=7; python_version >= '3.9'",
+    "mypy>=1.10; python_version >= '3.9'",
+]
 
 [tool.setuptools]
 # `src/` is only a `python3 -m src` compatibility shim for a git checkout —
@@ -35,7 +40,8 @@ dev = ["ruff>=0.4"]
 packages = ["examshell", "examshell.tui", "c_exam"]
 
 [tool.ruff]
-line-length = 100
+line-length = 79
+target-version = "py38"
 extend-exclude = ["venv", ".venv"]
 
 [tool.ruff.lint]
@@ -55,3 +61,7 @@ ignore = [
     "E702",  # multiple statements via ';' — used deliberately for compact tables
     "E741",  # ambiguous variable name (l) — used for "level" in a couple of tight scopes
 ]
+
+[tool.mypy]
+strict = true
+files = ["examshell", "c_exam", "src", "tools", "tests"]

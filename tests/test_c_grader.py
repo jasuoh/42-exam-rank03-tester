@@ -9,6 +9,8 @@ PATH, so the suite still runs clean on a compiler-less machine (mirrors
 how tests/test_grader.py's sandbox tests don't need anything special, but
 here a missing `cc` genuinely can't be worked around)."""
 
+from __future__ import annotations
+
 import os
 import random
 import shutil
@@ -16,169 +18,223 @@ import subprocess
 import tempfile
 import time
 import unittest
+from typing import Any, Dict, Tuple
 from unittest import mock
 
 from c_exam import grader
+from examshell import grader as py_grader
 
 HAVE_CC = shutil.which(grader.DEFAULT_CC) is not None
-skip_without_cc = unittest.skipUnless(HAVE_CC, "no C compiler (%r) on PATH"
-                                      % grader.DEFAULT_CC)
+skip_without_cc = unittest.skipUnless(
+    HAVE_CC, "no C compiler (%r) on PATH" % grader.DEFAULT_CC
+)
 
 HAVE_VALGRIND = grader.have_valgrind()
 skip_without_valgrind = unittest.skipUnless(
-    HAVE_VALGRIND, "valgrind is not on PATH (expected on macOS, incl. Apple "
-                   "Silicon — this is a real 42 school machine / Linux feature)")
+    HAVE_VALGRIND,
+    "valgrind is not on PATH (expected on macOS, incl. Apple "
+    "Silicon — this is a real 42 school machine / Linux feature)",
+)
 
 
 class CLiteralTests(unittest.TestCase):
-    def test_char_literal_escapes_special_chars(self):
+    def test_char_literal_escapes_special_chars(self) -> None:
         self.assertEqual(grader.c_char_literal("a"), "'a'")
         self.assertEqual(grader.c_char_literal("\n"), "'\\n'")
         self.assertEqual(grader.c_char_literal("'"), "'\\''")
         self.assertEqual(grader.c_char_literal("\\"), "'\\\\'")
 
-    def test_string_literal_escapes_special_chars(self):
+    def test_string_literal_escapes_special_chars(self) -> None:
         self.assertEqual(grader.c_string_literal("hello"), '"hello"')
         self.assertEqual(grader.c_string_literal('a"b'), '"a\\"b"')
         self.assertEqual(grader.c_string_literal("a\nb"), '"a\\nb"')
         self.assertEqual(grader.c_string_literal(""), '""')
 
-    def test_string_literal_escapes_non_ascii(self):
+    def test_string_literal_escapes_non_ascii(self) -> None:
         self.assertIn("\\x", grader.c_string_literal("\x01"))
 
 
 class StripCommentsAndStringsTests(unittest.TestCase):
-    def test_line_comment_is_removed(self):
-        stripped = grader._strip_comments_and_strings("int main(void) // hi\n{ return 0; }")
+    def test_line_comment_is_removed(self) -> None:
+        stripped = grader._strip_comments_and_strings(
+            "int main(void) // hi\n{ return 0; }"
+        )
         self.assertNotIn("hi", stripped)
         self.assertIn("int main(void)", stripped)
 
-    def test_block_comment_is_removed(self):
+    def test_block_comment_is_removed(self) -> None:
         stripped = grader._strip_comments_and_strings("/* main( */ int x;")
         self.assertNotIn("main(", stripped)
 
-    def test_string_contents_are_removed(self):
-        stripped = grader._strip_comments_and_strings('char *s = "call strlen(x) here";')
+    def test_string_contents_are_removed(self) -> None:
+        stripped = grader._strip_comments_and_strings(
+            'char *s = "call strlen(x) here";'
+        )
         self.assertNotIn("strlen(", stripped)
 
-    def test_real_code_is_untouched(self):
+    def test_real_code_is_untouched(self) -> None:
         src = "int ft_strlen(char *str)\n{\n    return 0;\n}\n"
         self.assertEqual(grader._strip_comments_and_strings(src), src)
 
 
 class ForbiddenCallTests(unittest.TestCase):
-    def test_finds_a_real_call(self):
+    def test_finds_a_real_call(self) -> None:
         stripped = grader._strip_comments_and_strings("int x = strlen(str);")
-        self.assertEqual(grader.find_forbidden(stripped, ["strlen"]), ["strlen"])
+        self.assertEqual(
+            grader.find_forbidden(stripped, ["strlen"]), ["strlen"]
+        )
 
-    def test_ignores_a_call_inside_a_comment(self):
-        stripped = grader._strip_comments_and_strings("// strlen(str) is banned\nint y;")
+    def test_ignores_a_call_inside_a_comment(self) -> None:
+        stripped = grader._strip_comments_and_strings(
+            "// strlen(str) is banned\nint y;"
+        )
         self.assertEqual(grader.find_forbidden(stripped, ["strlen"]), [])
 
-    def test_does_not_false_positive_on_a_prefix(self):
+    def test_does_not_false_positive_on_a_prefix(self) -> None:
         # "ft_strlen(" contains "strlen(" as a substring but not as its own
         # word — \b must not match inside another identifier.
-        stripped = grader._strip_comments_and_strings("int x = ft_strlen(str);")
+        stripped = grader._strip_comments_and_strings(
+            "int x = ft_strlen(str);"
+        )
         self.assertEqual(grader.find_forbidden(stripped, ["strlen"]), [])
 
 
 class ExtractFunctionSourceTests(unittest.TestCase):
-    def _write(self, source):
+    def _write(self, source: str) -> str:
         fd, path = tempfile.mkstemp(suffix=".c")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(source)
         self.addCleanup(os.remove, path)
         return path
 
-    def test_extracts_the_named_function(self):
+    def test_extracts_the_named_function(self) -> None:
         path = self._write(
             "int other(int x)\n{\n    return 0;\n}\n\n"
-            "int demo(int x)\n{\n    if (x > 0)\n    {\n        return x;\n    }\n"
-            "    return 0;\n}\n")
+            "int demo(int x)\n{\n    if (x > 0)\n"
+            "    {\n        return x;\n    }\n"
+            "    return 0;\n}\n"
+        )
         src = grader.extract_function_source(path, "demo")
+        assert src is not None
         self.assertIn("demo(int x)", src)
         self.assertIn("return x;", src)
         self.assertNotIn("other", src)
 
-    def test_function_not_found_returns_none(self):
+    def test_function_not_found_returns_none(self) -> None:
         path = self._write("int other(int x)\n{\n    return 0;\n}\n")
         self.assertIsNone(grader.extract_function_source(path, "demo"))
 
-    def test_missing_file_returns_none_not_an_exception(self):
-        self.assertIsNone(grader.extract_function_source("/no/such/file.c", "demo"))
+    def test_missing_file_returns_none_not_an_exception(self) -> None:
+        self.assertIsNone(
+            grader.extract_function_source("/no/such/file.c", "demo")
+        )
 
-    def test_unbalanced_braces_return_none(self):
+    def test_unbalanced_braces_return_none(self) -> None:
         path = self._write("int demo(int x)\n{\n    return x;\n")
         self.assertIsNone(grader.extract_function_source(path, "demo"))
 
-    def test_brace_inside_a_string_does_not_confuse_the_counter(self):
+    def test_brace_inside_a_string_does_not_confuse_the_counter(self) -> None:
         path = self._write(
             'int demo(int x)\n{\n    char *s = "{ not a real brace";\n'
-            "    return x;\n}\n")
+            "    return x;\n}\n"
+        )
         src = grader.extract_function_source(path, "demo")
+        assert src is not None
         self.assertIsNotNone(src)
         self.assertTrue(src.rstrip().endswith("}"))
 
-    def test_brace_inside_a_comment_does_not_confuse_the_counter(self):
+    def test_brace_inside_a_comment_does_not_confuse_the_counter(self) -> None:
         path = self._write(
             "int demo(int x)\n{\n    // a stray { in a comment\n"
-            "    return x;\n}\n")
+            "    return x;\n}\n"
+        )
         src = grader.extract_function_source(path, "demo")
+        assert src is not None
         self.assertIsNotNone(src)
         self.assertTrue(src.rstrip().endswith("}"))
 
-    def test_name_mentioned_in_a_comment_is_not_mistaken_for_the_signature(self):
+    def test_name_mentioned_in_a_comment_is_not_mistaken_for_the_signature(
+        self,
+    ) -> None:
         path = self._write(
-            "// calls demo(x) internally\nint demo(int x)\n{\n    return x;\n}\n")
+            "// calls demo(x) internally\n"
+            "int demo(int x)\n{\n    return x;\n}\n"
+        )
         src = grader.extract_function_source(path, "demo")
+        assert src is not None
         self.assertIsNotNone(src)
         self.assertIn("return x;", src)
 
-    def test_string_literals_and_comments_survive_intact(self):
+    def test_string_literals_and_comments_survive_intact(self) -> None:
         # This is shown back to the student as "your own code" — a
         # printf() whose string argument silently vanished (an earlier,
         # since-fixed version of this function extracted from a
         # comment/string-STRIPPED source) would look like the tool itself
         # is broken, not like a deliberate simplification.
         path = self._write(
-            'void demo(void)\n{\n    // greet the user\n'
-            '    write(1, "hello world", 11);\n}\n')
+            "void demo(void)\n{\n    // greet the user\n"
+            '    write(1, "hello world", 11);\n}\n'
+        )
         src = grader.extract_function_source(path, "demo")
+        assert src is not None
         self.assertIn('"hello world"', src)
         self.assertIn("// greet the user", src)
 
 
 class DuplicateMainTests(unittest.TestCase):
-    def test_detects_ld64_wording(self):
-        self.assertTrue(grader._is_duplicate_main(
-            "duplicate symbol '_main' in:\n  a.o\n  b.o\nld: 1 duplicate symbols"))
+    def test_detects_ld64_wording(self) -> None:
+        self.assertTrue(
+            grader._is_duplicate_main(
+                "duplicate symbol '_main' in:\n  a.o\n  b.o\n"
+                "ld: 1 duplicate symbols"
+            )
+        )
 
-    def test_detects_gnu_ld_wording(self):
-        self.assertTrue(grader._is_duplicate_main(
-            "b.o: in function `main':\nb.c:1: multiple definition of `main'"))
+    def test_detects_gnu_ld_wording(self) -> None:
+        self.assertTrue(
+            grader._is_duplicate_main(
+                "b.o: in function `main':\n"
+                "b.c:1: multiple definition of `main'"
+            )
+        )
 
-    def test_unrelated_error_is_not_flagged(self):
-        self.assertFalse(grader._is_duplicate_main(
-            "error: expected ';' before '}' token"))
+    def test_unrelated_error_is_not_flagged(self) -> None:
+        self.assertFalse(
+            grader._is_duplicate_main("error: expected ';' before '}' token")
+        )
 
 
 class UndeclaredNullTests(unittest.TestCase):
     """Issue #12: return (NULL); without an #include fails to compile —
     correct C, but the raw compiler error alone was confusing."""
 
-    def test_detects_clang_wording(self):
-        self.assertTrue(grader._is_undeclared_null(
-            "a.c:18:10: error: use of undeclared identifier 'NULL'"))
+    def test_detects_clang_wording(self) -> None:
+        self.assertTrue(
+            grader._is_undeclared_null(
+                "a.c:18:10: error: use of undeclared identifier 'NULL'"
+            )
+        )
 
-    def test_detects_gcc_wording(self):
-        self.assertTrue(grader._is_undeclared_null(
-            "a.c:18:17: error: 'NULL' undeclared (first use in this function)"))
+    def test_detects_gcc_wording(self) -> None:
+        self.assertTrue(
+            grader._is_undeclared_null(
+                "a.c:18:17: error: 'NULL' undeclared "
+                "(first use in this function)"
+            )
+        )
 
-    def test_hint_prepended_only_for_null(self):
-        self.assertTrue(grader._compile_error_detail(
-            "error: 'NULL' undeclared").startswith(grader.NULL_HINT))
-        self.assertNotIn("NULL", grader._compile_error_detail(
-            "error: expected ';' before '}' token"))
+    def test_hint_prepended_only_for_null(self) -> None:
+        self.assertTrue(
+            grader._compile_error_detail(
+                "error: 'NULL' undeclared"
+            ).startswith(grader.NULL_HINT)
+        )
+        self.assertNotIn(
+            "NULL",
+            grader._compile_error_detail(
+                "error: expected ';' before '}' token"
+            ),
+        )
 
 
 class KrFuncPtrRegexTests(unittest.TestCase):
@@ -187,68 +243,88 @@ class KrFuncPtrRegexTests(unittest.TestCase):
     "unspecified" like every older C standard) — this regex is what lets
     make c-check catch that without needing a second compiler on hand."""
 
-    def test_flags_empty_parens_function_pointer(self):
+    def test_flags_empty_parens_function_pointer(self) -> None:
         self.assertTrue(grader._KR_FUNC_PTR_RE.search("int (*cmp)();"))
 
-    def test_does_not_flag_a_typed_function_pointer(self):
-        self.assertFalse(grader._KR_FUNC_PTR_RE.search(
-            "int (*cmp)(void *, void *);"))
+    def test_does_not_flag_a_typed_function_pointer(self) -> None:
+        self.assertFalse(
+            grader._KR_FUNC_PTR_RE.search("int (*cmp)(void *, void *);")
+        )
 
-    def test_does_not_flag_a_void_typed_function_pointer(self):
+    def test_does_not_flag_a_void_typed_function_pointer(self) -> None:
         self.assertFalse(grader._KR_FUNC_PTR_RE.search("void (*f)(void *);"))
 
-    def test_does_not_flag_a_plain_prototype(self):
-        self.assertFalse(grader._KR_FUNC_PTR_RE.search(
-            "int ft_strlen(char *str);"))
+    def test_does_not_flag_a_plain_prototype(self) -> None:
+        self.assertFalse(
+            grader._KR_FUNC_PTR_RE.search("int ft_strlen(char *str);")
+        )
 
 
 class FuzzableTests(unittest.TestCase):
-    def test_all_safe_kinds_is_fuzzable(self):
-        ex = {"args": ["int", "char", "str", "int_arr", "int_list", "buf", "int_ptr"]}
+    def test_all_safe_kinds_is_fuzzable(self) -> None:
+        ex = {
+            "args": [
+                "int",
+                "char",
+                "str",
+                "int_arr",
+                "int_list",
+                "buf",
+                "int_ptr",
+            ]
+        }
         self.assertTrue(grader.is_fuzzable(ex))
 
-    def test_fixed_callback_kind_does_not_block_fuzzing(self):
+    def test_fixed_callback_kind_does_not_block_fuzzing(self) -> None:
         ex = {"args": ["int_list", "cmp_ascending"]}
         self.assertTrue(grader.is_fuzzable(ex))
 
-    def test_unsafe_kind_blocks_fuzzing(self):
+    def test_unsafe_kind_blocks_fuzzing(self) -> None:
         for kind in ("point", "char_grid", "voidlist", "voidlist_ptr"):
             with self.subTest(kind=kind):
                 self.assertFalse(grader.is_fuzzable({"args": [kind]}))
 
-    def test_program_kind_without_an_argv_shape_is_not_fuzzable(self):
+    def test_program_kind_without_an_argv_shape_is_not_fuzzable(self) -> None:
         ex = {"kind": "program", "args": ["str"]}
         self.assertFalse(grader.is_fuzzable(ex))
 
-    def test_program_kind_with_an_argv_shape_is_fuzzable(self):
-        self.assertTrue(grader.is_fuzzable({"kind": "program", "fuzz_argv": "sentence"}))
-        self.assertFalse(grader.is_fuzzable({"kind": "program", "fuzz_argv": "no-such"}))
+    def test_program_kind_with_an_argv_shape_is_fuzzable(self) -> None:
+        self.assertTrue(
+            grader.is_fuzzable({"kind": "program", "fuzz_argv": "sentence"})
+        )
+        self.assertFalse(
+            grader.is_fuzzable({"kind": "program", "fuzz_argv": "no-such"})
+        )
 
 
 class ArgvFuzzTests(unittest.TestCase):
     """Shape-based argv fuzzing for "program"-kind exercises."""
 
-    def test_every_shape_yields_string_argvs(self):
+    def test_every_shape_yields_string_argvs(self) -> None:
         rng = random.Random(5)
         for shape in grader.ARGV_SHAPES:
             with self.subTest(shape=shape):
                 for _ in range(200):
                     argv = grader.fuzz_argv(shape, rng)
                     self.assertIsInstance(argv, list)
-                    self.assertTrue(all(isinstance(a, str) and "\0" not in a for a in argv))
+                    self.assertTrue(
+                        all(isinstance(a, str) and "\0" not in a for a in argv)
+                    )
 
-    def test_fixed_argc_shapes_mostly_have_the_right_argc(self):
+    def test_fixed_argc_shapes_mostly_have_the_right_argc(self) -> None:
         rng = random.Random(6)
         for shape, (_make, argc) in grader.ARGV_SHAPES.items():
             if argc is None:
                 continue
             with self.subTest(shape=shape):
-                counts = [len(grader.fuzz_argv(shape, rng)) for _ in range(300)]
+                counts = [
+                    len(grader.fuzz_argv(shape, rng)) for _ in range(300)
+                ]
                 right = sum(1 for n in counts if n == argc)
-                self.assertGreater(right, 200)       # ~90% right argc
-                self.assertLess(right, 300)          # …but wrong argc happens
+                self.assertGreater(right, 200)  # ~90% right argc
+                self.assertLess(right, 300)  # …but wrong argc happens
 
-    def test_sentences_cover_whitespace_traps(self):
+    def test_sentences_cover_whitespace_traps(self) -> None:
         rng = random.Random(7)
         texts = [grader.fuzz_argv("sentence", rng) for _ in range(300)]
         flat = [t[0] for t in texts if len(t) == 1]
@@ -257,15 +333,16 @@ class ArgvFuzzTests(unittest.TestCase):
         self.assertTrue(any(t and t.strip() == "" for t in flat))
         self.assertTrue(any(t != t.strip() and t.strip() for t in flat))
 
-    def test_division_never_by_zero(self):
+    def test_division_never_by_zero(self) -> None:
         rng = random.Random(8)
         for _ in range(500):
             argv = grader.fuzz_argv("do_op", rng)
             if len(argv) == 3 and argv[1] in "/%":
                 self.assertNotEqual(argv[2], "0")
 
-    def test_every_bank_shape_exists(self):
+    def test_every_bank_shape_exists(self) -> None:
         from c_exam.bank import EXERCISES
+
         for name, ex in EXERCISES.items():
             if "fuzz_argv" in ex:
                 with self.subTest(name=name):
@@ -273,63 +350,63 @@ class ArgvFuzzTests(unittest.TestCase):
 
 
 class CFailureCallTests(unittest.TestCase):
-    def test_program_call_is_a_pasteable_command(self):
+    def test_program_call_is_a_pasteable_command(self) -> None:
         f = grader.CFailure(3, "", "", args=["a b", "\tx"], program=True)
         self.assertEqual(f.call("first_word"), "./first_word 'a b' $'\\tx'")
 
-    def test_no_arguments(self):
+    def test_no_arguments(self) -> None:
         f = grader.CFailure(0, "", "", args=[], program=True)
         self.assertEqual(f.call("rotone"), "./rotone")
 
-    def test_function_call_shows_the_values(self):
+    def test_function_call_shows_the_values(self) -> None:
         f = grader.CFailure(1, "5", "4", args=["hello"])
         self.assertEqual(f.call("ft_strlen"), "ft_strlen('hello')")
 
-    def test_unknown_inputs_fall_back_to_the_case_index(self):
+    def test_unknown_inputs_fall_back_to_the_case_index(self) -> None:
         self.assertEqual(grader.CFailure(2, "", "").call("f"), "f()  [case 2]")
 
-    def test_no_args_is_fuzzable(self):
+    def test_no_args_is_fuzzable(self) -> None:
         self.assertTrue(grader.is_fuzzable({"args": []}))
 
 
 class BuildFuzzCasesTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.rng = random.Random(1234)
 
-    def test_generates_the_requested_count(self):
+    def test_generates_the_requested_count(self) -> None:
         ex = {"args": ["int", "str"]}
         cases = grader.build_fuzz_cases(ex, self.rng, 10)
         self.assertEqual(len(cases), 10)
 
-    def test_one_value_per_non_fixed_callback_arg(self):
+    def test_one_value_per_non_fixed_callback_arg(self) -> None:
         ex = {"args": ["int", "cmp_ascending", "str"]}
         cases = grader.build_fuzz_cases(ex, self.rng, 5)
         for case in cases:
-            self.assertEqual(len(case), 2)   # cmp_ascending consumes no value
+            self.assertEqual(len(case), 2)  # cmp_ascending consumes no value
 
-    def test_int_values_are_in_range(self):
+    def test_int_values_are_in_range(self) -> None:
         ex = {"args": ["int"]}
         for case in grader.build_fuzz_cases(ex, self.rng, 200):
             self.assertTrue(-1000 <= case[0] <= 1000)
 
-    def test_char_values_are_printable_ascii(self):
+    def test_char_values_are_printable_ascii(self) -> None:
         ex = {"args": ["char"]}
         for case in grader.build_fuzz_cases(ex, self.rng, 200):
             self.assertEqual(len(case[0]), 1)
             self.assertTrue(32 <= ord(case[0]) <= 126)
 
-    def test_buf_values_stay_well_under_the_harness_buffer(self):
+    def test_buf_values_stay_well_under_the_harness_buffer(self) -> None:
         ex = {"args": ["buf"]}
         for case in grader.build_fuzz_cases(ex, self.rng, 50):
             self.assertLess(len(case[0]), 128)
 
-    def test_str_values_use_a_safe_alphabet(self):
+    def test_str_values_use_a_safe_alphabet(self) -> None:
         ex = {"args": ["str"]}
         for case in grader.build_fuzz_cases(ex, self.rng, 50):
             for ch in case[0]:
                 self.assertIn(ch, grader._FUZZ_STR_ALPHABET)
 
-    def test_int_arr_and_int_list_are_small_int_lists(self):
+    def test_int_arr_and_int_list_are_small_int_lists(self) -> None:
         ex = {"args": ["int_arr", "int_list"]}
         for case in grader.build_fuzz_cases(ex, self.rng, 50):
             for arr in case:
@@ -338,7 +415,7 @@ class BuildFuzzCasesTests(unittest.TestCase):
                 for v in arr:
                     self.assertTrue(-50 <= v <= 50)
 
-    def test_is_deterministic_given_the_same_rng_state(self):
+    def test_is_deterministic_given_the_same_rng_state(self) -> None:
         ex = {"args": ["int", "str", "int_arr"]}
         cases_a = grader.build_fuzz_cases(ex, random.Random(99), 20)
         cases_b = grader.build_fuzz_cases(ex, random.Random(99), 20)
@@ -346,25 +423,35 @@ class BuildFuzzCasesTests(unittest.TestCase):
 
 
 class GenerateHarnessCasesOverrideTests(unittest.TestCase):
-    def test_defaults_to_ex_cases(self):
-        ex = {"function": "ft_strlen", "prototype": "int ft_strlen(char *str);",
-             "args": ["str"], "returns": "int", "cases": [["a"], ["bb"]]}
+    def test_defaults_to_ex_cases(self) -> None:
+        ex = {
+            "function": "ft_strlen",
+            "prototype": "int ft_strlen(char *str);",
+            "args": ["str"],
+            "returns": "int",
+            "cases": [["a"], ["bb"]],
+        }
         harness = grader.generate_harness(ex)
         self.assertEqual(harness.count("===CASE"), 2)
 
-    def test_override_replaces_ex_cases(self):
-        ex = {"function": "ft_strlen", "prototype": "int ft_strlen(char *str);",
-             "args": ["str"], "returns": "int", "cases": [["a"]]}
+    def test_override_replaces_ex_cases(self) -> None:
+        ex = {
+            "function": "ft_strlen",
+            "prototype": "int ft_strlen(char *str);",
+            "args": ["str"],
+            "returns": "int",
+            "cases": [["a"]],
+        }
         harness = grader.generate_harness(ex, [["a"], ["b"], ["c"]])
         self.assertEqual(harness.count("===CASE"), 3)
 
 
 class SplitCasesTests(unittest.TestCase):
-    def test_splits_by_marker(self):
+    def test_splits_by_marker(self) -> None:
         out = "===CASE 0===\nfoo\n===CASE 1===\nbar\n"
         self.assertEqual(grader.split_cases(out), {0: "foo\n", 1: "bar\n"})
 
-    def test_missing_markers_yield_no_chunks(self):
+    def test_missing_markers_yield_no_chunks(self) -> None:
         self.assertEqual(grader.split_cases("garbage, no markers"), {})
 
 
@@ -374,60 +461,75 @@ class RunValgrindCommandTests(unittest.TestCase):
     runs everywhere (including this project's own dev machine, Apple
     Silicon macOS, where valgrind isn't installable at all)."""
 
-    def _run(self, returncode, stderr="", side_effect=None):
-        with mock.patch.object(grader.subprocess, "run") as run:
+    def _run(
+        self, returncode: int, stderr: str = "", side_effect: object = None
+    ) -> Tuple[Tuple[bool, str], Any]:
+        with mock.patch.object(subprocess, "run") as run:
             if side_effect is not None:
                 run.side_effect = side_effect
             else:
                 run.return_value = subprocess.CompletedProcess(
-                    args=[], returncode=returncode, stdout="", stderr=stderr)
-            result = grader.run_valgrind("/tmp/some_binary", timeout=3, argv=["a", "b"])
+                    args=[], returncode=returncode, stdout="", stderr=stderr
+                )
+            result = grader.run_valgrind(
+                "/tmp/some_binary", timeout=3, argv=["a", "b"]
+            )
             return result, run
 
-    def test_clean_exit_is_reported_clean(self):
+    def test_clean_exit_is_reported_clean(self) -> None:
         (clean, detail), _ = self._run(returncode=0)
         self.assertTrue(clean)
         self.assertEqual(detail, "")
 
-    def test_error_exitcode_is_reported_dirty_with_detail(self):
+    def test_error_exitcode_is_reported_dirty_with_detail(self) -> None:
         (clean, detail), _ = self._run(
             returncode=grader.VALGRIND_ERROR_EXITCODE,
-            stderr="==123== 40 bytes in 1 blocks are definitely lost")
+            stderr="==123== 40 bytes in 1 blocks are definitely lost",
+        )
         self.assertFalse(clean)
         self.assertIn("definitely lost", detail)
 
-    def test_traced_programs_own_exit_code_colliding_with_the_sentinel_is_still_clean(self):
+    def test_program_exit_code_equal_to_the_sentinel_is_still_clean(
+        self,
+    ) -> None:
         # --error-exitcode only overrides the exit code when valgrind ITSELF
         # found something; a clean run passes the traced program's own exit
         # code straight through, which can coincidentally equal
         # VALGRIND_ERROR_EXITCODE. Regression test: no "==<pid>==" line in
         # stderr means valgrind found nothing, regardless of the exit code.
         (clean, detail), _ = self._run(
-            returncode=grader.VALGRIND_ERROR_EXITCODE, stderr="")
+            returncode=grader.VALGRIND_ERROR_EXITCODE, stderr=""
+        )
         self.assertTrue(clean)
         self.assertEqual(detail, "")
 
-    def test_timeout_is_reported_dirty_not_raised(self):
+    def test_timeout_is_reported_dirty_not_raised(self) -> None:
         (clean, detail), _ = self._run(
-            returncode=0, side_effect=subprocess.TimeoutExpired(cmd="valgrind", timeout=3))
+            returncode=0,
+            side_effect=subprocess.TimeoutExpired(cmd="valgrind", timeout=3),
+        )
         self.assertFalse(clean)
         self.assertIn("timed out", detail)
 
-    def test_command_uses_leak_check_full_and_error_exitcode(self):
+    def test_command_uses_leak_check_full_and_error_exitcode(self) -> None:
         _, run = self._run(returncode=0)
         cmd = run.call_args.args[0]
         self.assertEqual(cmd[0], "valgrind")
         self.assertIn("--leak-check=full", cmd)
         self.assertIn("--errors-for-leak-kinds=all", cmd)
-        self.assertIn("--error-exitcode=%d" % grader.VALGRIND_ERROR_EXITCODE, cmd)
+        self.assertIn(
+            "--error-exitcode=%d" % grader.VALGRIND_ERROR_EXITCODE, cmd
+        )
         self.assertIn("/tmp/some_binary", cmd)
         # the exercise's own argv must be forwarded after the binary path
         self.assertEqual(cmd[-2:], ["a", "b"])
 
-    def test_have_valgrind_reflects_path_lookup(self):
-        with mock.patch.object(grader.shutil, "which", return_value=None):
+    def test_have_valgrind_reflects_path_lookup(self) -> None:
+        with mock.patch.object(shutil, "which", return_value=None):
             self.assertFalse(grader.have_valgrind())
-        with mock.patch.object(grader.shutil, "which", return_value="/usr/bin/valgrind"):
+        with mock.patch.object(
+            shutil, "which", return_value="/usr/bin/valgrind"
+        ):
             self.assertTrue(grader.have_valgrind())
 
 
@@ -437,13 +539,18 @@ class ValgrindEndToEndTests(unittest.TestCase):
     (this project's own dev machine included), but exercised for real on
     any Linux CI runner that has it (see .github/workflows/ci.yml)."""
 
-    CLEAN_C = "int add(int a, int b) { return a + b; }\n" \
-             "int main(void) { return add(1, 2) == 3 ? 0 : 1; }\n"
-    LEAKY_C = "#include <stdlib.h>\n" \
-             "int main(void) { int *p = malloc(sizeof(int)); *p = 42; return 0; }\n"
+    CLEAN_C = (
+        "int add(int a, int b) { return a + b; }\n"
+        "int main(void) { return add(1, 2) == 3 ? 0 : 1; }\n"
+    )
+    LEAKY_C = (
+        "#include <stdlib.h>\n"
+        "int main(void) { int *p = malloc(sizeof(int)); *p = 42; return 0; }\n"
+    )
 
-    def _compile(self, tmp, name, src):
+    def _compile(self, tmp: str, name: str, src: str) -> str:
         import os
+
         path = os.path.join(tmp, name + ".c")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(src)
@@ -452,13 +559,13 @@ class ValgrindEndToEndTests(unittest.TestCase):
         self.assertTrue(ok, err)
         return binpath
 
-    def test_clean_binary_is_reported_clean(self):
+    def test_clean_binary_is_reported_clean(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             binpath = self._compile(tmp, "clean", self.CLEAN_C)
             clean, detail = grader.run_valgrind(binpath, timeout=10)
             self.assertTrue(clean, detail)
 
-    def test_leaky_binary_is_caught(self):
+    def test_leaky_binary_is_caught(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             binpath = self._compile(tmp, "leaky", self.LEAKY_C)
             clean, detail = grader.run_valgrind(binpath, timeout=10)
@@ -468,150 +575,180 @@ class ValgrindEndToEndTests(unittest.TestCase):
 
 @skip_without_cc
 class GradeEndToEndTests(unittest.TestCase):
-    EX = {
-        "function": "ft_strlen", "prototype": "int ft_strlen(char *str);",
-        "args": ["str"], "returns": "int",
+    EX: Dict[str, Any] = {
+        "function": "ft_strlen",
+        "prototype": "int ft_strlen(char *str);",
+        "args": ["str"],
+        "returns": "int",
         "oracle_c": "int ft_strlen(char *str)\n{\n"
-                   "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n",
+        "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n",
         "cases": [["hello"], [""], ["ab"]],
     }
 
-    def _write(self, tmp, body):
+    def _write(self, tmp: str, body: str) -> str:
         path = tmp + "/ft_strlen.c"
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(body)
         return path
 
-    def test_correct_solution_passes(self):
+    def test_correct_solution_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
             report = grader.grade("ft_strlen", self.EX, tmp)
             self.assertTrue(report.ok, report.failures)
             self.assertEqual(report.passed, report.total)
 
-    def test_wrong_solution_fails_with_details(self):
+    def test_wrong_solution_fails_with_details(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, "int ft_strlen(char *str)\n{\n"
-                             "    (void)str;\n    return 42;\n}\n")
+            self._write(
+                tmp,
+                "int ft_strlen(char *str)\n{\n"
+                "    (void)str;\n    return 42;\n}\n",
+            )
             report = grader.grade("ft_strlen", self.EX, tmp)
             self.assertFalse(report.ok)
             self.assertEqual(report.passed, 0)
             self.assertEqual(report.failures[0].got, "42")
 
-    def test_unguarded_main_is_reported_as_forbidden(self):
+    def test_unguarded_main_is_reported_as_forbidden(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, self.EX["oracle_c"] + "\nint main(void) { return 0; }\n")
+            self._write(
+                tmp, self.EX["oracle_c"] + "\nint main(void) { return 0; }\n"
+            )
             report = grader.grade("ft_strlen", self.EX, tmp)
             self.assertEqual(report.fatal, "FORBIDDEN_MAIN")
 
-    def test_forbidden_call_only_warns_by_default(self):
+    def test_forbidden_call_only_warns_by_default(self) -> None:
         ex = dict(self.EX, forbidden=["strlen"])
-        cheat = "#include <string.h>\n" \
-               "int ft_strlen(char *str)\n{\n    return strlen(str);\n}\n"
+        cheat = (
+            "#include <string.h>\n"
+            "int ft_strlen(char *str)\n{\n    return strlen(str);\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, cheat)
             report = grader.grade("ft_strlen", ex, tmp)
             self.assertTrue(report.ok, report.failures)
             self.assertTrue(any("forbidden" in w for w in report.warnings))
 
-    def test_strict_forbidden_fails_a_solution_that_uses_the_forbidden_call(self):
+    def test_strict_forbidden_fails_a_solution_that_uses_the_forbidden_call(
+        self,
+    ) -> None:
         # Unlike Python's --strict-imports, a forbidden C call used to only
         # ever warn — never fail grading, no matter what — so a solution
         # that just calls the libc function it's supposed to reimplement
         # still scored 100%.
         ex = dict(self.EX, forbidden=["strlen"])
-        cheat = "#include <string.h>\n" \
-               "int ft_strlen(char *str)\n{\n    return strlen(str);\n}\n"
+        cheat = (
+            "#include <string.h>\n"
+            "int ft_strlen(char *str)\n{\n    return strlen(str);\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, cheat)
             report = grader.grade("ft_strlen", ex, tmp, strict_forbidden=True)
             self.assertEqual(report.fatal, "FORBIDDEN_CALL")
             self.assertIn("strlen", report.detail)
 
-    def test_selftest_guarded_main_does_not_trip_the_check(self):
+    def test_selftest_guarded_main_does_not_trip_the_check(self) -> None:
         # the exact shape c_exam/examshell.py's stub ships — must grade fine
         with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, self.EX["oracle_c"] +
-                       "\n#ifdef SELF_TEST\nint main(void) { return 0; }\n#endif\n")
+            self._write(
+                tmp,
+                self.EX["oracle_c"]
+                + "\n#ifdef SELF_TEST\nint main(void) { return 0; }\n#endif\n",
+            )
             report = grader.grade("ft_strlen", self.EX, tmp)
             self.assertTrue(report.ok, report.failures)
 
-    def test_missing_file(self):
+    def test_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report = grader.grade("ft_strlen", self.EX, tmp)
             self.assertEqual(report.fatal, "FILE_MISSING")
 
-    def test_fuzz_adds_extra_cases_and_still_passes_for_the_oracle(self):
+    def test_fuzz_adds_extra_cases_and_still_passes_for_the_oracle(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
-            report = grader.grade("ft_strlen", self.EX, tmp,
-                                  rng=random.Random(7), fuzz=5)
+            report = grader.grade(
+                "ft_strlen", self.EX, tmp, rng=random.Random(7), fuzz=5
+            )
             self.assertTrue(report.ok, report.failures)
             self.assertEqual(report.total, len(self.EX["cases"]) + 5)
 
-    def test_fuzz_zero_is_a_no_op(self):
+    def test_fuzz_zero_is_a_no_op(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
-            report = grader.grade("ft_strlen", self.EX, tmp,
-                                  rng=random.Random(7), fuzz=0)
+            report = grader.grade(
+                "ft_strlen", self.EX, tmp, rng=random.Random(7), fuzz=0
+            )
             self.assertEqual(report.total, len(self.EX["cases"]))
 
-    def test_fuzz_is_skipped_for_an_unfuzzable_exercise(self):
-        ex = dict(self.EX, args=["point"])   # not in FUZZABLE_VALUE_KINDS
+    def test_fuzz_is_skipped_for_an_unfuzzable_exercise(self) -> None:
+        ex = dict(self.EX, args=["point"])  # not in FUZZABLE_VALUE_KINDS
         # point-kind args need real decls this stub EX lacks — just check
         # is_fuzzable directly rather than compiling; grade() consults it
         # via the same function, see test_grade_ignores_fuzz_for_program_kind
         # below for the end-to-end confirmation on a real exercise shape.
         self.assertFalse(grader.is_fuzzable(ex))
 
-    def test_grade_ignores_fuzz_for_program_kind(self):
-        program_ex = {
-            "function": "echoprog", "kind": "program",
+    def test_grade_ignores_fuzz_for_program_kind(self) -> None:
+        program_ex: Dict[str, Any] = {
+            "function": "echoprog",
+            "kind": "program",
             "oracle_c": "#include <stdio.h>\n"
-                       "int main(int argc, char **argv)\n{\n"
-                       "    (void)argc;\n    printf(\"%s\\n\", argv[1]);\n"
-                       "    return 0;\n}\n",
+            "int main(int argc, char **argv)\n{\n"
+            '    (void)argc;\n    printf("%s\\n", argv[1]);\n'
+            "    return 0;\n}\n",
             "cases": [["hi"], ["there"]],
         }
         with tempfile.TemporaryDirectory() as tmp:
             self._write_named(tmp, "echoprog.c", program_ex["oracle_c"])
-            report = grader.grade("echoprog", program_ex, tmp,
-                                  rng=random.Random(7), fuzz=50)
+            report = grader.grade(
+                "echoprog", program_ex, tmp, rng=random.Random(7), fuzz=50
+            )
             self.assertTrue(report.ok, report.failures)
-            self.assertEqual(report.total, 2)   # fuzz never applies to "program" kind
+            self.assertEqual(
+                report.total, 2
+            )  # fuzz never applies to "program" kind
 
-    def test_strict_forbidden_fails_a_program_kind_solution_too(self):
-        program_ex = {
-            "function": "echoprog", "kind": "program", "forbidden": ["puts"],
+    def test_strict_forbidden_fails_a_program_kind_solution_too(self) -> None:
+        program_ex: Dict[str, Any] = {
+            "function": "echoprog",
+            "kind": "program",
+            "forbidden": ["puts"],
             "oracle_c": "#include <stdio.h>\n"
-                       "int main(int argc, char **argv)\n{\n"
-                       "    (void)argc;\n    printf(\"%s\\n\", argv[1]);\n"
-                       "    return 0;\n}\n",
+            "int main(int argc, char **argv)\n{\n"
+            '    (void)argc;\n    printf("%s\\n", argv[1]);\n'
+            "    return 0;\n}\n",
             "cases": [["hi"], ["there"]],
         }
-        cheat = "#include <stdio.h>\n" \
-               "int main(int argc, char **argv)\n{\n" \
-               "    (void)argc;\n    puts(argv[1]);\n    return 0;\n}\n"
+        cheat = (
+            "#include <stdio.h>\n"
+            "int main(int argc, char **argv)\n{\n"
+            "    (void)argc;\n    puts(argv[1]);\n    return 0;\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write_named(tmp, "echoprog.c", cheat)
-            report = grader.grade("echoprog", program_ex, tmp, strict_forbidden=True)
+            report = grader.grade(
+                "echoprog", program_ex, tmp, strict_forbidden=True
+            )
             self.assertEqual(report.fatal, "FORBIDDEN_CALL")
             self.assertIn("puts", report.detail)
 
-    def _write_named(self, tmp, filename, body):
+    def _write_named(self, tmp: str, filename: str, body: str) -> str:
         path = tmp + "/" + filename
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(body)
         return path
 
-    def test_broken_oracle_is_a_graceful_bank_error_not_a_crash(self):
+    def test_broken_oracle_is_a_graceful_bank_error_not_a_crash(self) -> None:
         broken_ex = dict(self.EX, oracle_c="this is not valid C at all {{{")
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
             report = grader.grade("ft_strlen", broken_ex, tmp)
             self.assertEqual(report.fatal, "BANK_ERROR")
 
-    def test_broken_codegen_is_a_graceful_bank_error_not_a_crash(self):
+    def test_broken_codegen_is_a_graceful_bank_error_not_a_crash(self) -> None:
         # render_call() raises ValueError on an unknown `returns` kind —
         # regression test for generate_harness() being uncaught in the
         # live grading path (only selftest() used to catch a codegen
@@ -623,32 +760,40 @@ class GradeEndToEndTests(unittest.TestCase):
             report = grader.grade("ft_strlen", broken_ex, tmp)
             self.assertEqual(report.fatal, "BANK_ERROR")
 
-    def test_duration_includes_a_slow_valgrind_pass(self):
+    def test_duration_includes_a_slow_valgrind_pass(self) -> None:
         # _grade_program's report.duration already included valgrind time
         # (its one assignment sits after the per-case valgrind loop);
         # _grade_function's used to be set BEFORE its own valgrind pass
         # and never updated — regression test for that inconsistency.
         # Mocked (not @skip_without_valgrind): only grade()'s own
         # bookkeeping is under test here, not a real valgrind run.
-        def slow_but_clean(*args, **kwargs):
+        def slow_but_clean(
+            *args: object, **kwargs: object
+        ) -> Tuple[bool, str]:
             time.sleep(0.2)
             return True, ""
+
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
-            with mock.patch.object(grader, "have_valgrind", return_value=True), \
-                 mock.patch.object(grader, "run_valgrind", side_effect=slow_but_clean):
+            with mock.patch.object(
+                grader, "have_valgrind", return_value=True
+            ), mock.patch.object(
+                grader, "run_valgrind", side_effect=slow_but_clean
+            ):
                 report = grader.grade("ft_strlen", self.EX, tmp, valgrind=True)
             self.assertTrue(report.ok, report.failures)
             self.assertGreaterEqual(report.duration, 0.2)
 
     @skip_without_valgrind
-    def test_valgrind_false_never_runs_it(self):
+    def test_valgrind_false_never_runs_it(self) -> None:
         # a correct-but-leaky solution must NOT be flagged when valgrind
         # wasn't requested — grade()'s default behaviour is unchanged.
-        leaky = "#include <stdlib.h>\n" \
-               "int ft_strlen(char *str)\n{\n" \
-               "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n" \
-               "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+        leaky = (
+            "#include <stdlib.h>\n"
+            "int ft_strlen(char *str)\n{\n"
+            "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n"
+            "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, leaky)
             report = grader.grade("ft_strlen", self.EX, tmp)
@@ -656,31 +801,36 @@ class GradeEndToEndTests(unittest.TestCase):
             self.assertEqual(report.warnings, [])
 
     @skip_without_valgrind
-    def test_valgrind_true_warns_on_a_leaky_but_correct_solution(self):
-        leaky = "#include <stdlib.h>\n" \
-               "int ft_strlen(char *str)\n{\n" \
-               "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n" \
-               "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+    def test_valgrind_true_warns_on_a_leaky_but_correct_solution(self) -> None:
+        leaky = (
+            "#include <stdlib.h>\n"
+            "int ft_strlen(char *str)\n{\n"
+            "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n"
+            "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, leaky)
             report = grader.grade("ft_strlen", self.EX, tmp, valgrind=True)
-            self.assertTrue(report.ok)   # output is still correct
+            self.assertTrue(report.ok)  # output is still correct
             self.assertTrue(any("valgrind" in w for w in report.warnings))
 
     @skip_without_valgrind
-    def test_strict_valgrind_fails_a_leaky_but_correct_solution(self):
-        leaky = "#include <stdlib.h>\n" \
-               "int ft_strlen(char *str)\n{\n" \
-               "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n" \
-               "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+    def test_strict_valgrind_fails_a_leaky_but_correct_solution(self) -> None:
+        leaky = (
+            "#include <stdlib.h>\n"
+            "int ft_strlen(char *str)\n{\n"
+            "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n"
+            "    int i = 0;\n    while (str[i]) i++;\n    return i;\n}\n"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, leaky)
-            report = grader.grade("ft_strlen", self.EX, tmp,
-                                  valgrind=True, strict_valgrind=True)
+            report = grader.grade(
+                "ft_strlen", self.EX, tmp, valgrind=True, strict_valgrind=True
+            )
             self.assertEqual(report.fatal, "VALGRIND_ERRORS")
 
     @skip_without_valgrind
-    def test_valgrind_true_is_silent_on_a_clean_solution(self):
+    def test_valgrind_true_is_silent_on_a_clean_solution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
             report = grader.grade("ft_strlen", self.EX, tmp, valgrind=True)
@@ -691,44 +841,48 @@ class GradeEndToEndTests(unittest.TestCase):
 @skip_without_cc
 @skip_without_valgrind
 class ValgrindProgramKindEndToEndTests(unittest.TestCase):
-    """"program"-kind exercises run valgrind once per case (a separate
+    """ "program"-kind exercises run valgrind once per case (a separate
     loop from "function"-kind's single pass) — its own coverage."""
 
-    EX = {
-        "function": "echoprog", "kind": "program",
+    EX: Dict[str, Any] = {
+        "function": "echoprog",
+        "kind": "program",
         "oracle_c": "#include <stdio.h>\n"
-                   "int main(int argc, char **argv)\n{\n"
-                   "    (void)argc;\n    printf(\"%s\\n\", argv[1]);\n"
-                   "    return 0;\n}\n",
+        "int main(int argc, char **argv)\n{\n"
+        '    (void)argc;\n    printf("%s\\n", argv[1]);\n'
+        "    return 0;\n}\n",
         "cases": [["hi"], ["there"]],
     }
-    LEAKY_C = "#include <stdio.h>\n#include <stdlib.h>\n" \
-             "int main(int argc, char **argv)\n{\n" \
-             "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n" \
-             "    (void)argc;\n    printf(\"%s\\n\", argv[1]);\n" \
-             "    return 0;\n}\n"
+    LEAKY_C = (
+        "#include <stdio.h>\n#include <stdlib.h>\n"
+        "int main(int argc, char **argv)\n{\n"
+        "    int *leak = malloc(sizeof(int));\n    *leak = 1;\n"
+        '    (void)argc;\n    printf("%s\\n", argv[1]);\n'
+        "    return 0;\n}\n"
+    )
 
-    def _write(self, tmp, body):
+    def _write(self, tmp: str, body: str) -> str:
         path = tmp + "/echoprog.c"
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(body)
         return path
 
-    def test_leaky_program_is_caught_across_multiple_cases(self):
+    def test_leaky_program_is_caught_across_multiple_cases(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.LEAKY_C)
             report = grader.grade("echoprog", self.EX, tmp, valgrind=True)
-            self.assertTrue(report.ok)   # still correct output
+            self.assertTrue(report.ok)  # still correct output
             self.assertTrue(any("valgrind" in w for w in report.warnings))
 
-    def test_strict_valgrind_fails_a_leaky_program(self):
+    def test_strict_valgrind_fails_a_leaky_program(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.LEAKY_C)
-            report = grader.grade("echoprog", self.EX, tmp,
-                                  valgrind=True, strict_valgrind=True)
+            report = grader.grade(
+                "echoprog", self.EX, tmp, valgrind=True, strict_valgrind=True
+            )
             self.assertEqual(report.fatal, "VALGRIND_ERRORS")
 
-    def test_clean_program_has_no_valgrind_warning(self):
+    def test_clean_program_has_no_valgrind_warning(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(tmp, self.EX["oracle_c"])
             report = grader.grade("echoprog", self.EX, tmp, valgrind=True)
@@ -743,15 +897,16 @@ class ProgramTimeoutBailOutTests(unittest.TestCase):
     of each burning the full per-case timeout."""
 
     EX = {
-        "kind": "program", "function": "echo_arg",
+        "kind": "program",
+        "function": "echo_arg",
         "oracle_c": "#include <unistd.h>\n#include <string.h>\n"
-                    "int main(int ac, char **av)\n{\n"
-                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
-                    "    write(1, \"\\n\", 1);\n    return 0;\n}\n",
+        "int main(int ac, char **av)\n{\n"
+        "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+        '    write(1, "\\n", 1);\n    return 0;\n}\n',
         "cases": [["a"], ["b"], ["c"], ["d"], ["e"], ["f"], ["g"], ["h"]],
     }
 
-    def test_infinite_loop_skips_cases_after_max_timeouts(self):
+    def test_infinite_loop_skips_cases_after_max_timeouts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
                 fh.write("int main(void)\n{\n    while (1)\n        ;\n}\n")
@@ -761,7 +916,9 @@ class ProgramTimeoutBailOutTests(unittest.TestCase):
         self.assertEqual(report.passed, 0)
         self.assertEqual(len(report.failures), len(self.EX["cases"]))
         skipped = [f for f in report.failures if "skipped" in f.got]
-        self.assertEqual(len(skipped), len(self.EX["cases"]) - grader.MAX_TIMEOUTS)
+        self.assertEqual(
+            len(skipped), len(self.EX["cases"]) - py_grader.MAX_TIMEOUTS
+        )
         # 3 real timeouts at 1s each, not 8
         self.assertLess(elapsed, len(self.EX["cases"]) - 1)
 
@@ -773,42 +930,54 @@ class ProgramNewlineDisplayTests(unittest.TestCase):
 
     EX = ProgramTimeoutBailOutTests.EX
 
-    def test_missing_newline_is_visible(self):
+    def test_missing_newline_is_visible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
-                fh.write("#include <unistd.h>\n#include <string.h>\n"
-                         "int main(int ac, char **av)\n{\n"
-                         "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
-                         "    return 0;\n}\n")
+                fh.write(
+                    "#include <unistd.h>\n#include <string.h>\n"
+                    "int main(int ac, char **av)\n{\n"
+                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                    "    return 0;\n}\n"
+                )
             report = grader.grade("echo_arg", self.EX, tmp, timeout=2)
         failure = report.failures[0]
         self.assertEqual((failure.expected, failure.got), ("a\n", "a"))
 
 
 class CaseFuzzerTests(unittest.TestCase):
-    """Whole-case generators for flood_fill / ft_list_foreach / ft_list_remove_if."""
+    """Whole-case generators for flood_fill / ft_list_foreach /
+    ft_list_remove_if."""
 
-    def test_the_three_exercises_are_fuzzable_now(self):
+    def test_the_three_exercises_are_fuzzable_now(self) -> None:
         from c_exam.bank import EXERCISES
+
         for name in ("flood_fill", "ft_list_foreach", "ft_list_remove_if"):
             with self.subTest(name=name):
                 self.assertTrue(grader.is_fuzzable(EXERCISES[name]))
-                cases = grader.build_fuzz_cases(EXERCISES[name], random.Random(1), 20)
+                cases = grader.build_fuzz_cases(
+                    EXERCISES[name], random.Random(1), 20
+                )
                 self.assertEqual(len(cases), 20)
                 curated = len(EXERCISES[name]["cases"][0])
                 self.assertTrue(all(len(c) == curated for c in cases))
 
-    def test_remove_if_hits_head_tail_all_and_nothing(self):
+    def test_remove_if_hits_head_tail_all_and_nothing(self) -> None:
         rng = random.Random(3)
-        cases = [grader.CASE_FUZZERS["list_remove_if"](rng) for _ in range(400)]
+        cases = [
+            grader.CASE_FUZZERS["list_remove_if"](rng) for _ in range(400)
+        ]
         nonempty = [(v, r) for v, r in cases if v]
-        self.assertTrue(any(v[0] == r for v, r in nonempty))                 # head
-        self.assertTrue(any(v[-1] == r and v[0] != r for v, r in nonempty))  # tail only
-        self.assertTrue(any(all(x == r for x in v) for v, r in nonempty))    # every node
-        self.assertTrue(any(r not in v for v, r in nonempty))                # nothing
-        self.assertTrue(any(not v for v, _ in cases))                        # empty list
+        self.assertTrue(any(v[0] == r for v, r in nonempty))  # head
+        self.assertTrue(
+            any(v[-1] == r and v[0] != r for v, r in nonempty)
+        )  # tail only
+        self.assertTrue(
+            any(all(x == r for x in v) for v, r in nonempty)
+        )  # every node
+        self.assertTrue(any(r not in v for v, r in nonempty))  # nothing
+        self.assertTrue(any(not v for v, _ in cases))  # empty list
 
-    def test_flood_fill_grids_are_rectangular_and_sized(self):
+    def test_flood_fill_grids_are_rectangular_and_sized(self) -> None:
         rng = random.Random(4)
         on_grid = 0
         for _ in range(300):
@@ -816,13 +985,15 @@ class CaseFuzzerTests(unittest.TestCase):
             self.assertEqual(len(grid), h)
             self.assertTrue(all(len(row) == w for row in grid))
             on_grid += 0 <= x < w and 0 <= y < h
-        self.assertGreater(on_grid, 250)                 # mostly a real start point
+        self.assertGreater(on_grid, 250)  # mostly a real start point
 
-    def test_foreach_covers_empty_and_single(self):
+    def test_foreach_covers_empty_and_single(self) -> None:
         rng = random.Random(5)
-        lists = [grader.CASE_FUZZERS["list_foreach"](rng)[0] for _ in range(200)]
+        lists = [
+            grader.CASE_FUZZERS["list_foreach"](rng)[0] for _ in range(200)
+        ]
         self.assertIn([], lists)
-        self.assertTrue(any(len(l) == 1 for l in lists))
+        self.assertTrue(any(len(lst) == 1 for lst in lists))
 
 
 if __name__ == "__main__":

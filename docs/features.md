@@ -203,8 +203,10 @@ The next time you start an exam, you're asked whether to resume:
 Resume saved exam for alice — level 3? [Y/n]:
 ```
 
-Say no (or let the exam finish normally) and the save is discarded. This
-is a convenience for closed laptops and accidental `quit`s, not a way to
+Say no (or let the exam finish normally) and the save is discarded. The
+clock keeps running while the exam is saved — like in the real exam, a
+pause counts — so with `--time-limit` a resume can end straight away with
+"TIME'S UP". This is a convenience for closed laptops and accidental `quit`s, not a way to
 game the real exam's rules — the real moulinette has no resume button
 either.
 

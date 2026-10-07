@@ -26,12 +26,19 @@ worked examples given there.
      if you actually want to practice!
 """
 
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional, Tuple
+import random
+
 import string
 
+from ._types import Exercise
 from .bank_common import sub as _sub
 from .bank_common import signature_of as _signature_of
 
 N_LEVELS = 3
+
 
 # ══════════════════════════════════════════════════════════════
 #  ORACLE  ·  verified reference implementations
@@ -42,7 +49,7 @@ N_LEVELS = 3
 #  and grades it like a submission, which only works if it carries no free
 #  globals (see grader.oracle_free_globals).
 # ══════════════════════════════════════════════════════════════
-def _ref_compress(s):
+def _ref_compress(s: str) -> str:
     out = ""
     i = 0
     while i < len(s):
@@ -55,7 +62,7 @@ def _ref_compress(s):
     return out
 
 
-def _ref_decompress(s):
+def _ref_decompress(s: str) -> str:
     out = ""
     i = 0
     while i < len(s):
@@ -69,7 +76,7 @@ def _ref_decompress(s):
     return out
 
 
-def _ref_generate_spiral(n):
+def _ref_generate_spiral(n: int) -> List[List[int]]:
     if n <= 0:
         return []
     grid = [[0] * n for _ in range(n)]
@@ -97,7 +104,7 @@ def _ref_generate_spiral(n):
     return grid
 
 
-def _ref_graph_cycle_detector(graph):
+def _ref_graph_cycle_detector(graph: Dict[int, List[int]]) -> bool:
     # Iterative three-colour DFS (0 unvisited, 1 on the current path,
     # 2 finished). Iterative rather than recursive so a long chain cannot
     # blow the interpreter's stack inside the sandbox.
@@ -117,7 +124,7 @@ def _ref_graph_cycle_detector(graph):
             stack[-1] = (node, index + 1)
             nxt = neighbours[index]
             if nxt not in graph:
-                continue          # an edge to a node that has no entry
+                continue  # an edge to a node that has no entry
             if color[nxt] == 1:
                 return True
             if color[nxt] == 0:
@@ -126,8 +133,10 @@ def _ref_graph_cycle_detector(graph):
     return False
 
 
-def _ref_schedule_meetings(intervals):
-    rooms = []
+def _ref_schedule_meetings(
+    intervals: List[Tuple[int, int]],
+) -> Tuple[int, List[Any]]:
+    rooms: List[List[Tuple[int, ...]]] = []
     for meeting in sorted(intervals, key=lambda m: m[0]):
         placed = False
         for room in rooms:
@@ -140,7 +149,7 @@ def _ref_schedule_meetings(intervals):
     return (len(rooms), rooms)
 
 
-def _ref_island_matrix_counter(matrix):
+def _ref_island_matrix_counter(matrix: List[List[str]]) -> int:
     # A visited set rather than sinking cells in place: the oracle is
     # graded like a submission and must not modify its input.
     seen = set()
@@ -167,11 +176,21 @@ def _ref_island_matrix_counter(matrix):
     return islands
 
 
-def _ref_prism_detector(grid, pattern):
+def _ref_prism_detector(
+    grid: List[str], pattern: str
+) -> List[Tuple[Any, ...]]:
     if not grid or not pattern:
         return []
-    directions = ((1, 0, "H"), (-1, 0, "H-"), (0, 1, "V"), (0, -1, "V-"),
-                  (1, 1, "D1"), (-1, -1, "D1-"), (-1, 1, "D2"), (1, -1, "D2-"))
+    directions = (
+        (1, 0, "H"),
+        (-1, 0, "H-"),
+        (0, 1, "V"),
+        (0, -1, "V-"),
+        (1, 1, "D1"),
+        (-1, -1, "D1-"),
+        (-1, 1, "D2"),
+        (1, -1, "D2-"),
+    )
     found = []
     for y in range(len(grid)):
         for x in range(len(grid[y])):
@@ -190,14 +209,14 @@ def _ref_prism_detector(grid, pattern):
     return found
 
 
-def _ref_word_ladder(start, end, sentence):
+def _ref_word_ladder(start: str, end: str, sentence: List[str]) -> int:
     known = set(sentence)
     if end not in known:
         return 0
     if start == end:
         return 1
 
-    def one_letter_apart(a, b):
+    def one_letter_apart(a: str, b: str) -> bool:
         if len(a) != len(b):
             return False
         seen = 0
@@ -231,14 +250,14 @@ def _ref_word_ladder(start, end, sentence):
 # ══════════════════════════════════════════════════════════════
 #  FUZZERS  ·  callable(rng) -> args
 # ══════════════════════════════════════════════════════════════
-def _fuzz_compress(rng):
+def _fuzz_compress(rng: random.Random) -> List[Any]:
     text = ""
     for _ in range(rng.randint(0, 6)):
         text += rng.choice(string.ascii_lowercase[:5]) * rng.randint(1, 13)
     return [text]
 
 
-def _fuzz_decompress(rng):
+def _fuzz_decompress(rng: random.Random) -> List[Any]:
     text = ""
     for _ in range(rng.randint(0, 6)):
         run = rng.randint(1, 13)
@@ -247,28 +266,33 @@ def _fuzz_decompress(rng):
     return [text]
 
 
-def _fuzz_generate_spiral(rng):
+def _fuzz_generate_spiral(rng: random.Random) -> List[Any]:
     # The curated cases already cover 0..8 one by one, and build_tests()
     # drops a duplicate, so a narrow range here would add almost nothing.
     return [rng.randint(0, 16)]
 
 
-def _fuzz_graph_cycle_detector(rng):
+def _fuzz_graph_cycle_detector(rng: random.Random) -> List[Any]:
     n = rng.randint(0, 6)
     graph = {}
     for node in range(n):
         edges = []
         for _ in range(rng.randint(0, 2)):
             # mostly forward edges (acyclic), sometimes a backward one
-            target = rng.randrange(n) if rng.random() < 0.35 \
-                else rng.randint(node + 1, n) if node + 1 <= n else node
+            target = (
+                rng.randrange(n)
+                if rng.random() < 0.35
+                else rng.randint(node + 1, n)
+                if node + 1 <= n
+                else node
+            )
             if target < n:
                 edges.append(target)
         graph[node] = edges
     return [graph]
 
 
-def _fuzz_schedule_meetings(rng):
+def _fuzz_schedule_meetings(rng: random.Random) -> List[Any]:
     meetings = []
     for _ in range(rng.randint(0, 7)):
         start = rng.randint(0, 20)
@@ -276,23 +300,25 @@ def _fuzz_schedule_meetings(rng):
     return [meetings]
 
 
-def _fuzz_island_matrix_counter(rng):
+def _fuzz_island_matrix_counter(rng: random.Random) -> List[Any]:
     rows = rng.randint(0, 6)
     cols = rng.randint(1, 6)
     return [[[rng.choice("1100") for _ in range(cols)] for _ in range(rows)]]
 
 
-def _fuzz_prism_detector(rng):
+def _fuzz_prism_detector(rng: random.Random) -> List[Any]:
     size = rng.randint(1, 5)
-    grid = ["".join(rng.choice("CAT.") for _ in range(size))
-            for _ in range(size)]
+    grid = [
+        "".join(rng.choice("CAT.") for _ in range(size)) for _ in range(size)
+    ]
     pattern = "".join(rng.choice("CAT") for _ in range(rng.randint(1, 3)))
     return [grid, pattern]
 
 
-def _fuzz_word_ladder(rng):
-    def word(rng_):
+def _fuzz_word_ladder(rng: random.Random) -> List[Any]:
+    def word(rng_: random.Random) -> str:
         return "".join(rng_.choice("abc") for _ in range(3))
+
     start = word(rng)
     end = word(rng)
     sentence = [word(rng) for _ in range(rng.randint(0, 8))]
@@ -302,50 +328,80 @@ def _fuzz_word_ladder(rng):
 # ══════════════════════════════════════════════════════════════
 #  EXERCISES
 # ══════════════════════════════════════════════════════════════
-EXERCISES = {
-
+EXERCISES: Dict[str, Exercise] = {
     # ── LEVEL 1 ────────────────────────────────────────────────
     "py_compress_decompress": {
-        "level": 1, "function": "compress", "standard": True,
+        "level": 1,
+        "function": "compress",
+        "standard": True,
         # Two functions, one verdict — see grader.parts_of(). The exercise's
         # own oracle/cases/fuzz mirror the first part so everything that
         # only wants "the function this exercise is about" (stub signature,
         # --diff's code panel) keeps working.
-        "oracle": _ref_compress, "fuzz": _fuzz_compress,
+        "oracle": _ref_compress,
+        "fuzz": _fuzz_compress,
         "parts": [
-            {"function": "compress", "oracle": _ref_compress,
-             "fuzz": _fuzz_compress,
-             "cases": [
-                 ["aabcccccaaa"], [""], ["a"], ["aa"], ["abc"],
-                 ["aaaaaaaaaaaa"], ["aabbaa"], ["zzzzzzzzzzzzz"],
-                 ["abcdefghij"], ["qqqqqwww"], ["mississippi"],
-             ]},
-            {"function": "decompress", "oracle": _ref_decompress,
-             "fuzz": _fuzz_decompress,
-             "cases": [
-                 ["a2bc5a3"], [""], ["a"], ["a12"], ["abc"],
-                 ["z13"], ["a2b2a2"], ["q5w3"], ["m1i4s4p2"],
-                 ["a10b10"], ["x100"],
-             ]},
+            {
+                "function": "compress",
+                "oracle": _ref_compress,
+                "fuzz": _fuzz_compress,
+                "cases": [
+                    ["aabcccccaaa"],
+                    [""],
+                    ["a"],
+                    ["aa"],
+                    ["abc"],
+                    ["aaaaaaaaaaaa"],
+                    ["aabbaa"],
+                    ["zzzzzzzzzzzzz"],
+                    ["abcdefghij"],
+                    ["qqqqqwww"],
+                    ["mississippi"],
+                ],
+            },
+            {
+                "function": "decompress",
+                "oracle": _ref_decompress,
+                "fuzz": _fuzz_decompress,
+                "cases": [
+                    ["a2bc5a3"],
+                    [""],
+                    ["a"],
+                    ["a12"],
+                    ["abc"],
+                    ["z13"],
+                    ["a2b2a2"],
+                    ["q5w3"],
+                    ["m1i4s4p2"],
+                    ["a10b10"],
+                    ["x100"],
+                ],
+            },
         ],
         "hint": {
-            "default": ("compress and decompress are graded together, so "
-                       "both have to be right. The count is omitted for a "
-                       "run of exactly one ('abc' stays 'abc', it does not "
-                       "become 'a1b1c1'), and decompress has to read a "
-                       "MULTI-digit count as one number — 'a12' is twelve "
-                       "a's, not 'aa' followed by a stray '2'. Keep "
-                       "consuming digits while the next character is a "
-                       "digit, then convert the whole run at once."),
-            "crash": ("An index is running off the end of the string. Both "
-                     "halves of this need a while-loop that advances by a "
-                     "variable amount (a whole run for compress, a "
-                     "character plus its digits for decompress), so every "
-                     "inner loop needs its own `i < len(s)` guard before "
-                     "it looks at s[i] — including the very last run, "
-                     "where there is no next character to peek at."),
+            "default": (
+                "compress and decompress are graded together, so "
+                "both have to be right. The count is omitted for a "
+                "run of exactly one ('abc' stays 'abc', it does not "
+                "become 'a1b1c1'), and decompress has to read a "
+                "MULTI-digit count as one number — 'a12' is twelve "
+                "a's, not 'aa' followed by a stray '2'. Keep "
+                "consuming digits while the next character is a "
+                "digit, then convert the whole run at once."
+            ),
+            "crash": (
+                "An index is running off the end of the string. Both "
+                "halves of this need a while-loop that advances by a "
+                "variable amount (a whole run for compress, a "
+                "character plus its digits for decompress), so every "
+                "inner loop needs its own `i < len(s)` guard before "
+                "it looks at s[i] — including the very last run, "
+                "where there is no next character to peek at."
+            ),
         },
-        "subject": _sub("py_compress_decompress", """
+        "subject": _sub(
+            "py_compress_decompress",
+            """
         Write TWO functions: a run-length compressor and its exact inverse.
 
             def compress(s: str) -> str:
@@ -371,28 +427,35 @@ EXERCISES = {
             decompress("a2bc5a3")     -> "aabcccccaaa"
             compress("")              -> ""
             decompress("a12")         -> "aaaaaaaaaaaa"
-        """),
+        """,
+        ),
     },
-
     "py_spiral_generator": {
-        "level": 1, "function": "generate_spiral", "standard": True,
-        "oracle": _ref_generate_spiral, "fuzz": _fuzz_generate_spiral,
+        "level": 1,
+        "function": "generate_spiral",
+        "standard": True,
+        "oracle": _ref_generate_spiral,
+        "fuzz": _fuzz_generate_spiral,
         # Named py_spiral_generator, not py_spiral_matrix as the published
         # pool has it: the training bank already ships a py_spiral_matrix
         # (spiral TRAVERSAL of an existing matrix, a different exercise),
         # and two subjects sharing one rendu/ filename but wanting
         # different functions is a trap, not a feature. The function name
         # itself is unchanged from the published subject.
-        "hint": ("Track four walls — top, bottom, left, right — and shrink "
-                "the one you just filled after each of the four passes. The "
-                "usual bug is the last two passes on a leftover single row "
-                "or single column: after filling the top row and the right "
-                "column, `bottom` may already have crossed `top`, and "
-                "re-running the bottom pass then writes over cells you "
-                "already filled. Re-check `top <= bottom` before the "
-                "right-to-left pass and `left <= right` before the "
-                "bottom-to-top one."),
-        "subject": _sub("py_spiral_generator", """
+        "hint": (
+            "Track four walls — top, bottom, left, right — and shrink "
+            "the one you just filled after each of the four passes. The "
+            "usual bug is the last two passes on a leftover single row "
+            "or single column: after filling the top row and the right "
+            "column, `bottom` may already have crossed `top`, and "
+            "re-running the bottom pass then writes over cells you "
+            "already filled. Re-check `top <= bottom` before the "
+            "right-to-left pass and `left <= right` before the "
+            "bottom-to-top one."
+        ),
+        "subject": _sub(
+            "py_spiral_generator",
+            """
         Write a function that builds an n x n matrix filled with the
         numbers 1..n² in clockwise spiral order.
 
@@ -406,24 +469,31 @@ EXERCISES = {
             generate_spiral(3) -> [[1, 2, 3], [8, 9, 4], [7, 6, 5]]
             generate_spiral(1) -> [[1]]
             generate_spiral(0) -> []
-        """),
+        """,
+        ),
         "cases": [[0], [1], [2], [3], [4], [5], [6], [7], [-1], [8]],
     },
-
     # ── LEVEL 2 ────────────────────────────────────────────────
     "py_graph_cycle_detector": {
-        "level": 2, "function": "graph_cycle_detector", "standard": True,
-        "oracle": _ref_graph_cycle_detector, "fuzz": _fuzz_graph_cycle_detector,
+        "level": 2,
+        "function": "graph_cycle_detector",
+        "standard": True,
+        "oracle": _ref_graph_cycle_detector,
+        "fuzz": _fuzz_graph_cycle_detector,
         "forbidden": ("TopologicalSorter",),
-        "hint": ("A plain visited set is not enough: revisiting a node you "
-                "already FINISHED exploring (a diamond, two paths meeting "
-                "again) is not a cycle, while revisiting one that is still "
-                "on the path you are currently walking is. Track three "
-                "states per node — untouched, on the current path, done — "
-                "and report a cycle only when you reach a node in the "
-                "second state. Start a fresh walk from every node, or a "
-                "cycle sitting in a disconnected component goes unseen."),
-        "subject": _sub("py_graph_cycle_detector", """
+        "hint": (
+            "A plain visited set is not enough: revisiting a node you "
+            "already FINISHED exploring (a diamond, two paths meeting "
+            "again) is not a cycle, while revisiting one that is still "
+            "on the path you are currently walking is. Track three "
+            "states per node — untouched, on the current path, done — "
+            "and report a cycle only when you reach a node in the "
+            "second state. Start a fresh walk from every node, or a "
+            "cycle sitting in a disconnected component goes unseen."
+        ),
+        "subject": _sub(
+            "py_graph_cycle_detector",
+            """
         Write a function that decides whether a DIRECTED graph contains at
         least one cycle.
 
@@ -445,7 +515,8 @@ EXERCISES = {
             graph_cycle_detector({0: [1], 1: [2], 2: [0]}) -> True
             graph_cycle_detector({0: [1], 1: [2], 2: []})  -> False
             graph_cycle_detector({})                       -> False
-        """),
+        """,
+        ),
         "cases": [
             [{0: [1], 1: [2], 2: [0]}],
             [{0: [1], 1: [2], 2: []}],
@@ -461,19 +532,25 @@ EXERCISES = {
             [{0: [1], 1: [0], 2: []}],
         ],
     },
-
     "py_schedule_meetings": {
-        "level": 2, "function": "schedule_meetings", "standard": True,
-        "oracle": _ref_schedule_meetings, "fuzz": _fuzz_schedule_meetings,
-        "hint": ("Sort by START time first — the assignment rule only makes "
-                "sense on meetings taken in chronological order. Then, for "
-                "each meeting, scan the rooms IN ORDER and take the first "
-                "one whose last meeting has already ended; only open a new "
-                "room when none has. 'Already ended' is end <= start, not "
-                "end < start: a meeting ending exactly when the next one "
-                "begins does not overlap it. Note the return type — a "
-                "tuple (count, rooms), not a list."),
-        "subject": _sub("py_schedule_meetings", """
+        "level": 2,
+        "function": "schedule_meetings",
+        "standard": True,
+        "oracle": _ref_schedule_meetings,
+        "fuzz": _fuzz_schedule_meetings,
+        "hint": (
+            "Sort by START time first — the assignment rule only makes "
+            "sense on meetings taken in chronological order. Then, for "
+            "each meeting, scan the rooms IN ORDER and take the first "
+            "one whose last meeting has already ended; only open a new "
+            "room when none has. 'Already ended' is end <= start, not "
+            "end < start: a meeting ending exactly when the next one "
+            "begins does not overlap it. Note the return type — a "
+            "tuple (count, rooms), not a list."
+        ),
+        "subject": _sub(
+            "py_schedule_meetings",
+            """
         Write a function that works out the minimum number of meeting rooms
         needed for a list of meetings, and which meetings go where.
 
@@ -493,7 +570,8 @@ EXERCISES = {
                 -> (2, [[(0, 30)], [(5, 10), (15, 20)]])
             schedule_meetings([])                    -> (0, [])
             schedule_meetings([(0,5), (5,10)])       -> (1, [[(0, 5), (5, 10)]])
-        """),
+        """,  # noqa: E501
+        ),
         "cases": [
             [[(0, 30), (5, 10), (15, 20)]],
             [[]],
@@ -508,21 +586,27 @@ EXERCISES = {
             [[(1, 5), (2, 6), (3, 7), (4, 8)]],
         ],
     },
-
     "py_island_matrix_counter": {
-        "level": 2, "function": "island_matrix_counter", "standard": True,
-        "oracle": _ref_island_matrix_counter, "fuzz": _fuzz_island_matrix_counter,
-        "hint": ("Count one island per NEW starting cell, then flood the "
-                "whole island before moving on — if you increment once per "
-                "'1' you find, a five-cell island counts as five. The "
-                "flood has to be exhaustive (a stack or a queue, or "
-                "recursion) and must mark cells as visited the moment it "
-                "queues them, or the same cell gets pushed several times "
-                "and a large island can loop forever. Only the four "
-                "orthogonal neighbours connect — no diagonals — and the "
-                "cells hold one-character STRINGS, not the integers 1 and "
-                "0, so compare against '1' rather than 1."),
-        "subject": _sub("py_island_matrix_counter", """
+        "level": 2,
+        "function": "island_matrix_counter",
+        "standard": True,
+        "oracle": _ref_island_matrix_counter,
+        "fuzz": _fuzz_island_matrix_counter,
+        "hint": (
+            "Count one island per NEW starting cell, then flood the "
+            "whole island before moving on — if you increment once per "
+            "'1' you find, a five-cell island counts as five. The "
+            "flood has to be exhaustive (a stack or a queue, or "
+            "recursion) and must mark cells as visited the moment it "
+            "queues them, or the same cell gets pushed several times "
+            "and a large island can loop forever. Only the four "
+            "orthogonal neighbours connect — no diagonals — and the "
+            "cells hold one-character STRINGS, not the integers 1 and "
+            "0, so compare against '1' rather than 1."
+        ),
+        "subject": _sub(
+            "py_island_matrix_counter",
+            """
         Write a function that counts the islands in a 2D matrix of the
         strings "1" (land) and "0" (water).
 
@@ -545,12 +629,25 @@ EXERCISES = {
                                    ["0","0","1","0","0"],
                                    ["0","0","0","1","1"]]) -> 3
             island_matrix_counter([])                       -> 0
-        """),
+        """,
+        ),
         "cases": [
-            [[["1", "1", "1", "1", "0"], ["1", "1", "1", "0", "0"],
-              ["1", "1", "1", "1", "0"], ["0", "0", "0", "0", "0"]]],
-            [[["1", "1", "0", "0", "0"], ["1", "1", "0", "0", "0"],
-              ["0", "0", "1", "0", "0"], ["0", "0", "0", "1", "1"]]],
+            [
+                [
+                    ["1", "1", "1", "1", "0"],
+                    ["1", "1", "1", "0", "0"],
+                    ["1", "1", "1", "1", "0"],
+                    ["0", "0", "0", "0", "0"],
+                ]
+            ],
+            [
+                [
+                    ["1", "1", "0", "0", "0"],
+                    ["1", "1", "0", "0", "0"],
+                    ["0", "0", "1", "0", "0"],
+                    ["0", "0", "0", "1", "1"],
+                ]
+            ],
             [[]],
             [[["0"]]],
             [[["1"]]],
@@ -561,26 +658,36 @@ EXERCISES = {
             [[["1", "1"], ["1", "1"]]],
             [[["1", "0", "0"], ["0", "1", "0"], ["0", "0", "1"]]],
             [[["1", "1", "1"], ["0", "1", "0"], ["1", "1", "1"]]],
+            # Islands on opposite edges: a missing `0 <=` bound lets
+            # matrix[-1] wrap around and wrongly join them.
+            [[["1", "0", "1"], ["0", "0", "0"], ["1", "1", "1"]]],
+            [[["1", "0", "1"], ["0", "0", "1"], ["1", "0", "1"]]],
         ],
     },
-
     # ── LEVEL 3 ────────────────────────────────────────────────
     "py_prism_detector": {
-        "level": 3, "function": "prism_detector", "standard": True,
-        "oracle": _ref_prism_detector, "fuzz": _fuzz_prism_detector,
-        "hint": ("Mind the coordinate order: a match is reported as "
-                "(x, y, code) where x is the COLUMN and y is the ROW, but "
-                "the character at that spot is grid[y][x] — the two are "
-                "swapped relative to each other, and getting it wrong is "
-                "invisible on a square grid full of symmetric matches. "
-                "Bounds-check every single step of a candidate before "
-                "indexing (a negative index does not raise in Python, it "
-                "silently wraps to the other end of the row and reports a "
-                "match that isn't there). Finally, the order of the "
-                "returned list follows the direction table as it is "
-                "written, so walk the directions in that order for each "
-                "cell."),
-        "subject": _sub("py_prism_detector", """
+        "level": 3,
+        "function": "prism_detector",
+        "standard": True,
+        "oracle": _ref_prism_detector,
+        "fuzz": _fuzz_prism_detector,
+        "hint": (
+            "Mind the coordinate order: a match is reported as "
+            "(x, y, code) where x is the COLUMN and y is the ROW, but "
+            "the character at that spot is grid[y][x] — the two are "
+            "swapped relative to each other, and getting it wrong is "
+            "invisible on a square grid full of symmetric matches. "
+            "Bounds-check every single step of a candidate before "
+            "indexing (a negative index does not raise in Python, it "
+            "silently wraps to the other end of the row and reports a "
+            "match that isn't there). Finally, the order of the "
+            "returned list follows the direction table as it is "
+            "written, so walk the directions in that order for each "
+            "cell."
+        ),
+        "subject": _sub(
+            "py_prism_detector",
+            """
         Write a function that finds every occurrence of a pattern inside a
         2D grid of characters, in all 8 directions.
 
@@ -610,7 +717,8 @@ EXERCISES = {
                 -> [(0, 0, "H"), (0, 0, "V")]
             prism_detector([], "CAT")   -> []
             prism_detector(["CAT"], "") -> []
-        """),
+        """,
+        ),
         "cases": [
             [["CAT", "A..", "T.."], "CAT"],
             [[], "CAT"],
@@ -626,20 +734,26 @@ EXERCISES = {
             [["ABC", "DEF", "GHI"], "AEI"],
         ],
     },
-
     "py_word_ladder": {
-        "level": 3, "function": "word_ladder", "standard": True,
-        "oracle": _ref_word_ladder, "fuzz": _fuzz_word_ladder,
-        "hint": ("Shortest path means breadth-first, one whole level at a "
-                "time — a depth-first walk finds *a* ladder, rarely the "
-                "shortest. Count WORDS, not steps: hit -> hot -> dot -> "
-                "dog -> cog is 5, so the start word already counts as 1. "
-                "Two words are neighbours when they have the same length "
-                "and differ at exactly one position. And mark a word as "
-                "used the moment you enqueue it, or the search revisits it "
-                "forever; if the end word is not in the list at all there "
-                "is no ladder, so return 0."),
-        "subject": _sub("py_word_ladder", """
+        "level": 3,
+        "function": "word_ladder",
+        "standard": True,
+        "oracle": _ref_word_ladder,
+        "fuzz": _fuzz_word_ladder,
+        "hint": (
+            "Shortest path means breadth-first, one whole level at a "
+            "time — a depth-first walk finds *a* ladder, rarely the "
+            "shortest. Count WORDS, not steps: hit -> hot -> dot -> "
+            "dog -> cog is 5, so the start word already counts as 1. "
+            "Two words are neighbours when they have the same length "
+            "and differ at exactly one position. And mark a word as "
+            "used the moment you enqueue it, or the search revisits it "
+            "forever; if the end word is not in the list at all there "
+            "is no ladder, so return 0."
+        ),
+        "subject": _sub(
+            "py_word_ladder",
+            """
         Write a function that returns the length of the SHORTEST
         transformation sequence turning `start` into `end`.
 
@@ -659,7 +773,8 @@ EXERCISES = {
             word_ladder("hit", "cog", ["hot","dot","dog","lot","log","cog"]) -> 5
             word_ladder("hit", "cog", ["hot","dot","dog","lot","log"])       -> 0
             word_ladder("hit", "hot", ["hot"])                               -> 2
-        """),
+        """,  # noqa: E501
+        ),
         "cases": [
             ["hit", "cog", ["hot", "dot", "dog", "lot", "log", "cog"]],
             ["hit", "cog", ["hot", "dot", "dog", "lot", "log"]],
@@ -680,12 +795,14 @@ EXERCISES = {
 # ══════════════════════════════════════════════════════════════
 #  INDEXES  ·  built from EXERCISES, validated at import time
 # ══════════════════════════════════════════════════════════════
-LEVELS = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
+LEVELS: Dict[int, List[str]] = {lvl: [] for lvl in range(1, N_LEVELS + 1)}
 for _name, _ex in EXERCISES.items():
     _lvl = _ex["level"]
     if _lvl not in LEVELS:
-        raise ValueError("exam_bank_r05: %s has level %r, expected 1..%d"
-                         % (_name, _lvl, N_LEVELS))
+        raise ValueError(
+            "exam_bank_r05: %s has level %r, expected 1..%d"
+            % (_name, _lvl, N_LEVELS)
+        )
     LEVELS[_lvl].append(_name)
     _ex.setdefault("standard", False)
 
@@ -695,14 +812,18 @@ for _lvl, _pool in LEVELS.items():
 
 # Every exercise here is a documented Rank 05 subject, so the Standard pool
 # (what `make exam` draws from) is the whole bank — see exam_bank_r04.py.
-STANDARD_LEVELS = {lvl: [name for name in pool if EXERCISES[name]["standard"]]
-                   for lvl, pool in LEVELS.items()}
+STANDARD_LEVELS = {
+    lvl: [name for name in pool if EXERCISES[name]["standard"]]
+    for lvl, pool in LEVELS.items()
+}
 
 for _lvl, _pool in STANDARD_LEVELS.items():
     if not _pool:
-        raise ValueError("exam_bank_r05: level %d has no standard exercise" % _lvl)
+        raise ValueError(
+            "exam_bank_r05: level %d has no standard exercise" % _lvl
+        )
 
 
-def signature_of(name):
+def signature_of(name: str) -> Optional[str]:
     """The `def …:` line of an exercise, as shown in its subject."""
     return _signature_of(EXERCISES[name]["subject"])

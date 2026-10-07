@@ -32,11 +32,19 @@ practice/training modes are where this tool is supposed to build that
 muscle instead of short-circuiting it.
 """
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING, Optional, Tuple
+
+from ._types import Exercise
+
+if TYPE_CHECKING:
+    from .grader import Report
 
 STUCK_THRESHOLD = 3
 
-_EMPTYISH_OBJECTS = (None, [], (), {})
+_EMPTYISH_OBJECTS: Tuple[object, ...] = (None, [], (), {})
 
 # The Python sandbox never appends a "crashed" warning like the C tester
 # does (see grade_exercise() below) — a raised exception is just a failing
@@ -53,41 +61,53 @@ SIGN_FLIP = "sign_flip"
 EMPTY_EXPECTED = "empty_expected"
 
 _GENERIC_HINTS = {
-    TIMEOUT: ("Looks like an infinite loop — check your stopping "
-              "condition, especially for the smallest possible input "
-              "(empty, 0, a single element)."),
-    CRASH: ("A crash almost always points at memory access, not wrong "
-            "logic — a null pointer, an out-of-bounds access, or an "
-            "off-by-one in a loop bound are the usual suspects."),
-    LEAK: ("Valgrind found a leak — some malloc'd block is never freed "
-           "on at least one path (an early return, an error case, only "
-           "freeing part of a list or array). Trace every malloc to a "
-           "matching free on every path, including the ones you don't "
-           "expect to hit."),
-    OFF_BY_ONE: ("Your result is off by exactly 1 — a classic "
-                 "off-by-one, often a < vs. <= or a stray +1/-1 "
-                 "somewhere in a loop bound."),
-    SIGN_FLIP: ("The sign is wrong — maybe a condition that's being "
-                "evaluated backwards?"),
-    EMPTY_EXPECTED: ("The expected value here is 'empty' — did you "
-                     "handle the empty-input (or 0-element) case "
-                     "separately?"),
+    TIMEOUT: (
+        "Looks like an infinite loop — check your stopping "
+        "condition, especially for the smallest possible input "
+        "(empty, 0, a single element)."
+    ),
+    CRASH: (
+        "A crash almost always points at memory access, not wrong "
+        "logic — a null pointer, an out-of-bounds access, or an "
+        "off-by-one in a loop bound are the usual suspects."
+    ),
+    LEAK: (
+        "Valgrind found a leak — some malloc'd block is never freed "
+        "on at least one path (an early return, an error case, only "
+        "freeing part of a list or array). Trace every malloc to a "
+        "matching free on every path, including the ones you don't "
+        "expect to hit."
+    ),
+    OFF_BY_ONE: (
+        "Your result is off by exactly 1 — a classic "
+        "off-by-one, often a < vs. <= or a stray +1/-1 "
+        "somewhere in a loop bound."
+    ),
+    SIGN_FLIP: (
+        "The sign is wrong — maybe a condition that's being "
+        "evaluated backwards?"
+    ),
+    EMPTY_EXPECTED: (
+        "The expected value here is 'empty' — did you "
+        "handle the empty-input (or 0-element) case "
+        "separately?"
+    ),
 }
 
 
-def _as_number(value):
+def _as_number(value: object) -> Optional[float]:
     """float(value), or None when it isn't numeric — including bools,
     which parse as 0.0/1.0 but would make a bool-logic bug look like an
     off-by-one, actively misleading rather than helpful."""
     if isinstance(value, bool):
         return None
     try:
-        return float(value)
+        return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return None
 
 
-def _is_emptyish(value):
+def _is_emptyish(value: object) -> bool:
     """True when `value` represents "nothing" — the real empty Python
     object (None, [], (), {}, "") when it's still typed (a Python
     Report's f.expected is — see examshell/grader.py's Failure), a bare "" when
@@ -102,7 +122,7 @@ def _is_emptyish(value):
     return value in _EMPTYISH_OBJECTS
 
 
-def classify(report):
+def classify(report: Report) -> Optional[str]:
     """Which generic failure pattern `report` matches, as one of the
     category constants above, or None when nothing applies. `report` is
     a graded Report — Python's and the C tester's share the same shape
@@ -153,14 +173,14 @@ def classify(report):
     return None
 
 
-def diagnose(report):
+def diagnose(report: Report) -> Optional[str]:
     """One short, hedged hint string, or None when nothing generic
     applies."""
     category = classify(report)
     return _GENERIC_HINTS.get(category) if category else None
 
 
-def hint_for(ex, report):
+def hint_for(ex: Exercise, report: Report) -> Optional[str]:
     """The hint text to show for a failing `report` on bank entry `ex`,
     or None. `ex.get("hint")` is either a plain string (used as-is) or a
     dict keyed by classify()'s categories plus an optional "default";

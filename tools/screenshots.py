@@ -24,7 +24,7 @@ from typing import Any
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "img")
-SIZE = (118, 34)
+SIZE = (140, 38)
 
 os.environ["HOME"] = tempfile.mkdtemp(prefix="examshell-shots-")
 os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"
@@ -155,7 +155,9 @@ async def shoot() -> None:
         session = exam.run.session
         assert session.start_time is not None
         session.start_time -= 38 * 60 + 12  # 38 minutes in
-        await pilot.press("t")  # a stub: compiles, prints nothing
+        # the full helper stub (the exam's own `t` writes a bare one that
+        # doesn't compile yet): compiles, prints nothing
+        c_shell.write_stub(exam.ex_name, config(rendu, relaxed=True))
         await pilot.pause()
         await pilot.press("g")
         await app.workers.wait_for_complete()

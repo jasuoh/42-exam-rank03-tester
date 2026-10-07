@@ -967,6 +967,27 @@ def _is_duplicate_main(link_error):
     return "main" in low and ("duplicate symbol" in low or "multiple definition" in low)
 
 
+def _is_undeclared_null(compile_error):
+    """True when the student used NULL without including a header that
+    defines it — their file is its own translation unit, so the harness's
+    #includes don't reach it. clang: "undeclared identifier 'NULL'", gcc:
+    "'NULL' undeclared"."""
+    return bool(re.search(r"undeclared identifier '?NULL'?|'NULL' undeclared",
+                          compile_error))
+
+
+NULL_HINT = ("NULL isn't defined in your file — add #include <stddef.h> "
+             "(or <stdlib.h> / <unistd.h>), or return (0) instead. Your file "
+             "is compiled on its own, like in the real exam.\n\n")
+
+
+def _compile_error_detail(compile_error):
+    """The COMPILE_ERROR detail: the compiler's output (truncated), with a
+    plain-language hint in front for the common mistakes."""
+    hint = NULL_HINT if _is_undeclared_null(compile_error) else ""
+    return hint + compile_error[:800]
+
+
 def find_forbidden(stripped_src, forbidden_names):
     found = []
     for name in forbidden_names:
@@ -1248,7 +1269,7 @@ def _grade_function(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
                     "FORBIDDEN_MAIN",
                     "define only %s() — the tester supplies its own main()"
                     % ex["function"])
-            return report.fail("COMPILE_ERROR", err[:800])
+            return report.fail("COMPILE_ERROR", _compile_error_detail(err))
         if err.strip():
             report.warnings.append(
                 "compiler warning (fix it — the real exam compiles with "
@@ -1351,7 +1372,7 @@ def _grade_program(ex_name, ex, rendu_dir, cc, timeout, strict_norm, filepath,
         extra = ["-Werror"] if strict_norm else []
         ok, err = compile_c([path], student_bin, cc, extra_flags=extra)
         if not ok:
-            return report.fail("COMPILE_ERROR", err[:800])
+            return report.fail("COMPILE_ERROR", _compile_error_detail(err))
         if err.strip():
             report.warnings.append(
                 "compiler warning (fix it — the real exam compiles with "

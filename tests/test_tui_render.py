@@ -74,6 +74,21 @@ class ChartTests(unittest.TestCase):
                       "tried, never passed"):
             self.assertIn(piece, out)
 
+    def test_attempt_log_newest_first(self):
+        ok, bad = Report("a", "a"), Report("b", "b")
+        ok.total = ok.passed = 2
+        bad.total, bad.passed = 2, 1
+        self.assertIn("nothing graded", render.attempt_log([]).plain)
+        lines = render.attempt_log([("10:00:00", "a", ok), ("10:01:00", "b", bad)]).plain
+        self.assertEqual(lines.splitlines(), ["10:01:00  ✖ b  1/2", "10:00:00  ✔ a  2/2"])
+
+    def test_per_exercise_worst_first(self):
+        summary = {"per_exercise": {"good": {"passes": 2, "attempts": 2},
+                                    "bad": {"passes": 0, "attempts": 3}}}
+        out = text_of(render.per_exercise_view(summary))
+        self.assertLess(out.index("bad"), out.index("good"))
+        self.assertIn("no grading history", text_of(render.per_exercise_view({"per_exercise": {}})))
+
     def test_stepper(self):
         class S(object):
             level = 2

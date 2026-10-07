@@ -7,6 +7,17 @@ Versions follow `examshell/version.py`; when a merge to `main` bumps it,
 `.github/workflows/release.yml` tags it and publishes that version's section
 below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
+## Unreleased
+
+### Changed
+- **Full-screen app uses wide terminals** — the menu's right side is now a
+  dashboard (stat tiles, 4-week activity, readiness chips per level); the
+  exercise picker previews the highlighted subject; practice and exam keep a
+  "this session" log of every grading under the subject and show as many
+  failing tests as the results pane fits; stats split into overview and
+  per-exercise columns. Below 120 columns the side panels hide and the
+  layout is as before.
+
 ## 0.6.0 — 2026-10-01
 
 ### Added

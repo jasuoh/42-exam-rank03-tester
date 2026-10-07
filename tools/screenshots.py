@@ -21,7 +21,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "img")
-SIZE = (118, 34)
+SIZE = (140, 38)
 
 os.environ["HOME"] = tempfile.mkdtemp(prefix="examshell-shots-")
 os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"

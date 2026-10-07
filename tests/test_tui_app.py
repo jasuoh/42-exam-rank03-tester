@@ -70,8 +70,17 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await app.workers.wait_for_complete()
             await pilot.pause()
             self.assertEqual(app.screen.query_one("#results-pane").border_title, "✔ passed")
+            self.assertEqual(len(app.screen.log_entries), 1)
         self.assertEqual(stats.exercise_status("py", ["py_inter"])["py_inter"]["status"],
                          "passed")
+
+    async def test_side_panels_hide_on_narrow_terminals(self):
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(140, 36)) as pilot:
+            self.assertTrue(app.screen.query_one("#menu-right").display)
+            await pilot.resize_terminal(80, 24)
+            await pilot.pause()
+            self.assertFalse(app.screen.query_one("#menu-right").display)
 
     async def test_watch_mode_regrades_on_save(self):
         path = os.path.join(self.rendu, "py_inter.py")

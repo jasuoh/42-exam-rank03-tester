@@ -187,9 +187,8 @@ def sparkline(values):
     return text
 
 
-def stats_view(summary, activity, streak, history, fmt_duration):
-    """The stats screen: headline numbers, a 4-week activity chart, recent
-    exams and the per-exercise pass rates (worst first)."""
+def stats_overview(summary, activity, streak, history, fmt_duration):
+    """Headline numbers, a 4-week activity chart and the recent exams."""
     head = Table.grid(padding=(0, 3))
     for _ in range(4):
         head.add_column(justify="center")
@@ -207,37 +206,55 @@ def stats_view(summary, activity, streak, history, fmt_duration):
     chart = Text("last 4 weeks  ", style="bold")
     chart.append_text(sparkline([a for a, _ in activity]))
     chart.append("  %d attempts" % sum(a for a, _ in activity), style="dim")
-    blocks += [chart, Text("")]
+    blocks.append(chart)
 
     if history:
         exams = Table(title="recent exams", box=box.SIMPLE, title_style="bold",
-                      header_style="dim")
+                      header_style="dim", title_justify="left")
         exams.add_column("time")
         exams.add_column("attempts", justify="right")
         exams.add_column("score", justify="right")
         for e in history:
             exams.add_row(fmt_duration(e.get("seconds", 0)), str(e.get("attempts", "")),
                           "%s/100" % e.get("score", ""))
-        blocks += [exams]
-
-    if summary["per_exercise"]:
-        per = Table(title="per exercise (worst first)", box=box.SIMPLE,
-                    title_style="bold", header_style="dim")
-        per.add_column("exercise")
-        per.add_column("pass rate")
-        per.add_column("", justify="right")
-        rows = sorted(summary["per_exercise"].items(),
-                      key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]))
-        for name, row in rows:
-            rate = row["passes"] / float(row["attempts"])
-            style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
-            per.add_row(name, bar(row["passes"], row["attempts"], 16, style),
-                        "%d/%d" % (row["passes"], row["attempts"]))
-        blocks.append(per)
-    else:
-        blocks.append(Text("no grading history yet — practice something first",
-                           style="dim italic"))
+        blocks += [Text(""), exams]
     return Group(*blocks)
+
+
+def per_exercise_view(summary):
+    """Every exercise you've graded, by pass rate (worst first)."""
+    if not summary["per_exercise"]:
+        return Text("no grading history yet — practice something first", style="dim italic")
+    per = Table(box=box.SIMPLE, header_style="dim", expand=True)
+    per.add_column("exercise")
+    per.add_column("pass rate", ratio=1)
+    per.add_column("", justify="right")
+    rows = sorted(summary["per_exercise"].items(),
+                  key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]))
+    for name, row in rows:
+        rate = row["passes"] / float(row["attempts"])
+        style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
+        per.add_row(name, bar(row["passes"], row["attempts"], 16, style),
+                    "%d/%d" % (row["passes"], row["attempts"]))
+    return per
+
+
+def attempt_log(entries):
+    """This session's gradings, newest first: (clock, exercise, Report)."""
+    if not entries:
+        return Text("nothing graded yet", style="dim italic")
+    text = Text()
+    for clock, name, report in reversed(entries):
+        text.append(clock + "  ", style="dim")
+        text.append("✔ " if report.ok else "✖ ", style=OK if report.ok else KO)
+        text.append(name + "  ", style="bold")
+        if report.fatal:
+            text.append(report.fatal_title, style=KO)
+        else:
+            text.append("%d/%d" % (report.passed, report.total), style="dim")
+        text.append("\n")
+    text.rstrip()
+    return text
 
 
 def logo(subtitle):

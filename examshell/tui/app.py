@@ -15,6 +15,7 @@ seconds) and hands its result back to the UI thread.
 
 import os
 import random
+import time
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -31,6 +32,7 @@ from . import render
 
 THEMES = {"dark": "textual-dark", "light": "textual-light", "highcontrast": "textual-dark"}
 WATCH_INTERVAL = 1.0          # seconds between solution-file checks
+NARROW = 120                  # below this many columns, side panels (dashboard, preview) hide
 
 
 # ══════════════════════════════════════════════════════════════
@@ -129,8 +131,7 @@ class MenuScreen(Screen):
                  ("drill", "🔁  Daily drill", "%d exercises from your gaps" % shell_common.DRILL_SIZE),
                  ("readiness", "📈  Exam readiness", "what you've passed, level by level"),
                  ("stats", "📊  Stats", "history, streak, pass rates")]
-        items.append(("switch", "🔀  Switch exam", "Python 03 · 04 · 05 or C 02 — now: %s"
-                      % self.app.label()))
+        items.append(("switch", "🔀  Switch exam", "Python 03 · 04 · 05 or C 02"))
         items.append(("sync", "🔄  Sync", self.app.sync_hint()))
         items.append(("feedback", "💬  Feedback", "differs from your real exam? a bug? an idea?"))
         items.append(("quit", "🚪  Quit", ""))
@@ -144,18 +145,11 @@ class MenuScreen(Screen):
         self.query_one("#glance", Static).update(self.glance())
 
     def glance(self):
-        sh = self.app.sh
-        levels = stats.readiness(sh.TOOL, sh.STANDARD_LEVELS)
-        parts = [render.Text("Exam readiness", style="bold"), render.Text("")]
-        for level, passed, count, _ in levels:
-            line = render.Text("Level %d  " % level, style="yellow")
-            line.append_text(render.bar(passed, count, 14))
-            line.append("  %d/%d" % (passed, count), style="dim")
-            parts.append(line)
-        streak = stats.practice_streak(sh.TOOL)
-        parts += [render.Text(""),
-                  render.Text("🔥 %d-day practice streak" % streak if streak
-                              else "no practice today yet", style="bold" if streak else "dim")]
+        tool = self.app.sh.TOOL
+        parts = [render.stats_overview(stats.summarize(tool), stats.daily_activity(tool),
+                                       stats.practice_streak(tool), [], shell_common.fmt_duration),
+                 render.Text(""), render.Text(""),
+                 render.readiness_view(stats.readiness(tool, self.app.sh.STANDARD_LEVELS))]
         if self.app.update_notice.get("notice"):
             parts += [render.Text(""), render.Text("🔔 " + self.app.update_notice["notice"],
                                                    style="bold magenta")]
@@ -205,8 +199,11 @@ class PickerScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(placeholder="type to filter by name or function …", id="filter")
-        yield DataTable(id="table", cursor_type="row", zebra_stripes=True)
+        with Horizontal(id="picker-body"):
+            with Vertical(id="picker-left"):
+                yield Input(placeholder="type to filter by name or function …", id="filter")
+                yield DataTable(id="table", cursor_type="row", zebra_stripes=True)
+            yield VerticalScroll(Static(id="preview"), id="preview-pane")
         yield Footer()
 
     def on_mount(self):
@@ -246,6 +243,18 @@ class PickerScreen(Screen):
     def action_focus_filter(self):
         self.query_one("#filter", Input).focus()
 
+    def on_data_table_row_highlighted(self, event):
+        if event.row_key is None:
+            return
+        name = event.row_key.value
+        row = self.status[name]
+        pane = self.query_one("#preview-pane")
+        pane.border_title = "📄 %s" % name
+        pane.border_subtitle = ("%d/%d passed" % (row["passes"], row["attempts"])
+                                if row["attempts"] else "never tried")
+        self.query_one("#preview", Static).update(
+            ui.subject_blocks(self.app.sh.ALL_EXERCISES[name], code_background=None))
+
     def on_data_table_row_selected(self, event):
         mode = "practice" if self.pool == "exam" else "train"
         self.app.push_screen(PracticeScreen(event.row_key.value, mode=mode))
@@ -262,7 +271,9 @@ class SplitScreen(Screen):
         yield Header()
         yield Static(id="status")
         with Horizontal(id="split"):
-            yield VerticalScroll(Static(id="subject"), id="subject-pane")
+            with Vertical(id="split-left"):
+                yield VerticalScroll(Static(id="subject"), id="subject-pane")
+                yield VerticalScroll(Static(render.attempt_log([]), id="log"), id="log-pane")
             yield VerticalScroll(Static(id="results"), id="results-pane")
         yield Footer()
 
@@ -278,6 +289,20 @@ class SplitScreen(Screen):
         self.set_results(render.waiting_view(
             "Write your solution in %s, then press g to grade."
             % shell_common.solution_path(sh, ex_name, self.app.cfg)))
+
+    def on_mount(self):
+        self.log_entries = []
+        self.query_one("#log-pane").border_title = "this session"
+
+    def log_report(self, report):
+        self.log_entries.append((time.strftime("%H:%M:%S"), self.ex_name, report))
+        self.query_one("#log", Static).update(render.attempt_log(self.log_entries))
+
+    def fails_that_fit(self):
+        """At least --show-fails, more when the results pane has room
+        (one failing test takes ~4 lines)."""
+        return max(self.app.cfg.show_fails or 6,
+                   (self.query_one("#results-pane").size.height - 6) // 4)
 
     def set_results(self, renderable, title="results"):
         self.query_one("#results", Static).update(renderable)
@@ -310,6 +335,7 @@ class PracticeScreen(SplitScreen):
         self.watch_mtime = None
 
     def on_mount(self):
+        super().on_mount()
         self.show_exercise(self.start_ex)
         self.update_status()
 
@@ -349,7 +375,8 @@ class PracticeScreen(SplitScreen):
     def show_outcome(self, outcome):
         self.grading = False
         report = outcome.report
-        view = render.report_view(report, report.function, self.app.cfg.show_fails or 6)
+        self.log_report(report)
+        view = render.report_view(report, report.function, self.fails_that_fit())
         if outcome.hint:
             view = render.Group(view, render.Text(""), render.hint_view(outcome.hint))
         self.set_results(view, "✔ passed" if report.ok else "✖ failed")
@@ -407,6 +434,7 @@ class ExamScreen(SplitScreen):
         self.over = False
 
     def on_mount(self):
+        super().on_mount()
         app = self.app
         self.run = shell_common.ExamRun(app.sh, app.cfg)
         self.set_results(render.waiting_view("Starting the exam …"))
@@ -496,9 +524,10 @@ class ExamScreen(SplitScreen):
         if self.over:
             return
         report = outcome.report
+        self.log_report(report)
         blind = getattr(self.run.cfg, "blind", False)
         self.set_results(render.report_view(report, report.function,
-                                            self.app.cfg.show_fails or 6, blind=blind),
+                                            self.fails_that_fit(), blind=blind),
                          "✔ passed" if report.ok else "✖ failed")
         if not report.ok:
             return
@@ -599,15 +628,20 @@ class StatsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield VerticalScroll(Static(id="stats"), id="stats-pane")
+        with Horizontal(id="stats-body"):
+            yield VerticalScroll(Static(id="stats"), id="stats-pane")
+            yield VerticalScroll(Static(id="per-exercise"), id="per-exercise-pane")
         yield Footer()
 
     def on_mount(self):
         tool = self.app.sh.TOOL
+        summary = stats.summarize(tool)
         self.query_one("#stats-pane").border_title = "your history"
-        self.query_one("#stats", Static).update(render.stats_view(
-            stats.summarize(tool), stats.daily_activity(tool), stats.practice_streak(tool),
+        self.query_one("#per-exercise-pane").border_title = "per exercise (worst first)"
+        self.query_one("#stats", Static).update(render.stats_overview(
+            summary, stats.daily_activity(tool), stats.practice_streak(tool),
             stats.exam_history(tool), shell_common.fmt_duration))
+        self.query_one("#per-exercise", Static).update(render.per_exercise_view(summary))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -618,18 +652,27 @@ class ExamShellApp(App):
     CSS = """
     Screen { background: $surface; }
     #menu-body { height: 1fr; }
-    #menu-left { width: 3fr; padding: 1 2; }
+    #menu-left { width: 56; padding: 1 1 1 2; }
     #logo { height: 4; content-align: center middle; }
-    #menu { height: 1fr; border: round $accent; padding: 0 1; }
-    #menu-right { width: 2fr; border: round $secondary; padding: 1 2; margin: 1 2 1 0; }
+    #menu { height: auto; max-height: 1fr; border: round $accent; padding: 0 1; }
+    #menu-right { width: 1fr; border: round $secondary; padding: 1 2; margin: 1 2 1 1; }
     #status { height: 1; padding: 0 1; background: $panel; }
-    #split { height: 1fr; }
-    #subject-pane { width: 1fr; border: round $warning; padding: 0 1; }
+    #split, #picker-body, #stats-body { height: 1fr; }
+    #split-left { width: 1fr; }
+    #subject-pane { height: auto; max-height: 75%; border: round $warning; padding: 0 1; }
+    #log-pane { height: 1fr; min-height: 4; border: round $secondary; padding: 0 1; }
     #results-pane { width: 1fr; border: round $accent; padding: 0 1; }
-    #summary-pane, #readiness-pane, #stats-pane { border: round $accent; padding: 1 2; margin: 1 2; }
+    #summary-pane, #readiness-pane { border: round $accent; padding: 1 2; margin: 1 2; }
+    #stats-pane { width: 1fr; border: round $accent; padding: 1 2; margin: 1 1 1 2; }
+    #per-exercise-pane { width: 1fr; border: round $secondary; padding: 0 1; margin: 1 2 1 1; }
     #summary-pane.passed { border: heavy $success; }
+    #picker-left { width: 2fr; max-width: 72; }
+    #preview-pane { width: 3fr; border: round $warning; padding: 0 1; margin: 0 1 0 0; }
     #filter { margin: 0 1; }
     #table { height: 1fr; margin: 0 1; }
+    .-narrow #menu-right, .-narrow #preview-pane { display: none; }
+    .-narrow #menu-left { width: 1fr; }
+    .-narrow #picker-left { max-width: 100%; }
     .modal { width: 64; height: auto; padding: 1 2; border: thick $accent; background: $panel; }
     ModalScreen { align: center middle; }
     .modal-question { margin-bottom: 1; }
@@ -646,7 +689,11 @@ class ExamShellApp(App):
             return "🐍 Python · %s" % self.sh.RANK.label
         return "🔧 C · Exam Rank 02"
 
+    def on_resize(self, event):
+        self.set_class(event.size.width < NARROW, "-narrow")
+
     def on_mount(self):
+        self.set_class(self.size.width < NARROW, "-narrow")
         self.theme = THEMES.get(ui.current_theme(), "textual-dark")
         self.update_notice = update_check.start_background_check(
             getattr(self.cfg, "no_update_check", False))

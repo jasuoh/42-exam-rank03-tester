@@ -204,6 +204,39 @@ class DuplicateMainTests(unittest.TestCase):
         )
 
 
+class UndeclaredNullTests(unittest.TestCase):
+    """Issue #12: return (NULL); without an #include fails to compile —
+    correct C, but the raw compiler error alone was confusing."""
+
+    def test_detects_clang_wording(self) -> None:
+        self.assertTrue(
+            grader._is_undeclared_null(
+                "a.c:18:10: error: use of undeclared identifier 'NULL'"
+            )
+        )
+
+    def test_detects_gcc_wording(self) -> None:
+        self.assertTrue(
+            grader._is_undeclared_null(
+                "a.c:18:17: error: 'NULL' undeclared "
+                "(first use in this function)"
+            )
+        )
+
+    def test_hint_prepended_only_for_null(self) -> None:
+        self.assertTrue(
+            grader._compile_error_detail(
+                "error: 'NULL' undeclared"
+            ).startswith(grader.NULL_HINT)
+        )
+        self.assertNotIn(
+            "NULL",
+            grader._compile_error_detail(
+                "error: expected ';' before '}' token"
+            ),
+        )
+
+
 class KrFuncPtrRegexTests(unittest.TestCase):
     """int (*cmp)() compiles fine under Apple Clang's default standard but
     not under GCC's C23 default (() there now means "no parameters", not

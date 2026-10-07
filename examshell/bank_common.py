@@ -7,19 +7,23 @@ Kept tiny and dependency-free on purpose: both bank modules import it, and
 neither should have to depend on the other.
 """
 
+from __future__ import annotations
+
 import textwrap
+from typing import Optional
 
 
-def sub(name, body):
+def sub(name: str, body: str) -> str:
     """Build a subject string in the standard `Assignment name: ...` shape."""
-    head = (f"Assignment name  : {name}\n"
-            f"Expected files   : {name}.py\n"
-            f"Allowed functions: None\n"
-            + "-" * 80 + "\n\n")
+    head = (
+        f"Assignment name  : {name}\n"
+        f"Expected files   : {name}.py\n"
+        f"Allowed functions: None\n" + "-" * 80 + "\n\n"
+    )
     return head + textwrap.dedent(body).strip("\n") + "\n"
 
 
-def signature_of(subject):
+def signature_of(subject: str) -> Optional[str]:
     """The `def …:` line of a subject string, or None if it has none."""
     for line in subject.splitlines():
         stripped = line.strip()
@@ -28,7 +32,7 @@ def signature_of(subject):
     return None
 
 
-def signature_for(subject, function):
+def signature_for(subject: str, function: str) -> Optional[str]:
     """The `def <function>(…):` line of a subject string, or None.
 
     signature_of() above takes whichever comes first, which is all a
@@ -37,6 +41,8 @@ def signature_for(subject, function):
     """
     for line in subject.splitlines():
         stripped = line.strip()
-        if stripped.startswith("def %s(" % function) and stripped.endswith(":"):
+        if stripped.startswith("def %s(" % function) and stripped.endswith(
+            ":"
+        ):
             return stripped
     return None

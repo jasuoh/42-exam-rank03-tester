@@ -262,7 +262,7 @@ python3 -m c_exam --check               # validate both banks
 python3 -m c_exam --stats               # your local practice history
 python3 -m c_exam --readiness           # passed/failed/untried, level by level
 python3 -m c_exam --drill               # a short session from your gaps
-python3 -m c_exam --exam --relaxed      # lenient exam: warnings only, `new` allowed
+python3 -m c_exam --exam --relaxed      # lenient exam: warnings only, `new` allowed, full `stub` (main + examples)
 python3 -m c_exam --list
 python3 -m c_exam --list-training
 python3 -m c_exam --help

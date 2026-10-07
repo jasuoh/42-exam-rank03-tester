@@ -9,6 +9,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
 ## Unreleased
 
+### Added
+- **`make mutate`** (`tools/mutate.py`) — mutation-tests the exercise
+  banks: each reference solution is changed in one small place at a time
+  and graded against its own tests; a change the tests miss is reported
+  with an input that exposes it. This is how the test gaps below were
+  found.
+
 ### Changed
 - **Full-screen app uses wide terminals** — the menu's right side is now a
   dashboard (stat tiles, 4-week activity, readiness chips per level); the
@@ -20,11 +27,56 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **Copy text out of the full-screen app** — drag over the subject, your
   code, the results or the picker preview with the mouse, then ctrl+c.
   Needs Textual 2.0+ (the `tui` extra now asks for it).
+- **The exam clock keeps running while an exam is saved** — `quit` and a
+  later resume no longer pause it, so `--time-limit` can't be stretched by
+  quitting; a resume after the limit ran out ends with "TIME'S UP". Total
+  and per-level times include the pause.
+- **`make lint` = ruff + flake8 + `mypy --strict`**, and CI runs it as its
+  own job. The whole code base (package, tests, tools) is type-annotated
+  and flake8-clean; `make install` brings flake8 and mypy.
+- **Bare `stub` in the exam** — like the real exam, `stub` now writes only
+  the prototype/signature: no `main()`, no `SELF_TEST` block, no examples
+  or self-check (C and Python, terminal and full-screen app). `--relaxed`
+  (`make exam FLAGS=--relaxed`, `make tui FLAGS=--relaxed`) and practice
+  keep the full helper stub.
 
 ### Fixed
 - Full-screen exam: pressing `n` while a grade was still running drew a new
   exercise and then showed (and could pass the level with) the old one's
   result. `n` now waits for the grade.
+- **`ft_atoi_base` tests** — random cases stay within the subject (base
+  2-16, no int overflow); more curated edge cases; a leading `+` or space
+  is no longer tested, since the subject doesn't define it.
+- **Exam `stub` for `fizzbuzz`** — the bare stub declared
+  `main(int argc, char **argv)` for a program that never gets an argument,
+  so a correct solution written into it failed the exam's `-Werror` on the
+  unused parameters. Programs without arguments now get `main(void)`.
+- **`py_capitalizer` tests** — `text.title()` passed every test although it
+  also capitalises after `-`, `'` and digits (`"it's"` → `"It'S"`). New
+  curated cases pin down that only a space starts a new word.
+- **`--doctor` honours `--no-update-check`** — it used to ask GitHub anyway.
+- **Resume prompt** — a typo at "Resume saved exam? [Y/n]" counted as
+  "no" and threw the saved exam away; anything but y/n now asks again.
+- **Redemption badge** — needs an exercise you failed and then passed; a
+  first-try pass alone no longer unlocks it.
+- **C crash report** — the case the program crashed on shows
+  `[crashed: SIGSEGV]` instead of an empty result, later cases show
+  `[not run — crashed on case N]`.
+- **Test gaps found by mutation testing** (each bank oracle altered by
+  one operator/constant, then run against its own tests):
+  `py_island_matrix_counter` didn't catch a missing `0 <=` bound (Python's
+  `matrix[-1]` silently wraps around and joins islands on opposite edges);
+  `py_three_sum` didn't catch broken duplicate skipping or a stuck `hi`;
+  `py_number_base_converter` never fed base 1 or 37 a digit that would
+  still parse. New curated cases cover all three.
+- **C bank: test gaps found the same way** (oracles mutated in C, each
+  mutant compiled and graded, survivors re-run with 200 fuzz cases).
+  The classic `c < 'z'` / `c < 'Z'` off-by-one passed `ulstr`,
+  `alpha_mirror`, `repeat_alpha` and `is_palindrome_str` — no case had a
+  `z` or `Z`. Also covered now: `fprime` on prime squares and powers,
+  `paramsum` with 10 arguments, `rev_wstr` with a one-letter first word,
+  `last_word ""`, `wdmatch` failing on the first character, `max_gap`
+  with two elements, `ft_atoi` with a `0` inside the number.
 
 ## 0.6.0 — 2026-10-01
 

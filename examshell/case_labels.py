@@ -12,12 +12,16 @@ about the exercise, so it only ever names properties of the input itself,
 never guesses at the bug.
 """
 
-INT_MAX = 2 ** 31 - 1
-INT_MIN = -2 ** 31
+from __future__ import annotations
+
+from typing import List, Optional
+
+INT_MAX = 2**31 - 1
+INT_MIN = -(2**31)
 MAX_LABELS = 2
 
 
-def _string_traits(s):
+def _string_traits(s: str) -> List[str]:
     if s == "":
         return ["empty string"]
     if s.strip() == "":
@@ -32,7 +36,7 @@ def _string_traits(s):
     return traits
 
 
-def _number_traits(n):
+def _number_traits(n: int) -> List[str]:
     if n == 0:
         return ["zero"]
     if n in (INT_MAX, INT_MIN) or abs(n) > INT_MAX:
@@ -42,20 +46,24 @@ def _number_traits(n):
     return []
 
 
-def _argv_number(s):
+def _argv_number(s: str) -> Optional[int]:
     """int(s) for an argv string that is a plain integer, else None."""
     body = s[1:] if s[:1] in "+-" else s
     return int(s) if body.isdigit() else None
 
 
-def _value_traits(value, argv=False):
+def _value_traits(value: object, argv: bool = False) -> List[str]:
     if isinstance(value, bool):
         return []
     if isinstance(value, int):
         return _number_traits(value)
     if isinstance(value, str):
         number = _argv_number(value) if argv else None
-        return _number_traits(number) if number is not None else _string_traits(value)
+        return (
+            _number_traits(number)
+            if number is not None
+            else _string_traits(value)
+        )
     if isinstance(value, (list, tuple)):
         if not value:
             return ["empty list"]
@@ -64,7 +72,7 @@ def _value_traits(value, argv=False):
     return []
 
 
-def describe(failure):
+def describe(failure: object) -> str:
     """A short ' · '-joined label for a failure's input, or "" when none
     of its inputs has a notable trait. Works on both testers' failure
     objects: `args` holds the call arguments (Python Failure, C function-
@@ -75,7 +83,7 @@ def describe(failure):
     argv = bool(getattr(failure, "program", False))
     if argv and not args:
         return "no arguments"
-    labels = []
+    labels: List[str] = []
     for value in args:
         for trait in _value_traits(value, argv):
             if trait not in labels:

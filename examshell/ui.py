@@ -13,11 +13,28 @@ Colour is turned off automatically when stdout is not a TTY, when TERM is
 "dumb", or when NO_COLOR is set (https://no-color.org).
 """
 
+from __future__ import annotations
+
 import contextlib
 import difflib
 import os
 import shutil
 import sys
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
+
+if TYPE_CHECKING:
+    from .grader import FailureLike, Report
+    from .shell_common import Session
+
+from ._types import Exercise
 
 try:
     from rich import box
@@ -30,12 +47,10 @@ try:
     from rich.table import Table
     from rich.text import Text
     from rich.theme import Theme as _RichTheme
-    HAVE_RICH = True
-except ImportError:                                        # pragma: no cover
-    HAVE_RICH = False
 
-    def _rich_escape(text):
-        return text
+    HAVE_RICH = True
+except ImportError:  # pragma: no cover
+    HAVE_RICH = False
 
 
 class Abort(Exception):
@@ -72,14 +87,28 @@ THEME_NAMES = ("dark", "light", "highcontrast")
 # using the Okabe–Ito palette: blue/vermillion/orange/sky-blue).
 _ANSI_256 = {
     "light": {
-        "RED": 160, "GREEN": 28, "YELLOW": 172, "CYAN": 30,
-        "WHITE": 236, "GRAY": 244, "MAGENTA": 127, "BLUE": 25,
-        "BG_RED": 217, "BG_GREEN": 150,
+        "RED": 160,
+        "GREEN": 28,
+        "YELLOW": 172,
+        "CYAN": 30,
+        "WHITE": 236,
+        "GRAY": 244,
+        "MAGENTA": 127,
+        "BLUE": 25,
+        "BG_RED": 217,
+        "BG_GREEN": 150,
     },
     "highcontrast": {
-        "RED": 166, "GREEN": 27, "YELLOW": 208, "CYAN": 39,
-        "WHITE": 255, "GRAY": 246, "MAGENTA": 25, "BLUE": 27,
-        "BG_RED": 208, "BG_GREEN": 27,
+        "RED": 166,
+        "GREEN": 27,
+        "YELLOW": 208,
+        "CYAN": 39,
+        "WHITE": 255,
+        "GRAY": 246,
+        "MAGENTA": 25,
+        "BLUE": 27,
+        "BG_RED": 208,
+        "BG_GREEN": 27,
     },
 }
 
@@ -91,22 +120,38 @@ _ANSI_256 = {
 # enough to re-theme the whole UI without editing a single call site).
 _RICH_THEMES = {
     "light": {
-        "cyan": "#0a6e8c", "red": "#a4130f", "green": "#1c6b1c",
-        "yellow": "#8a5a00", "white": "#1c1c1c", "dim": "#5c5c5c",
-        "grey37": "#8a8a8a", "magenta": "#7a1f7a",
-        "bold cyan": "bold #0a6e8c", "bold red": "bold #a4130f",
-        "bold green": "bold #1c6b1c", "bold yellow": "bold #8a5a00",
+        "cyan": "#0a6e8c",
+        "red": "#a4130f",
+        "green": "#1c6b1c",
+        "yellow": "#8a5a00",
+        "white": "#1c1c1c",
+        "dim": "#5c5c5c",
+        "grey37": "#8a8a8a",
+        "magenta": "#7a1f7a",
+        "bold cyan": "bold #0a6e8c",
+        "bold red": "bold #a4130f",
+        "bold green": "bold #1c6b1c",
+        "bold yellow": "bold #8a5a00",
         "bold white": "bold #1c1c1c",
-        "on green": "on #1c6b1c", "on red": "on #a4130f",
+        "on green": "on #1c6b1c",
+        "on red": "on #a4130f",
     },
     "highcontrast": {
-        "cyan": "#56b4e9", "red": "#d55e00", "green": "#0072b2",
-        "yellow": "#e69f00", "white": "#f5f5f5", "dim": "#9a9a9a",
-        "grey37": "#8a8a8a", "magenta": "#0072b2",
-        "bold cyan": "bold #56b4e9", "bold red": "bold #d55e00",
-        "bold green": "bold #0072b2", "bold yellow": "bold #e69f00",
+        "cyan": "#56b4e9",
+        "red": "#d55e00",
+        "green": "#0072b2",
+        "yellow": "#e69f00",
+        "white": "#f5f5f5",
+        "dim": "#9a9a9a",
+        "grey37": "#8a8a8a",
+        "magenta": "#0072b2",
+        "bold cyan": "bold #56b4e9",
+        "bold red": "bold #d55e00",
+        "bold green": "bold #0072b2",
+        "bold yellow": "bold #e69f00",
         "bold white": "bold #f5f5f5",
-        "on green": "on #0072b2", "on red": "on #d55e00",
+        "on green": "on #0072b2",
+        "on red": "on #d55e00",
     },
 }
 
@@ -116,11 +161,18 @@ _RICH_THEMES = {
 # ══════════════════════════════════════════════════════════════
 _rich = False
 _color = True
-_console = None
+_console: Optional[Console] = None
 _theme = "dark"
 
 
-def _auto_color():
+def _out() -> Console:
+    """The rich console. Only called on the rich path: _rich is True
+    exactly when configure() created one."""
+    assert _console is not None
+    return _console
+
+
+def _auto_color() -> bool:
     if os.environ.get("NO_COLOR"):
         return False
     if os.environ.get("TERM", "") == "dumb":
@@ -128,89 +180,127 @@ def _auto_color():
     return sys.stdout.isatty()
 
 
-def configure(rich=None, color=None, theme="dark"):
+def configure(
+    rich: Optional[bool] = None,
+    color: Optional[bool] = None,
+    theme: str = "dark",
+) -> None:
     """(Re)configure the backend. None means 'auto-detect'."""
     global _rich, _color, _console, _theme
     _color = _auto_color() if color is None else bool(color)
     want_rich = HAVE_RICH if rich is None else (bool(rich) and HAVE_RICH)
     _rich = want_rich and _color
     _theme = theme if theme in THEME_NAMES else "dark"
-    rich_theme = _RichTheme(_RICH_THEMES[_theme]) if (_rich and _theme in _RICH_THEMES) else None
+    rich_theme = (
+        _RichTheme(_RICH_THEMES[_theme])
+        if (_rich and _theme in _RICH_THEMES)
+        else None
+    )
     _console = Console(highlight=False, theme=rich_theme) if _rich else None
 
 
-def using_rich():
+def using_rich() -> bool:
     return _rich
 
 
-def current_theme():
+def current_theme() -> str:
     return _theme
 
 
-def width():
+def width() -> int:
     return min(shutil.get_terminal_size((80, 24)).columns, 78)
 
 
 class C:
     """ANSI escapes; every attribute is "" when colour is disabled."""
-    RESET = "\033[0m"; BOLD = "\033[1m"; DIM = "\033[2m"
-    RED = "\033[91m"; GREEN = "\033[92m"; YELLOW = "\033[93m"
-    BLUE = "\033[94m"; MAGENTA = "\033[95m"; CYAN = "\033[96m"
-    WHITE = "\033[97m"; GRAY = "\033[90m"
-    BG_RED = "\033[41m"; BG_GREEN = "\033[42m"
+
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    MAGENTA = "\033[95m"
+    CYAN = "\033[96m"
+    WHITE = "\033[97m"
+    GRAY = "\033[90m"
+    BG_RED = "\033[41m"
+    BG_GREEN = "\033[42m"
 
 
-def c(text, *styles):
+def c(text: str, *styles: str) -> str:
     """Wrap `text` in ANSI styles (no-op when colour is off)."""
     if not _color or not styles:
         return text
     table = _ANSI_256.get(_theme)
-    codes = []
+    codes: List[str] = []
     for s in styles:
         code = table.get(s) if table else None
         if code is None:
             codes.append(getattr(C, s))
         else:
-            codes.append("\033[48;5;%dm" % code if s.startswith("BG_")
-                        else "\033[38;5;%dm" % code)
+            codes.append(
+                "\033[48;5;%dm" % code
+                if s.startswith("BG_")
+                else "\033[38;5;%dm" % code
+            )
     return "".join(codes) + text + C.RESET
 
 
-def _bar(done, total, width=16):
+def _bar(done: float, total: float, width: int = 16) -> str:
     """A compact block-character progress bar: '██████░░░░░░░░░░'.
 
     Pure block characters (single terminal cell each), so it's safe to use
     in both the rich and the ANSI path without any display-width pitfalls
     (unlike e.g. emoji, whose rendered width doesn't match len()).
     """
-    filled = round(width * done / total) if total > 0 else 0
+    filled = int(round(width * done / total)) if total > 0 else 0
     return "█" * filled + "░" * (width - filled)
 
 
 # ══════════════════════════════════════════════════════════════
 #  PRIMITIVES
 # ══════════════════════════════════════════════════════════════
-def clear():
+def clear() -> None:
     if not sys.stdout.isatty():
         return
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def ask(label):
+def ask(label: str) -> str:
     """Prompt for a line of input. Ctrl-C / Ctrl-D raise Abort."""
     try:
         if _rich:
-            return _console.input("[bold cyan]%s[/bold cyan]" % _esc(label)).strip()
+            return (
+                _out().input("[bold cyan]%s[/bold cyan]" % _esc(label)).strip()
+            )
         return input(c(label, "BOLD", "CYAN")).strip()
     except (EOFError, KeyboardInterrupt):
         print()
         raise Abort() from None
 
 
-def pause(label="  Press Enter to continue…"):
+def confirm(question: str, default: bool = True) -> bool:
+    """A yes/no prompt (Enter = `default`). Anything that isn't a clear
+    yes or no asks again instead of guessing — a typo must never answer
+    for the student (e.g. throw away a saved exam). Ctrl-C raises Abort."""
+    label = "%s %s: " % (question, "[Y/n]" if default else "[y/N]")
+    while True:
+        answer = ask(label).lower()
+        if answer == "":
+            return default
+        if answer in ("y", "yes", "j", "ja"):
+            return True
+        if answer in ("n", "no", "nein"):
+            return False
+        warn("please answer y or n")
+
+
+def pause(label: str = "  Press Enter to continue…") -> None:
     try:
         if _rich:
-            _console.input("[dim]%s[/dim]" % _esc(label))
+            _out().input("[dim]%s[/dim]" % _esc(label))
         else:
             input(c(label, "GRAY"))
     except (EOFError, KeyboardInterrupt):
@@ -218,16 +308,16 @@ def pause(label="  Press Enter to continue…"):
         raise Abort() from None
 
 
-def info(msg):
+def info(msg: str) -> None:
     _line(msg, "cyan", "CYAN")
 
 
-def note(msg):
+def note(msg: str) -> None:
     _line(msg, "dim", "GRAY")
 
 
 @contextlib.contextmanager
-def spinner(msg):
+def spinner(msg: str) -> Iterator[None]:
     """A live animated status line for a blocking call that can take a
     few seconds with no other feedback (grading — compiling a C
     exercise, running a big fuzz batch, an optional valgrind pass — all
@@ -236,46 +326,50 @@ def spinner(msg):
     path has no live terminal control worth building for a single line,
     so it falls back to the same static note() line this replaced."""
     if _rich:
-        with _console.status("[dim]%s[/dim]" % _esc(msg), spinner="dots"):
+        with _out().status("[dim]%s[/dim]" % _esc(msg), spinner="dots"):
             yield
     else:
         note(msg)
         yield
 
 
-def warn(msg):
+def warn(msg: str) -> None:
     _line("⚠  " + msg, "yellow", "YELLOW")
 
 
-def error(msg):
+def error(msg: str) -> None:
     _line("✖  " + msg, "bold red", "RED", "BOLD")
 
 
-def success(msg):
+def success(msg: str) -> None:
     _line("✔  " + msg, "bold green", "GREEN", "BOLD")
 
 
-def hint(msg):
+def hint(msg: str) -> None:
     """A stuck-student nudge (see hints.py) — deliberately calmer than
     warn()/error(): this isn't a problem with the run, just a suggestion."""
     _line("💡 " + msg, "cyan", "CYAN")
 
 
-def badge_unlocked(emoji, label):
+def badge_unlocked(emoji: str, label: str) -> None:
     """A just-earned achievement (see achievements.py) — shown the moment
     it's detected, not just tucked away in --stats, so it lands like the
     small reward it's meant to be."""
-    _line("%s New badge: %s!" % (emoji, label), "bold yellow", "YELLOW", "BOLD")
+    _line(
+        "%s New badge: %s!" % (emoji, label), "bold yellow", "YELLOW", "BOLD"
+    )
 
 
-def _line(msg, rich_style, *ansi):
+def _line(msg: str, rich_style: str, *ansi: str) -> None:
     if _rich:
-        _console.print(IND0 + "[%s]%s[/%s]" % (rich_style, _esc(msg), rich_style))
+        _out().print(
+            IND0 + "[%s]%s[/%s]" % (rich_style, _esc(msg), rich_style)
+        )
     else:
         print(IND0 + c(msg, *ansi))
 
 
-def _esc(text):
+def _esc(text: object) -> str:
     """Escape rich markup.
 
     Anything that is not a hand-written style tag must go through this:
@@ -283,19 +377,24 @@ def _esc(text):
     output like "[1, 2]" are all valid rich markup otherwise, and rich
     silently swallows them.
     """
+    if not HAVE_RICH:
+        return str(text)
     return _rich_escape(str(text))
 
 
-def box_message(title, detail="", style="red"):
+def box_message(title: str, detail: str = "", style: str = "red") -> None:
     """A framed one-liner, used for grading errors."""
     if _rich:
         body = Text(title, style="bold %s" % style)
         if detail:
             body.append("\n" + detail, style="dim")
-        _console.print(Panel(body, border_style=style, box=box.ROUNDED,
-                             padding=(0, 2)))
+        _out().print(
+            Panel(body, border_style=style, box=box.ROUNDED, padding=(0, 2))
+        )
     else:
-        colour = {"red": "RED", "green": "GREEN", "yellow": "YELLOW"}.get(style, "CYAN")
+        colour = {"red": "RED", "green": "GREEN", "yellow": "YELLOW"}.get(
+            style, "CYAN"
+        )
         print(IND0 + c("[KO] " + title, colour, "BOLD"))
         if detail:
             print(IND0 + " " * len("[KO] ") + c(detail, "GRAY"))
@@ -304,28 +403,45 @@ def box_message(title, detail="", style="red"):
 # ══════════════════════════════════════════════════════════════
 #  SCREENS
 # ══════════════════════════════════════════════════════════════
-def banner(subtitle="Exam Rank 03  ·  Common Core", edition="42 School  ·  Python Edition"):
+def banner(
+    subtitle: str = "Exam Rank 03  ·  Common Core",
+    edition: str = "42 School  ·  Python Edition",
+) -> None:
     if _rich:
         title = Text()
         title.append("EXAMSHELL", style="bold white")
         title.append("  ·  " + subtitle, style="cyan")
         sub = Text(edition, style="dim")
-        _console.print(Panel(Align.center(Text.assemble(title, "\n", sub)),
-                             box=box.DOUBLE, border_style="cyan", padding=(0, 2)))
+        _out().print(
+            Panel(
+                Align.center(Text.assemble(title, "\n", sub)),
+                box=box.DOUBLE,
+                border_style="cyan",
+                padding=(0, 2),
+            )
+        )
         return
     w = width()
     inner = w - 2
     print(c("╔" + "═" * inner + "╗", "CYAN"))
-    for text, styles in (("EXAMSHELL · " + subtitle, ("BOLD", "WHITE")),
-                         (edition, ("GRAY",))):
+    rows: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+        ("EXAMSHELL · " + subtitle, ("BOLD", "WHITE")),
+        (edition, ("GRAY",)),
+    )
+    for text, styles in rows:
         pad = inner - len(text)
         left = pad // 2
-        print(c("║", "CYAN") + " " * left + c(text, *styles)
-              + " " * (pad - left) + c("║", "CYAN"))
+        print(
+            c("║", "CYAN")
+            + " " * left
+            + c(text, *styles)
+            + " " * (pad - left)
+            + c("║", "CYAN")
+        )
     print(c("╚" + "═" * inner + "╝", "CYAN"))
 
 
-def status_bar(s, n_levels):
+def status_bar(s: Session, n_levels: int) -> None:
     """s is a Session (login / level / elapsed() / score() / passed)."""
     level = min(s.level, n_levels)
     if _rich:
@@ -334,10 +450,16 @@ def status_bar(s, n_levels):
             grid.add_column(justify="left")
         grid.add_row(
             Text.assemble(("LOGIN ", "cyan"), (s.login, "bold white")),
-            Text.assemble(("LEVEL ", "cyan"), ("%d/%d" % (level, n_levels), "bold yellow")),
+            Text.assemble(
+                ("LEVEL ", "cyan"),
+                ("%d/%d" % (level, n_levels), "bold yellow"),
+            ),
             Text.assemble(("TIME ", "cyan"), (s.elapsed(), "white")),
-            Text.assemble(("SCORE ", "cyan"), ("%d/100 " % s.score(), "bold green"),
-                         (_bar(s.score(), 100, 10), "green")),
+            Text.assemble(
+                ("SCORE ", "cyan"),
+                ("%d/100 " % s.score(), "bold green"),
+                (_bar(s.score(), 100, 10), "green"),
+            ),
         )
         dots = Text()
         for lvl in range(1, n_levels + 1):
@@ -347,33 +469,56 @@ def status_bar(s, n_levels):
                 dots.append("◆ ", style="bold yellow")
             else:
                 dots.append("○ ", style="dim")
-        _console.print(Panel(Group(grid, dots), border_style="cyan",
-                             box=box.SQUARE, padding=(0, 1)))
+        _out().print(
+            Panel(
+                Group(grid, dots),
+                border_style="cyan",
+                box=box.SQUARE,
+                padding=(0, 1),
+            )
+        )
         return
     bar = "═" * width()
     print(c(bar, "CYAN"))
-    print(IND0 + c("LOGIN: ", "CYAN") + c(s.login.ljust(12), "BOLD", "WHITE")
-          + c("LEVEL: ", "CYAN") + c(("%d/%d" % (level, n_levels)).ljust(6), "YELLOW")
-          + c("TIME: ", "CYAN") + c(s.elapsed(), "WHITE"))
-    print(IND0 + c("SCORE: ", "CYAN") + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
-          + c("PASSED: ", "CYAN") + c("%d/%d  " % (len(s.passed), n_levels), "GREEN")
-          + c(_bar(s.score(), 100, 10), "GREEN"))
-    dots = " ".join("●" if l < s.level else "◆" if l == s.level else "○"
-                    for l in range(1, n_levels + 1))
-    print(IND0 + c(dots, "YELLOW"))
+    print(
+        IND0
+        + c("LOGIN: ", "CYAN")
+        + c(s.login.ljust(12), "BOLD", "WHITE")
+        + c("LEVEL: ", "CYAN")
+        + c(("%d/%d" % (level, n_levels)).ljust(6), "YELLOW")
+        + c("TIME: ", "CYAN")
+        + c(s.elapsed(), "WHITE")
+    )
+    print(
+        IND0
+        + c("SCORE: ", "CYAN")
+        + c(("%d/100" % s.score()).ljust(12), "BOLD", "GREEN")
+        + c("PASSED: ", "CYAN")
+        + c("%d/%d  " % (len(s.passed), n_levels), "GREEN")
+        + c(_bar(s.score(), 100, 10), "GREEN")
+    )
+    dot_line = " ".join(
+        "●" if lvl < s.level else "◆" if lvl == s.level else "○"
+        for lvl in range(1, n_levels + 1)
+    )
+    print(IND0 + c(dot_line, "YELLOW"))
     print(c(bar, "CYAN"))
 
 
-def _looks_like_c_prototype(line):
+def _looks_like_c_prototype(line: str) -> bool:
     """A C exercise's `<type> name(...);` line — the C bank's equivalent of
     a Python `def ...:` signature. Comment lines never end in `;`, and a
     prose sentence ending in a raw `);` doesn't happen in this project's
     subject style, so this is safe without a real C parser."""
-    return (line.endswith(";") and "(" in line and ")" in line
-            and not line.startswith(("//", "/*", "*")))
+    return (
+        line.endswith(";")
+        and "(" in line
+        and ")" in line
+        and not line.startswith(("//", "/*", "*"))
+    )
 
 
-def _split_subject(subject):
+def _split_subject(subject: str) -> Tuple[List[str], str, str, str]:
     """Split a subject into (header rows, prose, signature, examples).
 
     A subject asking for more than one function (Rank 05's
@@ -383,7 +528,10 @@ def _split_subject(subject):
     guessed at (see _looks_like_c_prototype) and the C banks never ask for
     two functions in one subject.
     """
-    header, prose, examples, signatures = [], [], [], []
+    header: List[str] = []
+    prose: List[str] = []
+    examples: List[str] = []
+    signatures: List[str] = []
     in_examples = False
     for line in subject.splitlines():
         if line.startswith(("Assignment", "Expected", "Allowed")):
@@ -400,19 +548,23 @@ def _split_subject(subject):
             examples.append(line)
         else:
             prose.append(line)
-    return header, "\n".join(prose).strip("\n"), "\n".join(signatures), \
-        "\n".join(examples).strip("\n")
+    return (
+        header,
+        "\n".join(prose).strip("\n"),
+        "\n".join(signatures),
+        "\n".join(examples).strip("\n"),
+    )
 
 
-def _group_label(ex):
+def _group_label(ex: Exercise) -> str:
     """'Level N' for an exam exercise, 'Easy'/'Medium'/'Hard' for a training
     one — the two banks tag exercises differently, this renders either."""
     if "level" in ex:
         return "Level %d" % ex["level"]
-    return ex["difficulty"].title()
+    return str(ex["difficulty"]).title()
 
 
-def _file_ext(ex):
+def _file_ext(ex: Exercise) -> str:
     """.c for the C bank's exercises (they carry an 'oracle_c'), .py otherwise.
 
     Not 'prototype': "program"-kind C exercises (their own main(), no
@@ -421,11 +573,12 @@ def _file_ext(ex):
     return ".c" if "oracle_c" in ex else ".py"
 
 
-def _reflow(prose):
+def _reflow(prose: str) -> str:
     """Join the subject's hard-wrapped lines back into paragraphs so the
     text wraps to whatever width it is shown at. Blank lines separate
     paragraphs; an indented or bulleted line keeps its own line."""
-    paragraphs, current = [], []
+    paragraphs: List[List[str]] = []
+    current: List[str] = []
     for line in prose.splitlines():
         if not line.strip():
             if current:
@@ -442,7 +595,11 @@ def _reflow(prose):
     return "\n\n".join("\n".join(p) for p in paragraphs)
 
 
-def subject_blocks(ex, lexer_theme="monokai", code_background="default"):
+def subject_blocks(
+    ex: Exercise,
+    lexer_theme: str = "monokai",
+    code_background: Optional[str] = "default",
+) -> Group:
     """The subject as a rich Group (metadata table, prose, signature,
     examples) — needs rich. Shared by subject() below and the full-screen
     TUI (examshell/tui/), which frames it itself."""
@@ -455,37 +612,59 @@ def subject_blocks(ex, lexer_theme="monokai", code_background="default"):
         key, _, value = row.partition(":")
         key, value = key.strip(), value.strip()
         if key == "Allowed functions" and value == "None":
-            value = Text(value, style="bold yellow")
-        meta.add_row(key, value)
-    blocks = [meta, Rule(style="grey37")]
+            meta.add_row(key, Text(value, style="bold yellow"))
+        else:
+            meta.add_row(key, value)
+    blocks: List[Any] = [meta, Rule(style="grey37")]
     prose = _reflow(prose)
     if prose:
         blocks.append(Text(prose))
     if signature:
-        blocks.append(Syntax(signature, lexer, theme=lexer_theme,
-                             background_color=code_background))
+        blocks.append(
+            Syntax(
+                signature,
+                lexer,
+                theme=lexer_theme,
+                background_color=code_background,
+            )
+        )
     if examples.strip():
-        blocks.append(Syntax(examples, "text", theme=lexer_theme,
-                             background_color=code_background, word_wrap=True))
+        blocks.append(
+            Syntax(
+                examples,
+                "text",
+                theme=lexer_theme,
+                background_color=code_background,
+                word_wrap=True,
+            )
+        )
     return Group(*blocks)
 
 
-def subject(ex_name, ex, rendu_dir):
+def subject(ex_name: str, ex: Exercise, rendu_dir: str) -> None:
     group = _group_label(ex)
     ext = _file_ext(ex)
     if _rich:
-        _console.print(Panel(
-            subject_blocks(ex),
-            title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
-            subtitle="[dim]%s  ·  file: %s[/dim]" % (
-                group, _esc(os.path.join(rendu_dir, ex_name + ext))),
-            border_style="yellow", box=box.ROUNDED, padding=(1, 2)))
+        _out().print(
+            Panel(
+                subject_blocks(ex),
+                title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
+                subtitle="[dim]%s  ·  file: %s[/dim]"
+                % (group, _esc(os.path.join(rendu_dir, ex_name + ext))),
+                border_style="yellow",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            )
+        )
         print()
         return
 
     print()
-    print(IND0 + c("📄 " + ex_name, "BOLD", "YELLOW")
-          + c("   (%s)" % group, "GRAY"))
+    print(
+        IND0
+        + c("📄 " + ex_name, "BOLD", "YELLOW")
+        + c("   (%s)" % group, "GRAY")
+    )
     print(IND0 + c("─" * (width() - 2), "GRAY"))
     for line in ex["subject"].splitlines():
         if line.startswith("Allowed") and line.rstrip().endswith("None"):
@@ -496,17 +675,23 @@ def subject(ex_name, ex, rendu_dir):
             print(IND0 + c("─" * (width() - 4), "GRAY"))
         elif "->" in line:
             head, _, tail = line.partition("->")
-            print(IND0 + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW"))
-        elif line.strip().startswith("def ") or _looks_like_c_prototype(line.strip()):
+            print(
+                IND0 + c(head, "WHITE") + c("->", "GREEN") + c(tail, "YELLOW")
+            )
+        elif line.strip().startswith("def ") or _looks_like_c_prototype(
+            line.strip()
+        ):
             print(IND0 + c(line, "MAGENTA"))
         else:
             print(IND0 + line)
     print(IND0 + c("─" * (width() - 2), "GRAY"))
-    print(IND0 + c("Create file:  %s/%s%s" % (rendu_dir, ex_name, ext), "GRAY"))
+    print(
+        IND0 + c("Create file:  %s/%s%s" % (rendu_dir, ex_name, ext), "GRAY")
+    )
     print()
 
 
-def commands(rows):
+def commands(rows: Sequence[Tuple[str, str]]) -> None:
     """rows: [(command, description), …]"""
     if _rich:
         t = Table(box=None, show_header=False, pad_edge=False)
@@ -514,16 +699,23 @@ def commands(rows):
         t.add_column(style="dim")
         for cmd, desc in rows:
             t.add_row(_esc(cmd), _esc(desc))
-        _console.print(Panel(t, title="[dim]commands[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED,
-                             padding=(0, 1)))
+        _out().print(
+            Panel(
+                t,
+                title="[dim]commands[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     print(IND0 + c("Commands:", "CYAN"))
     for cmd, desc in rows:
         print(IND1 + c(cmd.ljust(9), "BOLD", "CYAN") + c("- " + desc, "GRAY"))
 
 
-def _pass_rate_tier(rate):
+def _pass_rate_tier(rate: float) -> str:
     """Colour tier for a pass rate: solid / shaky / struggling — used so a
     weak spot jumps out of a stats table without reading every number."""
     if rate >= 0.8:
@@ -533,7 +725,7 @@ def _pass_rate_tier(rate):
     return "red"
 
 
-def stats_table(rows):
+def stats_table(rows: Sequence[Tuple[str, int, int]]) -> None:
     """rows: [(name, passes, attempts), …] — per-exercise practice
     history, with a colour-coded pass-rate bar (green solid, yellow
     shaky, red struggling) so weak spots are visible at a glance instead
@@ -547,21 +739,37 @@ def stats_table(rows):
             rate = (passes / attempts) if attempts else 0.0
             style = _pass_rate_tier(rate)
             bar = _bar(passes, attempts, 12)
-            t.add_row(_esc(name), "[%s]%s[/%s]" % (style, bar, style),
-                      "%d/%d" % (passes, attempts))
-        _console.print(Panel(t, title="[dim]per-exercise[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED, padding=(0, 1)))
+            t.add_row(
+                _esc(name),
+                "[%s]%s[/%s]" % (style, bar, style),
+                "%d/%d" % (passes, attempts),
+            )
+        _out().print(
+            Panel(
+                t,
+                title="[dim]per-exercise[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     name_width = max((len(name) for name, _, _ in rows), default=0) + 2
     for name, passes, attempts in rows:
         rate = (passes / attempts) if attempts else 0.0
         style = _pass_rate_tier(rate).upper()
         bar = _bar(passes, attempts, 12)
-        print(IND0 + c(name.ljust(name_width), "WHITE") + c(bar, style)
-              + "  " + c("%d/%d" % (passes, attempts), "GRAY"))
+        print(
+            IND0
+            + c(name.ljust(name_width), "WHITE")
+            + c(bar, style)
+            + "  "
+            + c("%d/%d" % (passes, attempts), "GRAY")
+        )
 
 
-def badges_table(rows):
+def badges_table(rows: Sequence[Tuple[str, str, str, bool]]) -> None:
     """rows: [(emoji, label, description, earned), …] — the FULL badge
     roster, not just earned ones: seeing what you don't have yet is part
     of the motivation. An earned badge shows its real emoji in full
@@ -577,129 +785,196 @@ def badges_table(rows):
                 t.add_row(emoji, _esc(label), _esc(desc))
             else:
                 t.add_row("🔒", "[dim]%s[/dim]" % _esc(label), _esc(desc))
-        _console.print(Panel(t, title="[dim]badges[/dim]", title_align="left",
-                             border_style="grey37", box=box.ROUNDED, padding=(0, 1)))
+        _out().print(
+            Panel(
+                t,
+                title="[dim]badges[/dim]",
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     label_width = max((len(label) for _, label, _, _ in rows), default=0) + 2
     for emoji, label, desc, earned in rows:
         icon = emoji if earned else "🔒"
-        style = ("WHITE", "BOLD") if earned else ("GRAY",)
-        print(IND0 + icon + " " + c(label.ljust(label_width), *style)
-              + c(desc, "GRAY"))
+        style: Tuple[str, ...] = ("WHITE", "BOLD") if earned else ("GRAY",)
+        print(
+            IND0
+            + icon
+            + " "
+            + c(label.ljust(label_width), *style)
+            + c(desc, "GRAY")
+        )
 
 
-def menu(rows):
+def menu(rows: Sequence[Tuple[str, str, str]]) -> None:
     """rows: [(key, label, hint), …]"""
     if _rich:
         t = Table(box=None, show_header=False, pad_edge=False)
         t.add_column(style="bold white", no_wrap=True)
         t.add_column()
         for key, label, hint in rows:
-            t.add_row(_esc("[%s]" % key),
-                      "%s  [dim]%s[/dim]" % (_esc(label), _esc(hint)))
-        _console.print(Panel(t, border_style="grey37", box=box.ROUNDED,
-                             padding=(0, 1)))
+            t.add_row(
+                _esc("[%s]" % key),
+                "%s  [dim]%s[/dim]" % (_esc(label), _esc(hint)),
+            )
+        _out().print(
+            Panel(t, border_style="grey37", box=box.ROUNDED, padding=(0, 1))
+        )
         return
     for key, label, hint in rows:
-        print(IND0 + c("[%s] " % key, "WHITE", "BOLD") + label.ljust(20)
-              + c(hint, "GRAY"))
+        print(
+            IND0
+            + c("[%s] " % key, "WHITE", "BOLD")
+            + label.ljust(20)
+            + c(hint, "GRAY")
+        )
 
 
-def exercise_table(entries, numbered=False):
+def exercise_table(
+    entries: Sequence[Tuple[int, int, str, str, bool]], numbered: bool = False
+) -> None:
     """entries: [(index, level, name, function, standard), …]. `standard`
     marks the exercises a real exam run can actually draw — everything
     else is practice-only, shown with a dim ○ instead of ★. Shared by both
-    testers (examshell/exam_bank.py's Standard/Extra split and c_exam/bank.py's)."""
+    testers (examshell/exam_bank.py's Standard/Extra split and
+    c_exam/bank.py's)."""
     if _rich:
-        t = Table(title="[bold]Exercise pool[/bold]  "
-                        "(★ = can appear in a real exam run)",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]Exercise pool[/bold]  "
+            "(★ = can appear in a real exam run)",
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("#", justify="right", style="dim")
         t.add_column("", justify="center", width=1)
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("Function", style="green")
         for idx, lvl, name, func, standard in entries:
-            mark = "[bold yellow]★[/bold yellow]" if standard else "[dim]○[/dim]"
-            t.add_row(str(idx) if numbered else "", mark, str(lvl),
-                      _esc(name), _esc(func + "()"))
-        _console.print(t)
+            mark = (
+                "[bold yellow]★[/bold yellow]" if standard else "[dim]○[/dim]"
+            )
+            t.add_row(
+                str(idx) if numbered else "",
+                mark,
+                str(lvl),
+                _esc(name),
+                _esc(func + "()"),
+            )
+        _out().print(t)
         return
     width = max((len(name) for _, _, name, _, _ in entries), default=0) + 2
-    last = None
+    last: Optional[int] = None
     for idx, lvl, name, func, standard in entries:
         if lvl != last:
             print(IND0 + c("Level %d:" % lvl, "YELLOW"))
             last = lvl
         prefix = ("[%d] " % idx) if numbered else ""
         mark = c("★", "YELLOW", "BOLD") if standard else c("○", "GRAY")
-        print(IND1 + c(prefix, "GRAY") + mark + " "
-              + c(name.ljust(width), "WHITE") + c(func + "()", "GRAY"))
+        print(
+            IND1
+            + c(prefix, "GRAY")
+            + mark
+            + " "
+            + c(name.ljust(width), "WHITE")
+            + c(func + "()", "GRAY")
+        )
 
 
-def training_table(entries, numbered=False):
+def training_table(
+    entries: Sequence[Tuple[int, str, str, str]], numbered: bool = False
+) -> None:
     """entries: [(index, difficulty, name, function), …]"""
     if _rich:
-        t = Table(title="[bold]Training pool[/bold]  "
-                        "(LeetCode-style · practice only, not exam material)",
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]Training pool[/bold]  "
+            "(LeetCode-style · practice only, not exam material)",
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("#", justify="right", style="dim")
         t.add_column("Difficulty", justify="center")
         t.add_column("Exercise", style="white")
         t.add_column("Function", style="green")
         for idx, diff, name, func in entries:
             style = DIFFICULTY_STYLE.get(diff, "white")
-            t.add_row(str(idx) if numbered else "",
-                      "[%s]%s[/%s]" % (style, diff.title(), style),
-                      _esc(name), _esc(func + "()"))
-        _console.print(t)
+            t.add_row(
+                str(idx) if numbered else "",
+                "[%s]%s[/%s]" % (style, diff.title(), style),
+                _esc(name),
+                _esc(func + "()"),
+            )
+        _out().print(t)
         return
     width = max((len(name) for _, _, name, _ in entries), default=0) + 2
-    last = None
+    last: Optional[str] = None
     for idx, diff, name, func in entries:
         if diff != last:
             style = DIFFICULTY_STYLE.get(diff, "white").upper()
             print(IND0 + c(diff.title() + ":", style))
             last = diff
         prefix = ("[%d] " % idx) if numbered else ""
-        print(IND1 + c(prefix, "GRAY") + c(name.ljust(width), "WHITE")
-              + c(func + "()", "GRAY"))
+        print(
+            IND1
+            + c(prefix, "GRAY")
+            + c(name.ljust(width), "WHITE")
+            + c(func + "()", "GRAY")
+        )
 
 
-def overview_table(rows, title="Grading overview"):
+def overview_table(
+    rows: Sequence[Tuple[Any, str, str, str]], title: str = "Grading overview"
+) -> None:
     """rows: [(level, name, status, tests_label), …]
 
     status is "ok" / "ko" / "missing".
     """
     glyph = {"ok": ("✔", "green"), "ko": ("✖", "red"), "missing": ("·", "dim")}
     if _rich:
-        t = Table(title="[bold]%s[/bold]" % _esc(title),
-                  box=box.SIMPLE_HEAVY, header_style="bold cyan",
-                  row_styles=["", "dim"])
+        t = Table(
+            title="[bold]%s[/bold]" % _esc(title),
+            box=box.SIMPLE_HEAVY,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         t.add_column("Level", justify="center", style="yellow")
         t.add_column("Exercise", style="white")
         t.add_column("", justify="center")
         t.add_column("Tests", justify="right", style="dim")
         for lvl, name, status, tests_label in rows:
             mark, style = glyph[status]
-            t.add_row(str(lvl), _esc(name), "[%s]%s[/%s]" % (style, mark, style),
-                      _esc(tests_label))
-        _console.print(t)
+            t.add_row(
+                str(lvl),
+                _esc(name),
+                "[%s]%s[/%s]" % (style, mark, style),
+                _esc(tests_label),
+            )
+        _out().print(t)
         return
     print(IND0 + c(title, "BOLD"))
     width = max((len(name) for _, name, _, _ in rows), default=0) + 2
     for lvl, name, status, tests_label in rows:
         mark, style = glyph[status]
-        print(IND0 + c(str(lvl), "YELLOW") + "  " + c(mark, style.upper())
-              + "  " + c(name.ljust(width), "WHITE") + c(tests_label, "GRAY"))
+        print(
+            IND0
+            + c(str(lvl), "YELLOW")
+            + "  "
+            + c(mark, style.upper())
+            + "  "
+            + c(name.ljust(width), "WHITE")
+            + c(tests_label, "GRAY")
+        )
 
 
 # ══════════════════════════════════════════════════════════════
 #  GRADING OUTPUT
 # ══════════════════════════════════════════════════════════════
-def first_diff_index(expected_text, got_text):
+def first_diff_index(expected_text: str, got_text: str) -> Optional[int]:
     """Index of the first character where two DISPLAYED strings diverge,
     or None when they're identical. Pure string comparison over exactly
     what's shown on screen (repr(f.expected) vs str(f.got)) — not the
@@ -725,13 +1000,16 @@ def first_diff_index(expected_text, got_text):
 # per element/source-line, prefixed "- "/"+ " where the two sides disagree
 # and "  " where they agree — ready to drop straight into the "expected"/
 # "got" columns/blocks _failures() already renders.
-def _split_top_level(text):
+def _split_top_level(text: str) -> List[str]:
     """Split a repr()-like string on top-level commas — respecting nested
     brackets/parens/braces and quoted strings, so an inner list's own
     commas (or a comma inside a string) never fragment one logical element
     into two. Not a parser, just a lint-style scan — same "good enough,
     not exact" spirit as c_exam/grader.py's _strip_comments_and_strings()."""
-    parts, depth, current, quote = [], 0, [], None
+    parts: List[str] = []
+    current: List[str] = []
+    depth = 0
+    quote: Optional[str] = None
     i, n = 0, len(text)
     while i < n:
         ch = text[i]
@@ -763,13 +1041,15 @@ def _split_top_level(text):
     return parts
 
 
-def _strip_outer_brackets(text):
+def _strip_outer_brackets(text: str) -> str:
     if len(text) >= 2 and text[0] in "([" and text[-1] in ")]":
         return text[1:-1]
     return text
 
 
-def _diff_columns(exp_items, got_items):
+def _diff_columns(
+    exp_items: Sequence[str], got_items: Sequence[str]
+) -> Tuple[List[str], List[str]]:
     """difflib.ndiff() over two same-kind sequences (list elements or text
     lines), reshaped into a pair of line-aligned display lists — one line
     per ndiff entry, "  "-prefixed where both sides agree, "- " only on
@@ -777,8 +1057,13 @@ def _diff_columns(exp_items, got_items):
     own caret/marker lines) are dropped — useful in a unified terminal
     diff, redundant once expected/got are already shown as separate
     columns/blocks."""
-    lines = [ln for ln in difflib.ndiff(exp_items, got_items) if not ln.startswith("? ")]
-    exp_out, got_out = [], []
+    lines = [
+        ln
+        for ln in difflib.ndiff(exp_items, got_items)
+        if not ln.startswith("? ")
+    ]
+    exp_out: List[str] = []
+    got_out: List[str] = []
     for ln in lines:
         tag, content = ln[:2], ln[2:]
         if tag == "  ":
@@ -791,7 +1076,9 @@ def _diff_columns(exp_items, got_items):
     return exp_out, got_out
 
 
-def structural_diff(expected, exp_text, got_text):
+def structural_diff(
+    expected: object, exp_text: str, got_text: str
+) -> Optional[Tuple[List[str], List[str]]]:
     """Element-by-element diff for a --diff structural block, used when
     `expected` is a list/tuple (a Failure only — a CFailure's expected/got
     are always plain strings, see line_diff() below) whose repr splits
@@ -815,7 +1102,9 @@ def structural_diff(expected, exp_text, got_text):
     return _diff_columns(exp_items, got_items)
 
 
-def line_diff(exp_text, got_text):
+def line_diff(
+    exp_text: str, got_text: str
+) -> Optional[Tuple[List[str], List[str]]]:
     """Line-by-line diff for a multi-line --diff value — a C failure's
     multi-line stdout chunk, most often, but works for any multi-line
     string. Returns (expected_lines, got_lines) — see _diff_columns() —
@@ -826,7 +1115,9 @@ def line_diff(exp_text, got_text):
     return _diff_columns(exp_text.splitlines(), got_text.splitlines())
 
 
-def _diff_block(f, exp_text, got_text):
+def _diff_block(
+    f: FailureLike, exp_text: str, got_text: str
+) -> Optional[Tuple[List[str], List[str]]]:
     """The one entry point _failures() needs: structural_diff() first (more
     specific — an element, not just a line, is what actually differs in a
     list/tuple), then line_diff(), or None to fall back to the plain
@@ -848,7 +1139,7 @@ def _diff_block(f, exp_text, got_text):
     block = structural_diff(f.expected, exp_text, got_text)
     if block:
         return block
-    if hasattr(f, "index"):        # CFailure: its own strings are already raw
+    if hasattr(f, "index"):  # CFailure: its own strings are already raw
         return line_diff(str(f.expected), str(f.got))
     return line_diff(exp_text, got_text)
 
@@ -859,7 +1150,7 @@ def _diff_block(f, exp_text, got_text):
 _DIFF_BLOCK_MAX_LINES = 30
 
 
-def _clip_block(lines):
+def _clip_block(lines: List[str]) -> Tuple[List[str], int]:
     if len(lines) <= _DIFF_BLOCK_MAX_LINES:
         return lines, 0
     return lines[:_DIFF_BLOCK_MAX_LINES], len(lines) - _DIFF_BLOCK_MAX_LINES
@@ -872,7 +1163,12 @@ def _clip_block(lines):
 _CODE_SYNTAX_THEMES = {"light": "default"}
 
 
-def report(rep, show_fails=4, diff=False, filepath=None):
+def report(
+    rep: Report,
+    show_fails: int = 4,
+    diff: bool = False,
+    filepath: Optional[str] = None,
+) -> None:
     """Render a grader.Report. `filepath` is the exact file that was
     graded (see both examshell.py's grade_exercise()) — used only when
     `diff` is set, to show the student's own submitted function next to
@@ -893,7 +1189,7 @@ def report(rep, show_fails=4, diff=False, filepath=None):
 _DIFF_CLIP = 400
 
 
-def _failure_texts(f):
+def _failure_texts(f: FailureLike) -> Tuple[str, str]:
     """(expected, got) as shown in a report. A Python Failure's got is
     already the sandbox's repr text. A CFailure's values are both RAW
     stdout, so repr() both sides — an invisible tab or trailing space then
@@ -901,35 +1197,51 @@ def _failure_texts(f):
     The grader's own bracketed markers ("[TIMEOUT]", "[no output …]")
     stay as they are."""
     exp_text, got_text = repr(f.expected), str(f.got)
-    if hasattr(f, "index") and not (got_text.startswith("[") and got_text.endswith("]")):
+    if hasattr(f, "index") and not (
+        got_text.startswith("[") and got_text.endswith("]")
+    ):
         got_text = repr(got_text)
     return exp_text, got_text
 
 
-def _call_text(f, function):
+def _call_text(f: FailureLike, function: str) -> Tuple[str, str]:
     """The failing call, plus the edge case its input represents (see
     examshell/case_labels.py) when there is one worth naming."""
     from . import case_labels
+
     label = case_labels.describe(f)
     return f.call(function), label
 
 
-def _failures(rep, show_fails, diff=False, filepath=None):
+def _failures(
+    rep: Report,
+    show_fails: int,
+    diff: bool = False,
+    filepath: Optional[str] = None,
+) -> None:
     shown = rep.failures[:show_fails]
     if diff and shown and filepath:
         source = _extract_source(filepath, rep.function)
         if source:
             _code_panel(source, rep.function, filepath)
     if _rich:
-        t = Table(box=box.SIMPLE_HEAVY, show_edge=False, pad_edge=False,
-                  header_style="bold red")
-        t.add_column("failing call", style="white", max_width=46, overflow="fold")
+        t = Table(
+            box=box.SIMPLE_HEAVY,
+            show_edge=False,
+            pad_edge=False,
+            header_style="bold red",
+        )
+        t.add_column(
+            "failing call", style="white", max_width=46, overflow="fold"
+        )
         t.add_column("expected", style="green", max_width=26, overflow="fold")
         t.add_column("got", style="red", max_width=26, overflow="fold")
         for f in shown:
             exp_text, got_text = _failure_texts(f)
             call, label = _call_text(f, rep.function)
-            call_cell = _esc(call) + ("\n[yellow]⟨%s⟩[/yellow]" % _esc(label) if label else "")
+            call_cell = _esc(call) + (
+                "\n[yellow]⟨%s⟩[/yellow]" % _esc(label) if label else ""
+            )
             if diff:
                 block = _diff_block(f, exp_text, got_text)
                 if block:
@@ -937,19 +1249,26 @@ def _failures(rep, show_fails, diff=False, filepath=None):
                     exp_lines, exp_more = _clip_block(exp_lines)
                     got_lines, got_more = _clip_block(got_lines)
                     exp_shown = "\n".join(exp_lines) + (
-                        "\n… +%d more" % exp_more if exp_more else "")
+                        "\n… +%d more" % exp_more if exp_more else ""
+                    )
                     got_shown = "\n".join(got_lines) + (
-                        "\n… +%d more" % got_more if got_more else "")
+                        "\n… +%d more" % got_more if got_more else ""
+                    )
                     t.add_row(call_cell, _esc(exp_shown), _esc(got_shown))
                 else:
                     idx = first_diff_index(exp_text, got_text)
-                    t.add_row(call_cell,
-                              _diff_markup(exp_text, idx), _diff_markup(got_text, idx))
+                    t.add_row(
+                        call_cell,
+                        _diff_markup(exp_text, idx),
+                        _diff_markup(got_text, idx),
+                    )
             else:
                 t.add_row(call_cell, _esc(exp_text), _esc(got_text))
-        _console.print(t)
+        _out().print(t)
     else:
-        hang = IND0 + " " * len("[KO] ")     # aligns under the text, like box_message
+        hang = IND0 + " " * len(
+            "[KO] "
+        )  # aligns under the text, like box_message
         for f in shown:
             call, label = _call_text(f, rep.function)
             print(IND0 + c("[KO] " + call[:90], "RED"))
@@ -974,10 +1293,18 @@ def _failures(rep, show_fails, diff=False, filepath=None):
                         print(hang + "  " + c("… +%d more" % got_more, "GRAY"))
                 else:
                     idx = first_diff_index(exp_text, got_text)
-                    print(hang + c("expected : " + exp_text[:_DIFF_CLIP], "GRAY"))
-                    print(hang + c("got      : " + got_text[:_DIFF_CLIP], "GRAY"))
+                    print(
+                        hang + c("expected : " + exp_text[:_DIFF_CLIP], "GRAY")
+                    )
+                    print(
+                        hang + c("got      : " + got_text[:_DIFF_CLIP], "GRAY")
+                    )
                     if idx is not None and idx < _DIFF_CLIP:
-                        print(hang + " " * (len("got      : ") + idx) + c("^", "RED"))
+                        print(
+                            hang
+                            + " " * (len("got      : ") + idx)
+                            + c("^", "RED")
+                        )
             else:
                 print(hang + c("expected : " + exp_text[:70], "GRAY"))
                 print(hang + c("got      : " + got_text[:70], "GRAY"))
@@ -986,25 +1313,28 @@ def _failures(rep, show_fails, diff=False, filepath=None):
         note("… and %d more failing test%s" % (rest, "s" if rest > 1 else ""))
 
 
-def _extract_source(filepath, function_name):
+def _extract_source(filepath: str, function_name: str) -> Optional[str]:
     """Best-effort source lookup for --diff's inline code panel — Python
-    files use examshell.grader's ast-based extractor, C files use c_exam.grader's
-    brace-matching one. Imported lazily (not at module load) so this
-    presentation module doesn't hard-depend on either grading backend at
-    import time. Never raises — both extractors already return None on any
-    failure of their own, and an unexpected import error here is caught
-    too, since this is purely cosmetic and must never crash grading."""
+    files use examshell.grader's ast-based extractor, C files use
+    c_exam.grader's brace-matching one. Imported lazily (not at module
+    load) so this presentation module doesn't hard-depend on either grading
+    backend at import time. Never raises — both extractors already return
+    None on any failure of their own, and an unexpected import error here is
+    caught too, since this is purely cosmetic and must never crash
+    grading."""
     try:
         if filepath.endswith(".c"):
             from c_exam import grader as _c_grader
+
             return _c_grader.extract_function_source(filepath, function_name)
         from . import grader as _py_grader
+
         return _py_grader.extract_function_source(filepath, function_name)
     except Exception:
         return None
 
 
-def _code_panel(source, function_name, filepath):
+def _code_panel(source: str, function_name: str, filepath: str) -> None:
     """--diff's inline code panel: the student's own submitted function,
     syntax-highlighted, shown once per report (not once per failure, see
     _failures() above) so they can see it next to the mismatch without
@@ -1017,20 +1347,36 @@ def _code_panel(source, function_name, filepath):
     title = "your %s()" % function_name
     if _rich:
         theme = _CODE_SYNTAX_THEMES.get(_theme, "monokai")
-        syntax = Syntax(source, lexer, theme=theme, line_numbers=True,
-                        background_color="default", word_wrap=True)
-        _console.print(Panel(syntax, title="[dim]%s[/dim]" % _esc(title),
-                             title_align="left", border_style="grey37",
-                             box=box.ROUNDED, padding=(0, 1)))
+        syntax = Syntax(
+            source,
+            lexer,
+            theme=theme,
+            line_numbers=True,
+            background_color="default",
+            word_wrap=True,
+        )
+        _out().print(
+            Panel(
+                syntax,
+                title="[dim]%s[/dim]" % _esc(title),
+                title_align="left",
+                border_style="grey37",
+                box=box.ROUNDED,
+                padding=(0, 1),
+            )
+        )
         return
     header = "── " + title + " "
-    print(IND0 + c(header + "─" * max(0, width() - len(header) - len(IND0)), "GRAY"))
+    print(
+        IND0
+        + c(header + "─" * max(0, width() - len(header) - len(IND0)), "GRAY")
+    )
     for line in source.splitlines():
         print(IND1 + c(line, "GRAY"))
     print(IND0 + c("─" * width(), "GRAY"))
 
 
-def _diff_markup(text, idx):
+def _diff_markup(text: str, idx: Optional[int]) -> str:
     """`text`, rich-escaped, with everything from `idx` onward reverse-
     styled — the rich-table equivalent of the plain path's "^" pointer
     line (a caret can't be reliably column-aligned inside a wrapping,
@@ -1042,7 +1388,7 @@ def _diff_markup(text, idx):
     return _esc(text[:idx]) + "[reverse]" + _esc(text[idx:]) + "[/reverse]"
 
 
-def _verdict(rep):
+def _verdict(rep: Report) -> None:
     ratio = "%d/%d" % (rep.passed, rep.total)
     pct = int(rep.passed / rep.total * 100) if rep.total else 0
     bar = _bar(rep.passed, rep.total)
@@ -1050,25 +1396,38 @@ def _verdict(rep):
     mark = "✔" if ok else "✖"
     label = "%s  %s  %s tests passed  %3d%%" % (mark, bar, ratio, pct)
     if _rich:
-        _console.print(Panel(Align.center(Text(label, style="bold white")),
-                             style="on green" if ok else "on red",
-                             box=box.HEAVY, padding=(0, 2)))
+        _out().print(
+            Panel(
+                Align.center(Text(label, style="bold white")),
+                style="on green" if ok else "on red",
+                box=box.HEAVY,
+                padding=(0, 2),
+            )
+        )
         return
     print()
     print(c("  %s  " % label, "BG_GREEN" if ok else "BG_RED", "WHITE", "BOLD"))
 
 
-def level_cleared(level):
+def level_cleared(level: int) -> None:
     if _rich:
-        _console.print(Panel(Align.center(
-            Text("✔  Level %d cleared!" % level, style="bold green")),
-            border_style="green", box=box.ROUNDED))
+        _out().print(
+            Panel(
+                Align.center(
+                    Text("✔  Level %d cleared!" % level, style="bold green")
+                ),
+                border_style="green",
+                box=box.ROUNDED,
+            )
+        )
     else:
         print()
         print(IND0 + c("✔ Level %d cleared!" % level, "GREEN", "BOLD"))
 
 
-def summary(title, rows, passed=True):
+def summary(
+    title: str, rows: Sequence[Tuple[str, object]], passed: bool = True
+) -> None:
     """rows: [(label, value), …]"""
     style = "green" if passed else "yellow"
     if _rich:
@@ -1077,13 +1436,28 @@ def summary(title, rows, passed=True):
         t.add_column(style="bold white")
         for label, value in rows:
             t.add_row(label, str(value))
-        _console.print(Panel(
-            Group(Align.center(Text(title, style="bold white")),
-                  Rule(style=style), t),
-            border_style=style, box=box.DOUBLE, padding=(1, 3)))
+        _out().print(
+            Panel(
+                Group(
+                    Align.center(Text(title, style="bold white")),
+                    Rule(style=style),
+                    t,
+                ),
+                border_style=style,
+                box=box.DOUBLE,
+                padding=(1, 3),
+            )
+        )
         return
     print()
-    print(c("  " + title + "  ", "BG_GREEN" if passed else "BG_RED", "WHITE", "BOLD"))
+    print(
+        c(
+            "  " + title + "  ",
+            "BG_GREEN" if passed else "BG_RED",
+            "WHITE",
+            "BOLD",
+        )
+    )
     print()
     for label, value in rows:
         print(IND0 + c(label.rjust(12) + " : ", "CYAN") + str(value))

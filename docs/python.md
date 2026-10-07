@@ -55,7 +55,7 @@ Commands during the exam:
 | `subject` | show the assignment again |
 | `status` | show your progress |
 | `new` | draw a different exercise for this level (**only with `--relaxed`**) |
-| `stub` | create the solution file for you |
+| `stub` | create the solution file for you — in the exam just the bare signature, like the real one (`--relaxed`: with a quick self-check) |
 | `quit` | abort (you still get a summary) |
 
 **The exam is as strict as the real one by default.** Practice and training

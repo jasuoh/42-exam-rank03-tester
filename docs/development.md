@@ -13,7 +13,7 @@ full-screen app, Python 3.9+) are optional. They are declared in
 `pyproject.toml` and pinned in `uv.lock`:
 
 ```bash
-uv sync --extra tui          # what `make install` runs: .venv/ with rich, textual, ruff
+uv sync --extra tui          # what `make install` runs: .venv/ with rich, textual, ruff, flake8, mypy
 uv run examshell --doctor    # run anything inside that environment
 uv lock --upgrade            # bump the pinned versions (commit uv.lock)
 uv add --optional tui <pkg>  # a new optional dependency
@@ -52,6 +52,27 @@ things:
   what actually grades your code.
 
 `make test` runs both.
+
+**`make mutate`** checks the *banks' tests* themselves (`tools/mutate.py`):
+every reference solution is changed in one small place at a time — `<`
+becomes `<=`, a constant moves by one, `and` becomes `or` — and graded
+against its own exercise's tests like a submission. A change the tests
+don't catch is a plausible student bug that would pass; when the bank's
+own fuzzer then finds an input where it gives a different answer, it's
+reported as a **GAP** with that input — add it (or a simpler one) to the
+exercise's `cases`. Run it after adding or changing an exercise
+(`make mutate ONLY=py_my_exercise`; `MUT=py` / `MUT=c` for one tester;
+`python3 tools/mutate.py --show-unproven` also lists survivors without
+such an input). It exits 1 on a gap.
+
+**`make lint`** checks the code itself: every file parses, `ruff check`,
+`flake8` (default settings, 79 columns — `make format` runs `ruff format`
+at that width) and `mypy --strict` over the package, `tests/` and
+`tools/` (config in `pyproject.toml`). CI runs it as its own job with
+`LINT_STRICT=1`, which fails when a tool is missing instead of skipping
+it. The code stays Python 3.8 compatible: every module starts with
+`from __future__ import annotations`, and type aliases evaluated at
+runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 
 ## 🗂️ Layout
 

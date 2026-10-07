@@ -8,20 +8,36 @@ objects — no Textual in here, so all of it is unit-testable with rich
 alone. The app (app.py) only decides where each one goes on screen.
 """
 
+from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Sequence,
+    Tuple,
+)
+
 from rich import box
-from rich.console import Group
+from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
-from rich.syntax import Syntax  # noqa: F401  (re-exported for app.py)
 from rich.table import Table
 from rich.text import Text
 
 from .. import case_labels, ui
+from .._types import Event
+
+if TYPE_CHECKING:
+    from ..grader import Report
+    from ..shell_common import ExamResult, Session
 
 OK, KO, TODO = "green", "red", "grey50"
 SPARKS = "▁▂▃▄▅▆▇█"
 
 
-def bar(done, total, width=20, style=OK):
+def bar(done: float, total: float, width: int = 20, style: str = OK) -> Text:
     """A thin progress bar as Text — coloured part done, dim part to go."""
     filled = int(round(width * done / float(total))) if total else 0
     text = Text("━" * filled, style=style)
@@ -29,38 +45,56 @@ def bar(done, total, width=20, style=OK):
     return text
 
 
-def percent(done, total):
+def percent(done: float, total: float) -> int:
     return int(round(100.0 * done / total)) if total else 0
 
 
 # ── grading ──────────────────────────────────────────────────────────
-def report_view(report, function, show_fails=6, blind=False):
+def report_view(
+    report: Report, function: str, show_fails: int = 6, blind: bool = False
+) -> Group:
     """A graded Report: verdict bar first (what you look at), then fatal
     error / failing cases / warnings."""
-    blocks = []
+    blocks: List[RenderableType] = []
     ok = report.ok
     verdict = Text()
-    verdict.append(" ✔ PASSED " if ok else " ✖ FAILED ",
-                   style="bold black on green" if ok else "bold white on red")
+    verdict.append(
+        " ✔ PASSED " if ok else " ✖ FAILED ",
+        style="bold black on green" if ok else "bold white on red",
+    )
     verdict.append("  ")
     if report.fatal:
         verdict.append(report.fatal_title, style="bold red")
     else:
-        verdict.append_text(bar(report.passed, report.total, 24, OK if ok else KO))
-        verdict.append("  %d/%d tests  %d%%" % (report.passed, report.total,
-                                                percent(report.passed, report.total)),
-                       style="bold")
+        verdict.append_text(
+            bar(report.passed, report.total, 24, OK if ok else KO)
+        )
+        verdict.append(
+            "  %d/%d tests  %d%%"
+            % (
+                report.passed,
+                report.total,
+                percent(report.passed, report.total),
+            ),
+            style="bold",
+        )
     blocks.append(verdict)
 
     if report.fatal and report.detail:
-        blocks.append(Panel(Text(report.detail), border_style="red", box=box.ROUNDED))
+        blocks.append(
+            Panel(Text(report.detail), border_style="red", box=box.ROUNDED)
+        )
 
     failures = report.failures
     if failures and blind:
-        blocks.append(Text("\nblind grading — %d failing test%s, inputs hidden "
-                           "(like the real exam)" % (len(failures),
-                                                     "" if len(failures) == 1 else "s"),
-                           style="italic yellow"))
+        blocks.append(
+            Text(
+                "\nblind grading — %d failing test%s, inputs hidden "
+                "(like the real exam)"
+                % (len(failures), "" if len(failures) == 1 else "s"),
+                style="italic yellow",
+            )
+        )
     elif failures:
         blocks.append(Text(""))
         for f in failures[:show_fails]:
@@ -79,8 +113,13 @@ def report_view(report, function, show_fails=6, blind=False):
             blocks.append(grid)
         rest = len(failures) - show_fails
         if rest > 0:
-            blocks.append(Text("… and %d more failing test%s" % (rest, "s" if rest > 1 else ""),
-                               style="dim"))
+            blocks.append(
+                Text(
+                    "… and %d more failing test%s"
+                    % (rest, "s" if rest > 1 else ""),
+                    style="dim",
+                )
+            )
     for warning in report.warnings:
         blocks.append(Text("\n⚠ " + warning, style="yellow"))
     if report.duration:
@@ -88,16 +127,18 @@ def report_view(report, function, show_fails=6, blind=False):
     return Group(*blocks)
 
 
-def hint_view(hint):
-    return Panel(Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED)
+def hint_view(hint: str) -> Panel:
+    return Panel(
+        Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED
+    )
 
 
-def waiting_view(message):
+def waiting_view(message: str) -> Text:
     return Text(message, style="dim italic")
 
 
 # ── exam ─────────────────────────────────────────────────────────────
-def stepper(session, n_levels):
+def stepper(session: Session, n_levels: int) -> Text:
     """● cleared · ◉ current · ○ ahead."""
     text = Text()
     for level in range(1, n_levels + 1):
@@ -110,40 +151,59 @@ def stepper(session, n_levels):
     return text
 
 
-def exam_status(session, n_levels, countdown="", attempts=0):
+def exam_status(
+    session: Session, n_levels: int, countdown: str = "", attempts: int = 0
+) -> Text:
     text = Text()
     text.append(" %s " % session.login, style="bold reverse")
-    text.append("  Level %d/%d  " % (min(session.level, n_levels), n_levels), style="bold")
+    text.append(
+        "  Level %d/%d  " % (min(session.level, n_levels), n_levels),
+        style="bold",
+    )
     text.append_text(stepper(session, n_levels))
     text.append("  attempts on this level: %d" % attempts, style="dim")
     if countdown:
-        text.append("   ⏱%s" % countdown.replace(" · ", " "), style="bold magenta")
+        text.append(
+            "   ⏱%s" % countdown.replace(" · ", " "), style="bold magenta"
+        )
     return text
 
 
-def exam_result_view(result):
+def exam_result_view(result: ExamResult) -> Group:
     table = Table.grid(padding=(0, 2))
     table.add_column(style="cyan", justify="right")
     table.add_column()
     for key, value in result.rows:
         table.add_row(str(key), str(value))
-    blocks = [Text(result.title, style="bold green" if result.passed else "bold red"),
-              Text(""), table]
+    blocks: List[RenderableType] = [
+        Text(
+            result.title, style="bold green" if result.passed else "bold red"
+        ),
+        Text(""),
+        table,
+    ]
     if result.report_path:
-        blocks += [Text(""), Text("report saved to %s" % result.report_path, style="dim")]
+        blocks += [
+            Text(""),
+            Text("report saved to %s" % result.report_path, style="dim"),
+        ]
     return Group(*blocks)
 
 
 # ── readiness · stats ────────────────────────────────────────────────
-def readiness_view(levels):
+def readiness_view(
+    levels: Sequence[Tuple[int, int, int, List[Tuple[str, Dict[str, Any]]]]],
+) -> Group:
     """levels as returned by stats.readiness(): one row of chips per level
     — green passed, red tried-but-never-passed, grey never tried."""
-    blocks = []
+    blocks: List[RenderableType] = []
     done = sum(p for _, p, _, _ in levels)
     total = sum(t for _, _, t, _ in levels)
     head = Text("Overall  ", style="bold")
     head.append_text(bar(done, total, 30))
-    head.append("  %d/%d  %d%%" % (done, total, percent(done, total)), style="bold")
+    head.append(
+        "  %d/%d  %d%%" % (done, total, percent(done, total)), style="bold"
+    )
     blocks += [head, Text("")]
     for level, passed, count, entries in levels:
         line = Text("Level %d  " % level, style="bold yellow")
@@ -154,19 +214,25 @@ def readiness_view(levels):
             line.append(" ")
         blocks += [line, Text("")]
     legend = Text()
-    for status, label in (("passed", "passed"), ("failed", "tried, never passed"),
-                          ("untried", "never tried")):
+    for status, label in (
+        ("passed", "passed"),
+        ("failed", "tried, never passed"),
+        ("untried", "never tried"),
+    ):
         legend.append_text(chip(label, status))
         legend.append("  ")
     blocks.append(legend)
     return Group(*blocks)
 
 
-CHIP_COLOURS = {"passed": ("green", "bold black"), "failed": ("red", "bold white"),
-                "untried": ("grey23", "white")}
+CHIP_COLOURS = {
+    "passed": ("green", "bold black"),
+    "failed": ("red", "bold white"),
+    "untried": ("grey23", "white"),
+}
 
 
-def chip(label, status):
+def chip(label: str, status: str) -> Text:
     """A pill-shaped label — half-blocks instead of padding spaces, so a
     line of chips only ever wraps BETWEEN chips, never inside one."""
     colour, fg = CHIP_COLOURS[status]
@@ -176,7 +242,7 @@ def chip(label, status):
     return text
 
 
-def sparkline(values):
+def sparkline(values: Sequence[float]) -> Text:
     """One block character per value, scaled to the largest."""
     top = max(values) if values else 0
     if not top:
@@ -188,21 +254,38 @@ def sparkline(values):
     return text
 
 
-def stats_overview(summary, activity, streak, history, fmt_duration):
+def stats_overview(
+    summary: Dict[str, Any],
+    activity: Sequence[Tuple[int, int]],
+    streak: int,
+    history: Sequence[Event],
+    fmt_duration: Callable[[float], str],
+) -> Group:
     """Headline numbers, a 4-week activity chart and the recent exams."""
     head = Table.grid(padding=(0, 3))
     for _ in range(4):
         head.add_column(justify="center")
-    def tile(value, label):
+
+    def tile(value: object, label: str) -> Text:
         t = Text(str(value), style="bold cyan", justify="center")
         t.append("\n" + label, style="dim")
         return t
-    head.add_row(tile(summary["total_attempts"], "graded attempts"),
-                 tile("%d%%" % round(summary["pass_rate"] * 100), "pass rate"),
-                 tile("%d day%s" % (streak, "" if streak == 1 else "s"), "practice streak"),
-                 tile(fmt_duration(summary["best_seconds"]) if summary["best_seconds"]
-                      is not None else "—", "best exam time"))
-    blocks = [head, Text("")]
+
+    head.add_row(
+        tile(summary["total_attempts"], "graded attempts"),
+        tile("%d%%" % round(summary["pass_rate"] * 100), "pass rate"),
+        tile(
+            "%d day%s" % (streak, "" if streak == 1 else "s"),
+            "practice streak",
+        ),
+        tile(
+            fmt_duration(summary["best_seconds"])
+            if summary["best_seconds"] is not None
+            else "—",
+            "best exam time",
+        ),
+    )
+    blocks: List[RenderableType] = [head, Text("")]
 
     chart = Text("last 4 weeks  ", style="bold")
     chart.append_text(sparkline([a for a, _ in activity]))
@@ -210,37 +293,53 @@ def stats_overview(summary, activity, streak, history, fmt_duration):
     blocks.append(chart)
 
     if history:
-        exams = Table(title="recent exams", box=box.SIMPLE, title_style="bold",
-                      header_style="dim", title_justify="left")
+        exams = Table(
+            title="recent exams",
+            box=box.SIMPLE,
+            title_style="bold",
+            header_style="dim",
+            title_justify="left",
+        )
         exams.add_column("time")
         exams.add_column("attempts", justify="right")
         exams.add_column("score", justify="right")
         for e in history:
-            exams.add_row(fmt_duration(e.get("seconds", 0)), str(e.get("attempts", "")),
-                          "%s/100" % e.get("score", ""))
+            exams.add_row(
+                fmt_duration(e.get("seconds", 0)),
+                str(e.get("attempts", "")),
+                "%s/100" % e.get("score", ""),
+            )
         blocks += [Text(""), exams]
     return Group(*blocks)
 
 
-def per_exercise_view(summary):
+def per_exercise_view(summary: Dict[str, Any]) -> RenderableType:
     """Every exercise you've graded, by pass rate (worst first)."""
     if not summary["per_exercise"]:
-        return Text("no grading history yet — practice something first", style="dim italic")
+        return Text(
+            "no grading history yet — practice something first",
+            style="dim italic",
+        )
     per = Table(box=box.SIMPLE, header_style="dim", expand=True)
     per.add_column("exercise")
     per.add_column("pass rate", ratio=1)
     per.add_column("", justify="right")
-    rows = sorted(summary["per_exercise"].items(),
-                  key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]))
+    rows = sorted(
+        summary["per_exercise"].items(),
+        key=lambda kv: kv[1]["passes"] / float(kv[1]["attempts"]),
+    )
     for name, row in rows:
         rate = row["passes"] / float(row["attempts"])
         style = OK if rate >= 0.8 else "yellow" if rate >= 0.4 else KO
-        per.add_row(name, bar(row["passes"], row["attempts"], 16, style),
-                    "%d/%d" % (row["passes"], row["attempts"]))
+        per.add_row(
+            name,
+            bar(row["passes"], row["attempts"], 16, style),
+            "%d/%d" % (row["passes"], row["attempts"]),
+        )
     return per
 
 
-def attempt_log(entries):
+def attempt_log(entries: Sequence[Tuple[str, str, Report]]) -> Text:
     """This session's gradings, newest first: (clock, exercise, Report)."""
     if not entries:
         return Text("nothing graded yet", style="dim italic")
@@ -258,11 +357,14 @@ def attempt_log(entries):
     return text
 
 
-def to_text(renderable, width, console):
+def to_text(renderable: RenderableType, width: int, console: Console) -> Text:
     """Flatten any rich renderable into styled Text laid out at `width` —
-    same look, but plain text underneath, so it can be selected and copied."""
+    same look, but plain text underneath, so it can be selected and
+    copied."""
     text = Text(no_wrap=True)
-    lines = console.render_lines(renderable, console.options.update_width(width), pad=False)
+    lines = console.render_lines(
+        renderable, console.options.update_width(width), pad=False
+    )
     for i, line in enumerate(lines):
         if i:
             text.append("\n")
@@ -272,11 +374,18 @@ def to_text(renderable, width, console):
     return text
 
 
-def logo(subtitle):
+def logo(subtitle: str) -> Text:
     """The menu's title block."""
     text = Text(justify="center")
     word = "E X A M S H E L L"
-    colours = ["#5fd7ff", "#5fafff", "#8787ff", "#af87ff", "#d787ff", "#ff87d7"]
+    colours = [
+        "#5fd7ff",
+        "#5fafff",
+        "#8787ff",
+        "#af87ff",
+        "#d787ff",
+        "#ff87d7",
+    ]
     for i, ch in enumerate(word):
         text.append(ch, style="bold %s" % colours[(i // 3) % len(colours)])
     text.append("\n" + subtitle, style="dim")

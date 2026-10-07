@@ -47,10 +47,6 @@ jobs:
         if: matrix.rich
         run: make install
 
-      - name: Install ruff (deeper lint, no-uv leg)
-        if: ${{ !matrix.rich }}
-        run: python3 -m pip install --quiet ruff
-
       # valgrind isn't installable on macOS at all (Apple Silicon included)
       # — this is squarely a Linux/"real 42 school machine" feature (see
       # c_exam/grader.py's --valgrind). tests/test_c_grader.py's valgrind
@@ -80,8 +76,27 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: python3 -m c_exam --check --valgrind
 
-      - name: Lint
-        run: make lint
+
+  # One lint job instead of a lint step per test leg: ruff, flake8 and
+  # mypy --strict (see `make lint`). Installed through uv like the "rich"
+  # leg, so mypy sees rich and Textual's own types; LINT_STRICT=1 makes a
+  # missing tool a failure instead of a skipped step.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: make install (uv)
+        run: make install
+
+      - name: Lint (ruff · flake8 · mypy --strict)
+        run: make lint LINT_STRICT=1
 
   # README promises "any exam machine with nothing but Python 3.8+" — this
   # job is what actually keeps that claim true instead of just asserted.

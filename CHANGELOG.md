@@ -18,6 +18,11 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   per-exercise columns. Below 120 columns the side panels hide and the
   layout is as before.
 
+### Fixed
+- Full-screen exam: pressing `n` while a grade was still running drew a new
+  exercise and then showed (and could pass the level with) the old one's
+  result. `n` now waits for the grade.
+
 ## 0.6.0 — 2026-10-01
 
 ### Added

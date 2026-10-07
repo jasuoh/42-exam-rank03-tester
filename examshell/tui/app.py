@@ -220,7 +220,10 @@ class PickerScreen(Screen):
     def on_screen_resume(self):
         sh = self.app.sh
         self.status = stats.exercise_status(sh.TOOL, [e[2] for e in self.entries])
+        table = self.query_one(DataTable)
+        row = table.cursor_row
         self.fill(self.query_one("#filter", Input).value)
+        table.move_cursor(row=row)
 
     def fill(self, query):
         table = self.query_one(DataTable)
@@ -233,6 +236,10 @@ class PickerScreen(Screen):
                 pool_mark = "[yellow]★[/yellow]" if entry[4] else "[dim]○[/dim]"
             table.add_row(mark[self.status[name]["status"]], str(entry[1]), pool_mark,
                           name, entry[3], key=name)
+        if not table.row_count:
+            self.query_one("#preview-pane").border_title = None
+            self.query_one("#preview-pane").border_subtitle = None
+            self.query_one("#preview", Static).update(render.waiting_view("no exercise matches"))
 
     def on_input_changed(self, event):
         self.fill(event.value)
@@ -290,19 +297,25 @@ class SplitScreen(Screen):
             "Write your solution in %s, then press g to grade."
             % shell_common.solution_path(sh, ex_name, self.app.cfg)))
 
-    def on_mount(self):
-        self.log_entries = []
-        self.query_one("#log-pane").border_title = "this session"
+    log_entries = None
 
-    def log_report(self, report):
-        self.log_entries.append((time.strftime("%H:%M:%S"), self.ex_name, report))
+    def on_mount(self):
+        if self.log_entries is None:
+            self.log_entries = []
+        self.query_one("#log-pane").border_title = "this session"
         self.query_one("#log", Static).update(render.attempt_log(self.log_entries))
 
-    def fails_that_fit(self):
-        """At least --show-fails, more when the results pane has room
-        (one failing test takes ~4 lines)."""
+    def log_report(self, report):
+        self.log_entries.append((time.strftime("%H:%M:%S"), report.exercise, report))
+        self.query_one("#log", Static).update(render.attempt_log(self.log_entries))
+
+    def fails_that_fit(self, report, hint=None):
+        """At least --show-fails, more when the results pane has room (one
+        failing test takes ~4 lines) — but never pushing the warnings or
+        the hint below the fold."""
+        reserve = 6 + 2 * len(report.warnings) + (len(hint) // 40 + 4 if hint else 0)
         return max(self.app.cfg.show_fails or 6,
-                   (self.query_one("#results-pane").size.height - 6) // 4)
+                   (self.query_one("#results-pane").size.height - reserve) // 4)
 
     def set_results(self, renderable, title="results"):
         self.query_one("#results", Static).update(renderable)
@@ -376,7 +389,8 @@ class PracticeScreen(SplitScreen):
         self.grading = False
         report = outcome.report
         self.log_report(report)
-        view = render.report_view(report, report.function, self.fails_that_fit())
+        view = render.report_view(report, report.function,
+                                  self.fails_that_fit(report, outcome.hint))
         if outcome.hint:
             view = render.Group(view, render.Text(""), render.hint_view(outcome.hint))
         self.set_results(view, "✔ passed" if report.ok else "✖ failed")
@@ -415,8 +429,9 @@ class PracticeScreen(SplitScreen):
     def action_next(self):
         if self.queue and self.position + 1 < len(self.queue):
             nxt = self.position + 1
-            self.app.switch_screen(PracticeScreen(self.queue[nxt], mode="drill",
-                                                  queue=self.queue, position=nxt))
+            screen = PracticeScreen(self.queue[nxt], mode="drill", queue=self.queue, position=nxt)
+            screen.log_entries = self.log_entries
+            self.app.switch_screen(screen)
 
 
 class ExamScreen(SplitScreen):
@@ -527,7 +542,7 @@ class ExamScreen(SplitScreen):
         self.log_report(report)
         blind = getattr(self.run.cfg, "blind", False)
         self.set_results(render.report_view(report, report.function,
-                                            self.fails_that_fit(), blind=blind),
+                                            self.fails_that_fit(report), blind=blind),
                          "✔ passed" if report.ok else "✖ failed")
         if not report.ok:
             return
@@ -541,7 +556,7 @@ class ExamScreen(SplitScreen):
         self.load_level()
 
     def action_redraw(self):
-        if self.over:
+        if self.over or self.grading:
             return
         if not self.run.redraw():
             self.notify("The real exam has no 'new' — start with --relaxed to allow redraws.",
@@ -673,6 +688,9 @@ class ExamShellApp(App):
     .-narrow #menu-right, .-narrow #preview-pane { display: none; }
     .-narrow #menu-left { width: 1fr; }
     .-narrow #picker-left { max-width: 100%; }
+    .-narrow #stats-body { layout: vertical; }
+    .-narrow #stats-pane { width: 1fr; height: auto; margin: 1 2 0 2; }
+    .-narrow #per-exercise-pane { width: 1fr; margin: 0 2 1 2; }
     .modal { width: 64; height: auto; padding: 1 2; border: thick $accent; background: $panel; }
     ModalScreen { align: center middle; }
     .modal-question { margin-bottom: 1; }

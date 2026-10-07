@@ -143,6 +143,51 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(session_store.load("py"))
         self.assertEqual(len(stats.exam_history("py")), 1)
 
+    async def test_redraw_is_ignored_while_grading(self):
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu, relaxed=True), start="exam")
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.press(*"bob", "enter")
+            exam = app.screen
+            first = exam.run.current_ex
+            exam.grading = True                     # a grade still running in its worker
+            await pilot.press("n")
+            self.assertEqual(exam.run.current_ex, first)
+
+    async def test_picker_preview_follows_the_cursor_and_clears_on_no_match(self):
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(140, 36)) as pilot:
+            await pilot.press("down", "enter")                  # Practice
+            picker = app.screen
+            await pilot.press("down", "down")
+            await pilot.pause()
+            name = picker.query_one("#table").coordinate_to_cell_key((2, 0)).row_key.value
+            self.assertEqual(picker.query_one("#preview-pane").border_title, "📄 " + name)
+            await pilot.press("enter")                          # open it, come back
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertEqual(picker.query_one("#table").cursor_row, 2)
+            await pilot.press("slash", *"zzqqxx")
+            await pilot.pause()
+            self.assertIsNone(picker.query_one("#preview-pane").border_title)
+
+    async def test_drill_keeps_its_session_log_across_exercises(self):
+        report = Report("x", "f")
+        report.total = report.passed = 1
+        outcome = shell_common.GradeOutcome(report, "unused")
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(tui_app.shell_common, "grade", return_value=outcome):
+            async with app.run_test(size=(140, 36)) as pilot:
+                app.push_screen(tui_app.PracticeScreen("py_inter", mode="drill",
+                                                       queue=["py_inter", "py_inter"]))
+                await pilot.pause()
+                await pilot.press("g")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                await pilot.press("n")
+                await pilot.pause()
+                self.assertEqual(app.screen.position, 1)
+                self.assertEqual(len(app.screen.log_entries), 1)
+
     async def test_readiness_and_stats_screens_open(self):
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         async with app.run_test(size=(120, 36)) as pilot:

@@ -243,7 +243,7 @@ def attempt_log(entries):
     """This session's gradings, newest first: (clock, exercise, Report)."""
     if not entries:
         return Text("nothing graded yet", style="dim italic")
-    text = Text()
+    text = Text(no_wrap=True, overflow="ellipsis")
     for clock, name, report in reversed(entries):
         text.append(clock + "  ", style="dim")
         text.append("✔ " if report.ok else "✖ ", style=OK if report.ok else KO)

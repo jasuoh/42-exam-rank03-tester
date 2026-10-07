@@ -160,6 +160,23 @@ class ExamRunTests(_TempDataDir):
         # the draw RNG continues where it left off
         self.assertEqual(resumed.rng.random(), run.rng.random())
 
+    def test_the_clock_keeps_running_while_saved(self) -> None:
+        sh = py_shell
+        run = shell_common.ExamRun(sh, _cfg(sh, time_limit=1))
+        with mock.patch.object(time, "time", return_value=1000.0):
+            run.start()
+            run.ensure_exercise()
+        with mock.patch.object(time, "time", return_value=1020.0):
+            run.save()  # 20s in
+        saved = session_store.load(sh.TOOL)
+        assert saved is not None
+        resumed = shell_common.ExamRun(sh, _cfg(sh, time_limit=1))
+        with mock.patch.object(time, "time", return_value=1050.0):
+            resumed.resume(saved)  # 30s later: the pause counts too
+            self.assertIn("00:00:10 left", resumed.countdown())
+        with mock.patch.object(time, "time", return_value=1060.0):
+            self.assertTrue(resumed.times_up())
+
     def test_time_limit(self) -> None:
         sh = py_shell
         run = shell_common.ExamRun(sh, _cfg(sh, time_limit=1))

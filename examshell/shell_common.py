@@ -322,23 +322,31 @@ class ExamRun(object):
         self.session.start()
 
     def resume(self, saved: Event) -> None:
-        """Continue a run saved by save() (see session_store)."""
+        """Continue a run saved by save() (see session_store).
+
+        The clocks kept running while the exam was saved, like in the real
+        exam: both are anchored at the moment of the save (`saved_at`), so
+        the pause counts too and --time-limit can't be stretched by
+        quitting. A save from before `saved_at` existed resumes its clocks
+        where they stopped, as it always did."""
+        now = time.time()
+        # never in the future: a save synced from a device whose clock is
+        # ahead must not hand out extra time
+        anchor = min(saved.get("saved_at") or now, now)
         s = self.session
         s.login = saved["login"]
         s.level = saved["level"]
         s.passed = saved["passed"]
         s.attempts = saved["attempts"]
         s.history = [cast(HistoryRow, tuple(row)) for row in saved["history"]]
-        s.start_time = time.time() - saved["elapsed_seconds"]
+        s.start_time = anchor - saved["elapsed_seconds"]
         s.current_ex = saved["current_ex"]
         self.rng = session_store.rng_from_saved(saved)
         self.level_attempts = saved.get("level_attempts", 0)
         # Restore how much of this level's clock had already run before the
         # earlier quit — otherwise a resume would restart it from zero and
         # drop that time from session.history / the report.
-        self.level_started = time.time() - saved.get(
-            "level_elapsed_seconds", 0
-        )
+        self.level_started = anchor - saved.get("level_elapsed_seconds", 0)
         self.resumed = True
 
     @property
@@ -655,6 +663,8 @@ def exam_mode(sh: Tester, cfg: TesterConfig) -> None:
             return
         if resume:
             run.resume(saved)
+            if _times_up(sh, run):  # the limit ran out during the pause
+                return
             ui.note("Resumed at level %d." % session.level)
         else:
             run.discard_save()

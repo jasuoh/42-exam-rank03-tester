@@ -623,6 +623,7 @@ class ExamScreen(SplitScreen):
             self.run.resume(saved)
             self.notify("Resumed at level %d." % self.run.level)
             self.begin()
+            self.tick()  # the limit may have run out during the pause
         else:
             self.run.discard_save()
             self.ask_login()

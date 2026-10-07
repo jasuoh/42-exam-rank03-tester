@@ -10,6 +10,10 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 ## Unreleased
 
 ### Changed
+- **The exam clock keeps running while an exam is saved** — `quit` and a
+  later resume no longer pause it, so `--time-limit` can't be stretched by
+  quitting; a resume after the limit ran out ends with "TIME'S UP". Total
+  and per-level times include the pause.
 - **`make lint` = ruff + flake8 + `mypy --strict`**, and CI runs it as its
   own job. The whole code base (package, tests, tools) is type-annotated
   and flake8-clean; `make install` brings flake8 and mypy.

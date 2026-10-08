@@ -1,6 +1,11 @@
 # PLAN — ExamShell
 
-Branch: `tui-clean-split` (lokal, noch kein PR) · Stand: 2026-10-08 · auf `main`: **0.6.0**
+Branch: `tui-clean-split` → PR nach `beta` · Stand: 2026-10-08 · auf `main`: **0.6.0** (stabil)
+
+**Branches:** `main` bleibt stabil und ist das, was Nutzer bekommen.
+`beta` ist der Integrations-Branch für 1.0.0 — Arbeits-Branches gehen per PR
+nach `beta`; wenn dort alles getestet ist, `beta` → `main` = **Release
+1.0.0** (der Release-Workflow taggt automatisch, nur von `main`).
 
 ---
 
@@ -18,7 +23,7 @@ Details: CHANGELOG.md.
 
 ---
 
-## ▶ 0.7.0 — Aufräumen: weniger, kompakter, das Wichtige läuft
+## ▶ 1.0.0 — Aufräumen: weniger, kompakter, das Wichtige läuft
 
 **Ziel:** Wer zum ersten Mal kommt, ist nicht überfordert. Ein Weg zum Üben
 (das TUI), eine Handvoll Befehle, ein ruhiges Aussehen — und die Kern-Features
@@ -29,13 +34,21 @@ mehr beworben.
 Stub anlegen · Rank 03/04/05 + C 02 wechseln (merkt sich die letzte Wahl) ·
 Fortschritt sehen.
 
+**Leitlinie:** Der **Exam-Modus simuliert das echte Exam** — da muss alles
+stimmen (Regeln, Ablauf, was grademe zeigt). Alles Komfortable (Extra-/
+LeetCode-Aufgaben, Lücken üben, Details zu jedem Fail) gehört in **Practice**.
+Das **Makefile** ist nur noch zum Installieren/Starten; alles andere wird im
+TUI gemacht und eingestellt.
+
 ### Entscheidungen (mit dir, 2026-10-08)
 
 | Thema | Entscheidung |
 |---|---|
 | Oberfläche | **TUI ist die Hauptsache.** Das Textmenü bleibt nur als schlanker Fallback (ohne Textual / Python 3.8), wird nicht weiter ausgebaut |
 | Layout Übung/Exam | Aufgabe oben, Ergebnis unten, keine Code-Ansicht, kein Session-Log ✔ (Commit auf diesem Branch) |
-| TUI-Menü | **5 Einträge:** Exam · Practice · Progress · Switch exam · Quit. Sync (`s`) und Feedback (`f`) als Tasten in der Fußzeile |
+| TUI-Menü | **5 Einträge:** Exam · Practice · Progress · Switch exam · Quit. Sync (`s`), Feedback (`f`) und **Settings (`o`)** als Tasten in der Fußzeile |
+| Settings im TUI | Eigener Screen (`o`): Watch-Modus, Sync einrichten, Auto-Sync, Timeout, Zeitlimit u.ä. — ersetzt `--save-config` und die meisten Make-Variablen |
+| Exam-grademe | **Ergebnis + erster Fail** (input / expected / got, wie eine Trace) — keine Hinweise, keine weiteren Fails. Extra-Aufgaben nie im Exam |
 | Practice | Ein Picker mit Tabs/Filter: **Exam-Aufgaben** · **Meine Lücken** (heutiger Drill) · **Extra** (heutiger Training-Pool) |
 | Progress | Stats + Readiness auf **einem** Screen |
 | Training-Pool | Kein eigener Menüpunkt mehr → Tab „Extra“ in Practice |
@@ -43,12 +56,13 @@ Fortschritt sehen.
 | grademe-Panel | **Kompakt + aufklappbar:** Panel nur so hoch wie nötig, eine Ergebniszeile, die ersten 3 Fails je 1 Zeile (`input  got ≠ expected`), `d` zeigt alle Details |
 | Raus | **Badges/Achievements** und **Markdown-Reports** (`~/.examshell/reports/`) |
 | Bleibt versteckt | Blind-Modus, Auto-Sync, `--relaxed`, `--time-limit`, `--strict*`, `--fuzz`, `--diff`, `--show-fails`, `--no-rich`/`--no-color`, `--seed` — funktionieren weiter, stehen aber nur in `docs/` |
-| `make` | `make` ohne Argument **startet das TUI** (letzte Wahl, auch C). `make help` zeigt ~8 Befehle: `tui/run`, `exam`, `practice EX=`, `grade EX=`, `doctor`, `update`, `install`, `sync`. Entwickler-Targets unter `make dev` |
-| C-Befehle | `c-*` Targets entfallen — C über „Switch exam“ oder `make exam T=c` |
+| `make` | **Nur noch:** `make` (startet das TUI, letzte Wahl, auch C) · `make install` · `make update` · `make doctor` · `make dev` (Tests/Lint für Mitwirkende). Alles andere (`exam`, `practice`, `grade`, `stats`, `sync`, `c-*`, `RANK=` …) entfällt aus dem Makefile — die CLI-Flags bleiben für Skripte |
+| Release | **1.0.0**, nur von `main`; CI läuft auch auf `beta` |
 | README | Neu, kurz: was es ist · Installation · 3 Befehle · ein Screenshot. Alles andere in `docs/` |
 
 ### Schritte
 
+0. **Branches** — `beta` angelegt ✔; CI auch bei Push auf `beta`.
 1. **TUI-Menü & Screens bündeln** — 5 Einträge; Practice-Picker mit Tabs
    (Exam / Lücken / Extra); Progress = Stats + Readiness; Sync/Feedback als
    Tasten.
@@ -58,9 +72,10 @@ Fortschritt sehen.
    Statuszeile; Rich-Ausgabe im Textmenü ebenfalls auf Terminal-Farben.
 4. **Entfernen** — Badges (`achievements.py`), Markdown-Reports
    (`report_export.py`), Theme-Varianten; Tests/Doku nachziehen.
-5. **Makefile** — `make` = TUI, `make help` kurz, `make dev`, `T=c`, `c-*` weg.
-6. **Hilfe & Flags** — `--help` zeigt nur die Kern-Flags (Rest unter
-   „advanced“).
+5. **Exam = echtes Exam** — grademe im Exam: Ergebnis + erster Fail;
+   Exam-Regeln gegen das echte Exam prüfen (Ablauf, Level, Zeit, Stub).
+6. **Settings-Screen** (`o`) im TUI; **Makefile** auf `make`/`install`/
+   `update`/`doctor`/`dev` reduzieren; `--help` zeigt nur die Kern-Flags.
 7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG.
 8. **AGENTS.md** — Projekt, Befehle, Konventionen, Workflow (Branch → PR,
    nie selbst mergen, Tests nie ins echte `~/.examshell`).
@@ -69,7 +84,8 @@ Fortschritt sehen.
    `make`/doctor · README/Doku-Review. Bugs sammeln → fixen → zweite
    Durchsicht.
 
-Erst nach Schritt 9 und deinem OK: PR.
+Erst nach Schritt 9 und deinem OK: PR nach `beta`. Version **1.0.0** +
+CHANGELOG, dann `beta` → `main` = Release.
 
 ---
 

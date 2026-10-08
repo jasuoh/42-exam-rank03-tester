@@ -114,7 +114,7 @@ selbst zusammen und pusht dann.
 
 **Anderes Repo verwenden:** unter *Sync repo* einfach die neue Adresse
 eintragen.
-**Sync auf einem Gerät abschalten:** den Ordner `~/.examshell/sync-repo/`
+**Sync auf einem Gerät abschalten:** den Ordner `~/.examshell/sync-repo/` (bzw. `$EXAMSHELL_HOME/sync-repo/`)
 löschen. Deine Daten und Lösungen bleiben dabei unangetastet.
 
 ## Ohne Git: `EXAMSHELL_HOME`

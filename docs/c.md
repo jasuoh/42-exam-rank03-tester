@@ -9,8 +9,9 @@ Everything about the C tester. Day to day you use it through the app
 
 
 A second, independent practice tester in the same repo, for the **42
-Common Core C Exam Rank 02** — same shape (levels, `grademe`, a stub with a
-quick self-check), completely different grading mechanism underneath: your
+Common Core C Exam Rank 02** — same shape (levels, `grademe`, outside the
+exam a stub with a quick self-check), completely different grading
+mechanism underneath: your
 file is **compiled**, not imported.
 
 Solutions live in `c_rendu/` (separate from the Python tool's `rendu/`).
@@ -72,10 +73,10 @@ C23 default reads an empty-parens function pointer declaration `int
 (*cmp)()` as "takes no parameters" where every older C standard (and
 Clang's current default) reads it as "unspecified parameters", so a
 prototype that compiles under one can fail to compile under the other.
-The bank self-test (`make c-check`) scans every prototype for that specific pattern regardless
+The bank self-test (`make c-test`) scans every prototype for that specific pattern regardless
 of which `cc` you run it with.
 
-Every generated **"function"**-kind stub also ships a `#ifdef
+Outside the exam, every generated **"function"**-kind stub also ships a `#ifdef
 SELF_TEST`-guarded `main()` with a couple of worked examples, so you can
 try your implementation immediately:
 
@@ -169,7 +170,7 @@ the tail, on every node, on none, and the empty list; for `flood_fill`
 random grids with the start in a corner, on an edge, on a 1-cell island
 and occasionally off the grid. Every generated case is checked against the
 reference solution under valgrind in CI. Only `fizzbuzz` (no input at all)
-isn't fuzzed — the bank self-test (`make c-check`) marks fuzzed exercises
+isn't fuzzed — the bank self-test (`make c-test`) marks fuzzed exercises
 with `(+fuzz)`.
 
 ```bash
@@ -224,7 +225,7 @@ array_sum` drills that one exercise directly.
 ## ⌨️ Command line
 
 For scripts and the plain menu — the app needs none of this.
-`python3 -m c_exam --help` lists the main flags; all of them:
+`python3 -m c_exam --help` lists the main flags; the useful ones:
 
 ```
 python3 -m c_exam                       # the plain menu (--tui: the app)
@@ -235,6 +236,9 @@ python3 -m c_exam --stub ft_atoi        # write c_rendu/ft_atoi.c (never overwri
 python3 -m c_exam --grade atoi          # grade once (unique suffixes work; exit 0 = OK)
 python3 -m c_exam --grade-all           # grade every solution in c_rendu/
 python3 -m c_exam --check               # validate both banks (real compiles)
+python3 -m c_exam --list                # the pool (--list-training)
+python3 -m c_exam --sync                # sync (--sync-setup URL, --auto-sync on|off)
+python3 -m c_exam --feedback exam       # report an exercise (exam|bug|idea)
 python3 -m c_exam --stats               # your history (--readiness, --drill 5)
 python3 -m c_exam --doctor
 ```
@@ -247,7 +251,8 @@ python3 -m c_exam --doctor
 | `--relaxed` | lenient exam: warnings only, `new` allowed, full stub |
 | `--time-limit MIN` · `--blind` | exam clock · grading without the failing input |
 | `--valgrind` · `--strict-valgrind` | leak checks (warn · fail) |
-| `--strict-norm` · `--strict-forbidden` | fail on warnings / forbidden calls outside the exam too |
+| `--strict-norm` · `--strict-forbidden` · `--strict` | fail on warnings / forbidden calls outside the exam too (`--strict`: both) |
+| `--diff` | point at the first differing character |
 | `--timeout SEC` · `--fuzz N` · `--show-fails N` · `--save-config` | time per test, random tests, failures shown; remember them |
 | `--no-color` · `--no-rich` · `--no-update-check` | plain output, no update check |
 

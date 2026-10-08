@@ -18,6 +18,8 @@ the machine has none:
 uv sync --extra tui          # what `make install` runs: .venv/ with rich, textual, ruff, flake8, mypy
 uv run examshell --doctor    # run anything inside that environment
 uv lock --upgrade            # bump the pinned versions (commit uv.lock)
+uv tool install "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"
+                             # examshell / examshell-c on the PATH, no clone
 uv add --optional tui <pkg>  # a new optional dependency
 ```
 
@@ -99,18 +101,12 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 | `examshell/case_labels.py` | names the edge case of a failing input, shared by both testers |
 | `examshell/update_check.py` | the once-a-day "new version available" notice |
 | `examshell/version.py` | the version number (`--version`, releases, the update check) |
+| `examshell/sync.py` | sync through the student's private git repo |
+| `examshell/doctor.py` · `feedback.py` | `--doctor`, `--feedback` |
+| `examshell/_types.py` | the shared type protocols (`Tester`, `TesterConfig` …) |
 | `examshell/hints.py` | the "stuck 3x in a row" nudge (generic + curated), shared by both testers |
 | `tests/` | unit tests for the tool itself |
 | `rendu/` | your solutions (git-ignored) |
-
----
-
-> 💬 The exact exercise set depends on your campus and changes over time. The
-> **standard** pools above are based on the publicly documented Rank 03, 04
-> and 05 Python exercises; Rank 03's **extra** pool is this project's own
-> addition for more practice. Function names and signatures in particular
-> vary between campuses — read the real subject on the day. Don't
-> rote-learn the solutions — understand the logic.
 
 ---
 

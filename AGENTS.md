@@ -54,7 +54,7 @@ make format         # ruff format
 .venv/bin/python tools/screenshots.py   # regenerate docs/img/*.svg
 ```
 
-If `make unit` suddenly skips ~34 tests, `.venv` is missing — run
+If `make unit` skips ~40 tests instead of ~9, `.venv` is missing — run
 `make install`.
 
 ## Code conventions

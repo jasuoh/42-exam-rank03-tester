@@ -17,7 +17,7 @@ dependencies = ["rich>=13.0"]
 tui = ["textual>=2.0,<9; python_version >= \"3.9\""]
 
 # `uv tool install "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"`
-# puts both commands on your PATH (see README "Install").
+# puts both commands on your PATH (see docs/development.md).
 [project.scripts]
 examshell = "examshell.__main__:run"
 examshell-c = "c_exam.__main__:run"
@@ -57,7 +57,7 @@ extend-exclude = ["venv", ".venv"]
 # apply here).
 select = ["E", "F"]
 ignore = [
-    "E501",  # line length — the 100-col budget above is a soft target, not a hard gate
+    "E501",  # line length — 79 columns, enforced by flake8 (make lint)
     "E702",  # multiple statements via ';' — used deliberately for compact tables
     "E741",  # ambiguous variable name (l) — used for "level" in a couple of tight scopes
 ]

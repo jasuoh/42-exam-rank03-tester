@@ -110,7 +110,7 @@ sides on its own, then pushes.
 | "My file was overwritten!" | It was newer on the other device. Your version is in `~/.examshell/sync-backup/<date>/`. |
 
 **Use a different repo:** enter the new address under *Sync repo* again.
-**Turn sync off on a device:** delete the folder `~/.examshell/sync-repo/`.
+**Turn sync off on a device:** delete the folder `~/.examshell/sync-repo/` (or `$EXAMSHELL_HOME/sync-repo/`).
 Your data and solutions stay untouched.
 
 ## Without git: `EXAMSHELL_HOME`

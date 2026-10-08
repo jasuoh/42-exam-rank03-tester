@@ -32,7 +32,8 @@ git clone https://github.com/jasuoh/42-exam-tester && cd 42-exam-tester
 make
 ```
 
-That's it. The first `make` installs everything with
+You need git, make and, for the C exam, a C compiler — `make doctor` checks.
+The first `make` installs everything else with
 [uv](https://docs.astral.sh/uv/) (and uv itself into `~/.local/bin` if it
 isn't there yet — no sudo), then opens the app. From then on `make` starts
 it, on the exam you picked last.
@@ -68,16 +69,17 @@ failed, never tried. `p` practises your gaps.
 **Switch exam** — C Rank 02 or Python Rank 03 / 04 / 05. Remembered for
 next time.
 
-| Key | |
-|---|---|
-| `g` | grademe |
-| `e` | open your solution in VS Code (or `$EDITOR`) — a stub first if there's none |
-| `t` | write a stub |
-| `w` | grade every time you save (practice) |
-| `d` | all the details of the last grade (practice) |
-| `o` | settings: exam time limit, time per test, C compiler, sync |
-| `s` | sync with your other device |
-| `f` | report an exercise that differs from your real exam |
+| Key | Where | |
+|---|---|---|
+| `g` | exam · practice | grademe |
+| `e` | exam · practice | open your solution in VS Code (or `$EDITOR`) — a stub first if there's none |
+| `t` | exam · practice | write a stub |
+| `w` | practice | grade every time you save |
+| `d` | practice | all the details of the last grade |
+| `f` | menu · practice | report an exercise that differs from your real exam |
+| `o` | menu | settings: exam time limit, time per test, C compiler, sync |
+| `s` | menu | sync with your other device |
+| `esc` | exam | quit & save (elsewhere: back) |
 
 ## Continue on another device
 

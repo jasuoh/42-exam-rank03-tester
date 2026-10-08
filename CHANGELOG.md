@@ -77,7 +77,7 @@ command line but no longer gets in the way.
 ### Removed
 - **Badges / achievements** — a passed exam still says when it was a
   personal best.
-- **Markdown exam reports** (`~/.examshell/reports/`) — `make sync` still
+- **Markdown exam reports** (`~/.examshell/reports/`) — sync (`s`) still
   carries old ones.
 - **Colour themes** (`--theme light/highcontrast`) — the terminal's colours
   are used everywhere.

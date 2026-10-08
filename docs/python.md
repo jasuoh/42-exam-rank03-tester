@@ -51,14 +51,14 @@ commands, like in the real exam:
 | `status` | show your progress |
 | `new` | draw a different exercise for this level (**only with `--relaxed`**) |
 | `stub` | create the solution file for you — in the exam just the bare signature, like the real one (`--relaxed`: with a quick self-check) |
-| `quit` | abort (you still get a summary) |
+| `quit` | save and leave — the next start offers to resume |
 
 **The exam is as strict as the real one by default.** Practice and training
 only *warn* about an `import` (or, in C, a compiler warning or a forbidden
 call) so mistakes stay cheap while you learn — but the exam fails you on
 them, exactly like the real moulinette, and there is no `new` to redraw an
-exercise you don't like. Passing here therefore means something. Two flags
-change that:
+exercise you don't like. Passing here therefore means something. One flag
+changes that:
 
 ```bash
 python3 -m examshell --exam --relaxed   # lenient exam: warnings only, `new` allowed
@@ -127,8 +127,8 @@ and subject show up once you draw or practice it.
 
 The published Rank 04 and Rank 05 Python pools are much smaller than Rank
 03's, and **every exercise in them is a documented subject** — so there is
-no Standard/Extra split here: all 14 are ★, and the Rank 04 exam can
-draw any of them. The flip side of a small pool is that some levels hold a
+no Standard/Extra split here: all 14 are ★, and each rank's exam can draw
+any of its 7. The flip side of a small pool is that some levels hold a
 single exercise, so `new` (with `--relaxed`) simply re-draws it — that is
 the real pool, not a bug.
 
@@ -243,13 +243,13 @@ Beyond pass/fail, the grader tells you when:
   value,
 * your **signature is wrong** — one clear message instead of forty
   identical `TypeError`s,
-* you used an **import**, which the real exam forbids (a warning by
-  default, a failure with `--strict-imports`).
+* you used an **import**, which the real exam forbids (a warning in
+  practice, a failure in the exam — and with `--strict-imports` outside it).
 
 ## ⌨️ Command line
 
 For scripts and the plain menu — the app needs none of this.
-`python3 -m examshell --help` lists the main flags; all of them:
+`python3 -m examshell --help` lists the main flags; the useful ones:
 
 ```
 python3 -m examshell                        # the plain menu (--tui: the app)
@@ -262,6 +262,8 @@ python3 -m examshell --grade-all            # grade every exam solution in rendu
 python3 -m examshell --list                 # the pool (--list-training, --list-ranks)
 python3 -m examshell --stats                # your history (--readiness, --drill 5)
 python3 -m examshell --sync                 # sync (--sync-setup URL, --auto-sync on|off)
+python3 -m examshell --feedback exam        # report an exercise (exam|bug|idea)
+python3 -m examshell --check                # self-test the banks
 python3 -m examshell --doctor
 ```
 
@@ -278,8 +280,9 @@ python3 -m examshell --doctor
 | `--save-config` | remember `--timeout` / `--fuzz` / `--show-fails` |
 | `--no-color` · `--no-rich` · `--no-update-check` | plain output, no update check |
 
-Run it from the repository root (or install it with
-`uv tool install` — see [development.md](development.md)).
+Run it from the repository root — or install the commands `examshell` and
+`examshell-c` anywhere with
+`uv tool install "examshell[tui] @ git+https://github.com/jasuoh/42-exam-tester"`.
 
 Developing the tester: `make dev` lists the commands (`make test`,
 `make check RANK=04` …).

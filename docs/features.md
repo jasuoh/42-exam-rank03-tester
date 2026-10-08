@@ -31,7 +31,9 @@ terminal next to your editor: subject on top, results below.
 | `f` | menu · practice | report an exercise that differs from your real exam |
 | `o` | menu | settings |
 | `s` | menu | sync |
-| `esc` | everywhere | back (in the exam: quit & save) |
+| `/` | practice list | filter by name |
+| `q` | menu | quit |
+| `esc` | screens, dialogs | back (in the exam: quit & save) |
 
 To copy text, drag over it with the mouse and press ctrl+c. Terminals that
 support OSC 52 (Ghostty, kitty, iTerm2, WezTerm) get it directly; for the
@@ -99,7 +101,7 @@ Saved in `config.json`, applied right away:
 | Exam time limit | minutes, or off |
 | Time per test | seconds before a test counts as a timeout |
 | Random tests per exercise | on top of the fixed cases |
-| C compiler | `cc`, `gcc`, `clang` … |
+| C compiler | `cc`, `gcc`, `clang` … (C exam only) |
 | Sync repo | connect this device to your private repo |
 | Auto-sync | pull when a session starts, push when it ends |
 
@@ -128,7 +130,7 @@ solution folders you'd sync yourself.
 
 ## Feedback
 
-`f` (or `examshell --feedback exam`) opens the right GitHub issue form with
+`f` (or `python3 -m examshell --feedback exam`) opens the right GitHub issue form with
 the tester version, the exam and — in practice — the exercise filled in.
 Nothing is sent automatically: you submit the form yourself. Without a
 browser the link is shown and copied.

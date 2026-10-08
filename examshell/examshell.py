@@ -777,8 +777,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--tui",
         action="store_true",
-        help="full-screen interface (needs Python 3.9+ and "
-        "`pip install textual`; falls back to the normal one)",
+        help="the app (needs Python 3.9+ and Textual, which make "
+        "installs; falls back to the plain menu)",
     )
     p.add_argument(
         "--time-limit",

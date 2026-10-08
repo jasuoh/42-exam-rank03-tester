@@ -661,10 +661,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="N",
         help="random extra cases per fuzzable exercise (default: %d, or "
-        'your saved --save-config value) — only "function"-kind '
-        "exercises whose args are all safe to randomise are "
-        "affected; everything else still grades on curated cases "
-        "alone" % grader.DEFAULT_FUZZ,
+        "your saved value) — exercises whose inputs can't be "
+        "randomised safely grade on curated cases alone" % grader.DEFAULT_FUZZ,
     )
     p.add_argument(
         "--valgrind",
@@ -723,8 +721,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--tui",
         action="store_true",
-        help="full-screen interface (needs Python 3.9+ and "
-        "`pip install textual`; falls back to the normal one)",
+        help="the app (needs Python 3.9+ and Textual, which make "
+        "installs; falls back to the plain menu)",
     )
     p.add_argument(
         "--time-limit",

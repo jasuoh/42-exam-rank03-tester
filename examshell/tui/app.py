@@ -31,7 +31,6 @@ from typing import (
 )
 
 from rich.console import Group, RenderableType
-from rich.syntax import Syntax
 from rich.text import Text
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -455,38 +454,24 @@ class PickerScreen(AppScreen[None]):
 
 
 # ══════════════════════════════════════════════════════════════
-#  THE SPLIT VIEW  ·  subject | results  (practice and exam)
+#  THE SPLIT VIEW  ·  subject over results  (practice and exam)
 # ══════════════════════════════════════════════════════════════
 class SplitScreen(AppScreen[None]):
-    """Subject on the left, grading results on the right. Subclasses decide
-    what grading means (practice vs exam)."""
+    """The subject on top, the grading results below — your code stays in
+    your editor. Subclasses decide what grading means (practice vs exam)."""
 
     def __init__(self) -> None:
         super().__init__()
         self.ex_name = ""  # empty while the exam still asks for the login
-        self.code_mtime: Optional[float] = None
         self.log_entries: List[LogEntry] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(id="status")
-        with Horizontal(id="split"):
-            with Vertical(id="split-left"):
-                yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
-                yield VerticalScroll(Copyable(id="code"), id="code-pane")
-            with Vertical(id="split-right"):
-                yield VerticalScroll(Copyable(id="results"), id="results-pane")
-                yield VerticalScroll(
-                    Static(render.attempt_log([]), id="log"), id="log-pane"
-                )
+        with Vertical(id="split"):
+            yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
+            yield VerticalScroll(Copyable(id="results"), id="results-pane")
         yield Footer()
-
-    def on_mount(self) -> None:
-        self.set_interval(1.0, self.refresh_code)
-        self.query_one("#log-pane").border_title = "this session"
-        self.query_one("#log", Static).update(
-            render.attempt_log(self.log_entries)
-        )
 
     def show_exercise(self, ex_name: str) -> None:
         sh = self.app.sh
@@ -506,55 +491,21 @@ class SplitScreen(AppScreen[None]):
                 % shell_common.solution_path(sh, ex_name, self.app.cfg)
             )
         )
-        self.refresh_code(force=True)
-
-    def refresh_code(self, force: bool = False) -> None:
-        """Your solution file under the subject — re-read whenever it's
-        saved."""
-        if not self.ex_name:
-            return
-        path = shell_common.solution_path(
-            self.app.sh, self.ex_name, self.app.cfg
-        )
-        try:
-            mtime: Optional[float] = os.path.getmtime(path)
-        except OSError:
-            mtime = None
-        if not force and mtime == self.code_mtime:
-            return
-        self.code_mtime = mtime
-        pane = self.query_one("#code-pane")
-        code = self.query_one("#code", Copyable)
-        if mtime is None:
-            pane.border_title = "your code"
-            code.update(
-                render.waiting_view(
-                    "no %s yet — write it in your editor, or press t for a "
-                    "stub" % os.path.basename(path)
-                )
-            )
-            return
-        with open(path, errors="replace") as fh:
-            source = fh.read()
-        pane.border_title = "your code · saved %s" % time.strftime(
-            "%H:%M:%S", time.localtime(mtime)
-        )
-        code.update(
-            Syntax(
-                source,
-                "c" if path.endswith(".c") else "python",
-                theme="monokai",
-                line_numbers=True,
-                word_wrap=True,
-            )
-        )
+        self.show_attempts()
 
     def log_report(self, report: Report) -> None:
         self.log_entries.append(
             (time.strftime("%H:%M:%S"), report.exercise, report)
         )
-        self.query_one("#log", Static).update(
-            render.attempt_log(self.log_entries)
+        self.show_attempts()
+
+    def show_attempts(self) -> None:
+        """This session's gradings of the current exercise, in one line
+        under the results."""
+        self.query_one(
+            "#results-pane"
+        ).border_subtitle = render.attempt_summary(
+            self.log_entries, self.ex_name
         )
 
     def fails_that_fit(
@@ -617,7 +568,6 @@ class PracticeScreen(SplitScreen):
         self.watch_mtime: Optional[float] = None
 
     def on_mount(self) -> None:
-        super().on_mount()
         self.show_exercise(self.start_ex)
         self.update_status()
 
@@ -744,7 +694,6 @@ class ExamScreen(SplitScreen):
         self.over = False
 
     def on_mount(self) -> None:
-        super().on_mount()
         app = self.app
         self.run = shell_common.ExamRun(app.sh, app.cfg)
         self.set_results(render.waiting_view("Starting the exam …"))
@@ -1029,17 +978,11 @@ class ExamShellApp(App[None]):
     }
     #status { height: 1; padding: 0 1; background: $panel; }
     #split, #picker-body, #stats-body { height: 1fr; }
-    #split-left { width: 3fr; }
     #subject-pane {
-        height: auto; max-height: 60%; border: round $warning; padding: 0 1;
+        height: auto; max-height: 55%; border: round $warning; padding: 0 1;
     }
-    #code-pane {
-        height: 1fr; min-height: 5; border: round $secondary; padding: 0 1;
-    }
-    #split-right { width: 2fr; }
-    #results-pane { height: 1fr; border: round $accent; padding: 0 1; }
-    #log-pane {
-        height: auto; max-height: 10; border: round $secondary; padding: 0 1;
+    #results-pane {
+        height: 1fr; min-height: 8; border: round $accent; padding: 0 1;
     }
     #summary-pane, #readiness-pane {
         border: round $accent; padding: 1 2; margin: 1 2;

@@ -100,16 +100,22 @@ class ChartTests(unittest.TestCase):
         ):
             self.assertIn(piece, out)
 
-    def test_attempt_log_newest_first(self) -> None:
-        ok, bad = Report("a", "a"), Report("b", "b")
-        ok.total = ok.passed = 2
+    def test_attempt_summary_counts_this_exercise_only(self) -> None:
+        bad, ok, other = Report("a", "a"), Report("a", "a"), Report("b", "b")
         bad.total, bad.passed = 2, 1
-        self.assertIn("nothing graded", render.attempt_log([]).plain)
-        lines = render.attempt_log(
-            [("10:00:00", "a", ok), ("10:01:00", "b", bad)]
-        ).plain
+        ok.total = ok.passed = 2
+        self.assertEqual(render.attempt_summary([], "a"), "")
+        entries = [
+            ("10:00:00", "a", bad),
+            ("10:01:00", "b", other),
+        ]
         self.assertEqual(
-            lines.splitlines(), ["10:01:00  ✖ b  1/2", "10:00:00  ✔ a  2/2"]
+            render.attempt_summary(entries, "a"),
+            "graded 1× · last 10:00:00 ✖ 1/2",
+        )
+        entries.append(("10:02:00", "a", ok))
+        self.assertEqual(
+            render.attempt_summary(entries, "a"), "graded 2× · last 10:02:00 ✔"
         )
 
     def test_per_exercise_worst_first(self) -> None:

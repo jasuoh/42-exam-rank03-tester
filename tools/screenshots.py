@@ -118,7 +118,11 @@ def config(rendu: str, **overrides: Any) -> c_shell.Config:
 
 async def shoot() -> None:
     os.makedirs(OUT, exist_ok=True)
-    rendu = tempfile.mkdtemp()
+    # a relative c_rendu/, as in real use: the subject pane shows its path
+    workdir = tempfile.mkdtemp()
+    os.chdir(workdir)
+    rendu = "c_rendu"
+    os.makedirs(rendu)
     with open(os.path.join(rendu, "first_word.c"), "w") as fh:
         fh.write(BUGGY_FIRST_WORD)
     fake_history()
@@ -163,7 +167,8 @@ async def shoot() -> None:
         await app.workers.wait_for_complete()
         await pilot.pause(1.1)
         app.save_screenshot(os.path.join(OUT, "tui-exam.svg"))
-    shutil.rmtree(rendu, ignore_errors=True)
+    os.chdir(ROOT)
+    shutil.rmtree(workdir, ignore_errors=True)
     print("screenshots written to", OUT)
 
 

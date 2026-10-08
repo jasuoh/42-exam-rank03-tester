@@ -26,7 +26,7 @@ far more edge cases than you'd think to test yourself.
 > it doesn't replace learning to solve the exercises yourself.
 
 <p align="center">
-  <img src="docs/img/tui-practice.svg" alt="ExamShell's full-screen app: the subject on the left, a failing first_word on the right — each failing case with its edge case and a command to reproduce it" width="880">
+  <img src="docs/img/tui-practice.svg" alt="ExamShell's full-screen app: the subject on top, a failing first_word below — each failing case with its edge case and a command to reproduce it" width="880">
 </p>
 
 ## ⚡ Quick start

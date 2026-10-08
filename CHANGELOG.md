@@ -20,12 +20,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **Full-screen app uses wide terminals** — the menu's right side is now a
   dashboard (stat tiles, 4-week activity, readiness chips per level); the
   exercise picker previews the highlighted subject; practice and exam show
-  **your solution file** under the subject (live, re-read on every save),
-  a compact "this session" log of every grading under the results, and as
-  many failing tests as the results pane fits; stats split into overview
-  and per-exercise columns. Below 120 columns the side panels hide.
-- **Copy text out of the full-screen app** — drag over the subject, your
-  code, the results or the picker preview with the mouse, then ctrl+c.
+  the subject on top and the results below, full width — made for a
+  terminal next to your editor, so your code stays there — with as many
+  failing tests as the results pane fits and "graded 3× · last …" under
+  them; stats split into overview and per-exercise columns. Below 120
+  columns the side panels hide.
+- **Copy text out of the full-screen app** — drag over the subject, the
+  results or the picker preview with the mouse, then ctrl+c.
   Needs Textual 2.0+ (the `tui` extra now asks for it).
 - **The exam clock keeps running while an exam is saved** — `quit` and a
   later resume no longer pause it, so `--time-limit` can't be stretched by

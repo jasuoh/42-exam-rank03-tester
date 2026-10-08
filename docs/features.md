@@ -19,8 +19,9 @@ python3 -m examshell --tui --practice inter   # straight into one exercise
 C Rank 02 without restarting, and **🔄 Sync** runs `make sync` in the
 background.
 
-Everything the plain interface does, in one screen: the subject on the
-left, grading results on the right, keys at the bottom. It drives exactly
+Everything the plain interface does, in one screen: the subject on top,
+grading results below, keys at the bottom — made for a terminal next to
+your editor, where your code already is. It drives exactly
 the same engine — same rules, same grading, same stats, saves and reports —
 so you can switch between the two whenever you like. Without Textual (or
 on Python 3.8) `--tui` says why and falls back to the plain interface.

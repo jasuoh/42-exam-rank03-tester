@@ -339,22 +339,24 @@ def per_exercise_view(summary: Dict[str, Any]) -> RenderableType:
     return per
 
 
-def attempt_log(entries: Sequence[Tuple[str, str, Report]]) -> Text:
-    """This session's gradings, newest first: (clock, exercise, Report)."""
-    if not entries:
-        return Text("nothing graded yet", style="dim italic")
-    text = Text(no_wrap=True, overflow="ellipsis")
-    for clock, name, report in reversed(entries):
-        text.append(clock + "  ", style="dim")
-        text.append("✔ " if report.ok else "✖ ", style=OK if report.ok else KO)
-        text.append(name + "  ", style="bold")
-        if report.fatal:
-            text.append(report.fatal_title, style=KO)
-        else:
-            text.append("%d/%d" % (report.passed, report.total), style="dim")
-        text.append("\n")
-    text.rstrip()
-    return text
+def attempt_summary(
+    entries: Sequence[Tuple[str, str, Report]], exercise: str
+) -> str:
+    """One line on this session's gradings of `exercise` — how many, and
+    how the last one went: "graded 3× · last 14:02:11 ✖ 1/2"."""
+    mine = [
+        (clock, report) for clock, name, report in entries if name == exercise
+    ]
+    if not mine:
+        return ""
+    clock, report = mine[-1]
+    if report.ok:
+        last = "✔"
+    elif report.fatal:
+        last = "✖ " + report.fatal_title
+    else:
+        last = "✖ %d/%d" % (report.passed, report.total)
+    return "graded %d× · last %s %s" % (len(mine), clock, last)
 
 
 def to_text(renderable: RenderableType, width: int, console: Console) -> Text:

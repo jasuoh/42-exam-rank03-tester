@@ -25,6 +25,12 @@ the same engine — same rules, same grading, same stats, saves and reports —
 so you can switch between the two whenever you like. Without Textual (or
 on Python 3.8) `--tui` says why and falls back to the plain interface.
 
+To copy text out of it (beta outside OSC 52 terminals), drag over the subject, your code or the results
+with the mouse and press ctrl+c. Terminals that support OSC 52 (Ghostty,
+kitty, iTerm2, WezTerm) get it directly; for the others (GNOME Terminal,
+macOS Terminal, xterm) the app uses the system clipboard tool — on Linux
+install `wl-clipboard` (Wayland) or `xclip` / `xsel` (X11) for that.
+
 | Key | Where | |
 |---|---|---|
 | `g` | practice · exam | grade your solution |

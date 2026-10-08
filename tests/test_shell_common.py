@@ -131,6 +131,26 @@ class ExamRunTests(_TempDataDir):
         last = exams[-1]
         self.assertNotEqual(first_exercise(), last)
 
+    def test_a_failed_level_keeps_its_exercise(self) -> None:
+        # like the real exam: after FAILURE you work on the same exercise
+        # until it passes — across fails, a redraw attempt and a resume
+        sh = py_shell
+        run = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        run.start("erin")
+        first = run.ensure_exercise()
+        for _ in range(5):
+            run.begin_attempt()  # graded, failed: no pass_level()
+            self.assertEqual(run.ensure_exercise(), first)
+        self.assertFalse(run.redraw())
+        self.assertEqual(run.current_ex, first)
+        run.save()
+        resumed = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        saved = session_store.load(sh.TOOL)
+        assert saved is not None
+        resumed.resume(saved)
+        self.assertEqual(resumed.ensure_exercise(), first)
+        self.assertEqual(resumed.level_attempts, 5)
+
     def test_redraw_only_when_relaxed(self) -> None:
         sh = py_shell
         strict = shell_common.ExamRun(sh, _cfg(sh))

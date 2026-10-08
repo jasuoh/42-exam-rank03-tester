@@ -401,9 +401,14 @@ class ExamRun(object):
         return self.session.level > self.n_levels
 
     def _new_exercise(self, avoid: Optional[str] = None) -> None:
-        self.session.current_ex = draw(
-            self.rng, self.sh.STANDARD_LEVELS[self.session.level], avoid
-        )
+        pool = self.sh.STANDARD_LEVELS[self.session.level]
+        if self.cfg.seed is not None:
+            # --seed reproduces the exam: no memory of earlier ones
+            self.session.current_ex = draw(self.rng, pool, avoid)
+        else:
+            self.session.current_ex = session_store.draw_fresh(
+                self.sh.TOOL, self.session.level, self.rng, pool, avoid
+            )
         self.level_started, self.level_attempts = time.time(), 0
 
     def ensure_exercise(self) -> str:

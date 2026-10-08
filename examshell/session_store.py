@@ -9,6 +9,10 @@ currently drawn, elapsed time, RNG state) can be saved to
 restored the next time they start an exam — so a closed laptop or a
 `quit` by mistake doesn't cost the whole run.
 
+It also remembers which exercises recent exams drew per level
+(~/.examshell/exam_draws_<tool>.json), so a new exam doesn't hand out the
+same ones again (issue #16) — see draw_fresh().
+
 Best-effort like the rest of this package: a save/load failure is a
 missed convenience, never a reason to crash the exam.
 """
@@ -19,7 +23,7 @@ import json
 import os
 import random
 import time
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from ._types import Event
 
@@ -131,3 +135,54 @@ def rng_from_saved(data: Event) -> random.Random:
     rng = random.Random()
     rng.setstate(_rng_from_json(data["rng_state"]))
     return rng
+
+
+# ── exam draws ───────────────────────────────────────────────────────
+def _draws_path(tool: str) -> str:
+    return os.path.join(DATA_DIR, "exam_draws_%s.json" % tool)
+
+
+def _load_draws(tool: str) -> Dict[str, List[str]]:
+    try:
+        with open(_draws_path(tool), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(k): [n for n in v if isinstance(n, str)]
+        for k, v in data.items()
+        if isinstance(v, list)
+    }
+
+
+def draw_fresh(
+    tool: str,
+    level: int,
+    rng: random.Random,
+    pool: Sequence[str],
+    avoid: Optional[str] = None,
+) -> str:
+    """Draw this level's exercise like a shuffled deck: what earlier exams
+    drew at this level is skipped until every exercise of it came up once,
+    and a new round never starts with the one that ended the last — with
+    two or three exercises per level, plain random draws kept repeating
+    them (issue #16). `avoid` (a redraw) is skipped whenever possible."""
+    draws = _load_draws(tool)
+    key = str(level)
+    seen = [n for n in draws.get(key, []) if n in pool]
+    choices = [n for n in pool if n not in seen and n != avoid]
+    if not choices:  # a full round: start the next one
+        last = seen[-1] if seen else None
+        seen = []
+        choices = [n for n in pool if n not in (last, avoid)]
+    name = rng.choice(choices or list(pool))
+    draws[key] = seen + [name]
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(_draws_path(tool), "w", encoding="utf-8") as fh:
+            json.dump(draws, fh)
+    except OSError:
+        pass
+    return name

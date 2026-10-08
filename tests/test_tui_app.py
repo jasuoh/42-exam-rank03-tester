@@ -25,6 +25,7 @@ from examshell import (
     ui,
 )
 from examshell.grader import Report
+from examshell.tui import clipboard
 
 HAVE_TEXTUAL = tui.available()
 if HAVE_TEXTUAL:
@@ -87,6 +88,12 @@ class _Isolated(_Base):
             patcher = mock.patch.object(module, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
+        # and nothing reaches the real system clipboard
+        no_clipboard = mock.patch.object(
+            clipboard, "_tools", return_value=None
+        )
+        no_clipboard.start()
+        self.addCleanup(no_clipboard.stop)
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
@@ -372,6 +379,23 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             any("sync-setup" in str(c) for c in notify.call_args_list)
         )
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiClipboardTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.isolate()
+
+    async def test_copy_and_paste_use_the_system_clipboard(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(
+            clipboard, "copy", return_value=True
+        ) as copy, mock.patch.object(clipboard, "paste", return_value="sys"):
+            app.copy_to_clipboard("hello")
+            copy.assert_called_once_with("hello")
+            self.assertEqual(app.clipboard, "sys")
+        # no system clipboard here: what was copied inside the app
+        self.assertEqual(app.clipboard, "hello")
 
 
 class TuiFallbackTests(unittest.TestCase):

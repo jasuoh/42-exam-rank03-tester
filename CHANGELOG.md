@@ -41,6 +41,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- **Copy and paste in the full-screen app outside Ghostty & co.** —
+  ctrl+c only sent OSC 52, which GNOME Terminal (and every VTE terminal),
+  macOS Terminal and xterm ignore, so nothing was copied there; ctrl+v in
+  an input field only pasted what was copied inside the app. On a local
+  session both now also go through the system clipboard (`pbcopy`,
+  `wl-copy`, `xclip` or `xsel`, whichever is installed); over ssh it stays
+  OSC 52 only.
 - **`make doctor` no longer reports an update that doesn't exist** — it
   trusted the day-long update-check cache, so a stale or bogus entry (a
   test run once left "99.0.0" there) showed up as "available". `doctor`

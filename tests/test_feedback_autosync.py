@@ -173,3 +173,22 @@ class AutoSyncTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CrashLogTests(unittest.TestCase):
+    def test_report_text_keeps_the_head_and_the_end(self) -> None:
+        from examshell.tui import crashlog
+
+        log = "\n".join("line %d" % i for i in range(100))
+        text = crashlog.report_text(log)
+        lines = text.splitlines()
+        self.assertEqual(len(lines), crashlog.MAX_REPORT_LINES)
+        self.assertEqual(lines[:4], ["line 0", "line 1", "line 2", "line 3"])
+        self.assertEqual(lines[4], "…")
+        self.assertEqual(lines[-1], "line 99")
+
+    def test_details_fill_the_bug_forms_what_field(self) -> None:
+        from examshell import feedback
+
+        url = feedback.issue_url("bug", details="Traceback: boom")
+        self.assertIn("what=Traceback%3A+boom", url)

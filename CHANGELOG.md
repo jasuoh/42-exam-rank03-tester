@@ -22,6 +22,12 @@ command line but no longer gets in the way.
 - **Settings in the app** (`o`): exam time limit, time per test, random
   tests, C compiler, sync repo (set it up right there) and auto-sync —
   saved and applied at once.
+- **A first start that asks** which exam you're practising for (C Rank 02
+  or Python Rank 03 / 04 / 05) instead of assuming Rank 03.
+- **`?` lists every key**, on every screen.
+- **Crash log:** an unexpected error is written to
+  `~/.examshell/crash.log`, and the next start offers to report it — a
+  prefilled GitHub bug form, nothing sent until you submit it.
 - **`e` opens your solution in your editor** — VS Code when its `code`
   command is installed, else `$VISUAL` / `$EDITOR`; a stub first if there
   is no file yet.

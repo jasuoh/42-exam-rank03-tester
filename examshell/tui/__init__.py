@@ -46,7 +46,10 @@ def run(
 ) -> int:
     """Run the app for tester module `sh`. `start` is None (main menu),
     "exam", or ("practice", exercise_name). Returns a process exit code."""
+    from .. import settings
     from .app import ExamShellApp
 
-    ExamShellApp(sh, cfg, start=start).run()
+    # never picked an exam (switch_exam / --rank remember it): ask once
+    ask_exam = start is None and not settings.load_config().get("tester")
+    ExamShellApp(sh, cfg, start=start, ask_exam=ask_exam).run()
     return 0

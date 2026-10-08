@@ -86,6 +86,7 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 | `examshell/shell_common.py` | the exam / practice / training / readiness / drill flow **both** testers run — an I/O-free engine (`ExamRun`, `grade()`) plus the line-based UI on top of it |
 | `examshell/tui/app.py` | the app (Textual): menu, practice, exam, progress, settings |
 | `examshell/tui/render.py` | the app's rich renderables — pure functions, unit-tested without Textual |
+| `examshell/tui/crashlog.py` | writes `crash.log` on an unexpected error; the next start offers to report it |
 | `examshell/tui/clipboard.py` | copy/paste through the system clipboard where OSC 52 isn't enough |
 | `examshell/grader.py` | test building, the sandbox, the self-test |
 | `examshell/ui.py` | all rendering — `rich` when available, ANSI otherwise |

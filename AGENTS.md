@@ -35,6 +35,7 @@ behaves like the real one, practice with full feedback, progress, settings.
 | `examshell/shell_common.py` | the shared engine (`ExamRun`, `grade()`, `finish_exam()`) + the line-based UI |
 | `examshell/tui/app.py` | the Textual app — screens, keys, settings |
 | `examshell/tui/render.py` | rich renderables for the app (pure, unit-tested) |
+| `examshell/tui/crashlog.py` | `crash.log` on an unexpected error, offered as a bug report next start |
 | `examshell/examshell.py` · `c_exam/examshell.py` | each tester's CLI and hooks |
 | `examshell/exam_bank*.py` · `c_exam/bank.py` · `*training_bank.py` | exercises **with reference solutions** |
 | `examshell/grader.py` · `c_exam/grader.py` | sandboxed grading (Python subprocess · C compile + run) |

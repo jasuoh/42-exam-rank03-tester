@@ -528,6 +528,94 @@ class TuiSettingsTests(_Isolated, unittest.IsolatedAsyncioTestCase):
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiFirstImpressionTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    """The welcome question, `?` and the crash log."""
+
+    def setUp(self) -> None:
+        self.isolate()
+        config = mock.patch.object(
+            settings, "CONFIG_PATH", os.path.join(self.rendu, "config.json")
+        )
+        config.start()
+        self.addCleanup(config.stop)
+        self.addCleanup(py_shell.use_rank)
+
+    async def test_the_first_start_asks_which_exam(self) -> None:
+        from c_exam import examshell as c_shell
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), ask_exam=True)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.ChoiceModal)
+            app.screen.dismiss("c")
+            await pilot.pause()
+            self.assertIs(app.sh, c_shell)
+        self.assertEqual(settings.load_config()["tester"], "c")
+
+    async def test_esc_at_the_welcome_keeps_the_default(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), ask_exam=True)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.pause()
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+        self.assertEqual(
+            settings.load_config(), {"tester": "py", "rank": "03"}
+        )
+
+    async def test_question_mark_lists_the_keys(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.press("question_mark")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.HelpModal)
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+
+    async def test_an_unexpected_error_lands_in_crash_log(self) -> None:
+        from examshell.tui import crashlog
+
+        def boom() -> None:
+            raise ZeroDivisionError("on purpose")
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with self.assertRaises(ZeroDivisionError):
+            async with app.run_test(size=(100, 36)) as pilot:
+                app.call_later(boom)
+                await pilot.pause()
+        log = crashlog.pending()
+        assert log is not None
+        self.assertIn("ZeroDivisionError: on purpose", log)
+
+    async def test_a_crash_is_logged_and_offered_as_a_bug_report(
+        self,
+    ) -> None:
+        from examshell import feedback
+        from examshell.tui import crashlog
+
+        try:
+            raise RuntimeError("boom")
+        except RuntimeError as exc:
+            crashlog.record(exc, "PracticeScreen")
+        log = crashlog.pending()
+        assert log is not None
+        self.assertIn("RuntimeError: boom", log)
+        self.assertIn("where: PracticeScreen", log)
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(
+            feedback, "open_in_browser", return_value=True
+        ) as opened:
+            async with app.run_test(size=(100, 36)) as pilot:
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui_app.ConfirmModal)
+                await pilot.press("y")
+                await pilot.pause()
+        self.assertIn("RuntimeError", opened.call_args[0][0])
+        self.assertIsNone(crashlog.pending())  # answered: not asked again
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
 class TuiClipboardTests(_Isolated, unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.isolate()

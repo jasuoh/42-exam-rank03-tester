@@ -35,8 +35,8 @@ make
 You need git, make and, for the C exam, a C compiler — `make doctor` checks.
 The first `make` installs everything else with
 [uv](https://docs.astral.sh/uv/) (and uv itself into `~/.local/bin` if it
-isn't there yet — no sudo), then opens the app. From then on `make` starts
-it, on the exam you picked last.
+isn't there yet — no sudo), then opens the app and asks which exam you're
+practising for. From then on `make` starts it, on the exam you picked last.
 
 Keep the terminal next to your editor: you write in `rendu/` (Python) or
 `c_rendu/` (C), the app grades.
@@ -80,6 +80,7 @@ next time.
 | `o` | menu | settings: exam time limit, time per test, C compiler, sync |
 | `s` | menu | sync with your other device |
 | `esc` | exam | quit & save (elsewhere: back) |
+| `?` | everywhere | all the keys |
 
 ## Continue on another device
 

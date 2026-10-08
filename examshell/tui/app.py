@@ -34,6 +34,7 @@ from typing import (
 )
 
 from rich.console import Group, RenderableType
+from rich.table import Table
 from rich.text import Text
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -62,6 +63,7 @@ from ..shell_common import ExamResult, ExamRun, GradeOutcome
 from ..sync import SyncResult
 from ..version import __version__
 from . import clipboard as system_clipboard
+from . import crashlog
 from . import render
 
 # the terminal's own colours: the app looks like the rest of your terminal
@@ -182,6 +184,54 @@ class PromptModal(ModalScreen[str]):
 
     def action_cancel(self) -> None:
         self.dismiss(self.default)
+
+
+class HelpModal(ModalScreen[None]):
+    """`?` — every key, in one place."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "close"),
+        Binding("question_mark", "dismiss", "close", show=False),
+        Binding("q", "dismiss", "close", show=False),
+    ]
+
+    KEYS = (
+        ("Menu", ""),
+        ("enter", "open the highlighted entry"),
+        ("o", "settings"),
+        ("s", "sync with your other device"),
+        ("f", "feedback — an exercise that differs from your exam"),
+        ("q", "quit"),
+        ("Exam and practice", ""),
+        ("g", "grademe"),
+        ("e", "open your solution in your editor"),
+        ("t", "write a stub"),
+        ("esc", "back — in the exam: quit and save"),
+        ("Practice only", ""),
+        ("d", "all the details of the last grade"),
+        ("w", "grade every time you save"),
+        ("n", "next exercise of My gaps"),
+        ("f", "feedback on this exercise"),
+        ("Exercise list", ""),
+        ("tab", "next tab: Exam exercises · My gaps · Extra"),
+        ("/", "filter by name"),
+        ("Progress", ""),
+        ("p", "practise your gaps"),
+    )
+
+    def compose(self) -> ComposeResult:
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="bold", no_wrap=True)
+        table.add_column()
+        for key, text in self.KEYS:
+            if text:
+                table.add_row(key, text)
+            else:
+                table.add_row("", "")
+                table.add_row(Text(key, style="dim"), "")
+        with Vertical(classes="modal"):
+            yield Static(table)
+            yield Static("esc to close", classes="modal-hint")
 
 
 class ChoiceModal(ModalScreen[Optional[str]]):
@@ -1182,15 +1232,31 @@ class ExamShellApp(App[None]):
     .modal-hint { color: $text-muted; }
     """
 
+    BINDINGS = [Binding("question_mark", "help", "keys")]
+
     def __init__(
         self,
         sh: Tester,
         cfg: TesterConfig,
         start: Union[None, str, Tuple[str, str]] = None,
+        ask_exam: bool = False,
     ) -> None:
         super().__init__()
         self.sh, self.cfg, self.start = sh, cfg, start
+        # the very first start: ask which exam, instead of assuming Rank 03
+        self.ask_exam = ask_exam
         self.update_notice: Dict[str, Optional[str]] = {"notice": None}
+
+    def action_help(self) -> None:
+        if not isinstance(self.screen, HelpModal):
+            self.push_screen(HelpModal())
+
+    def _handle_exception(self, error: Exception) -> None:
+        """An unexpected error ends the app (Textual's own handling) — but
+        first it goes to crash.log, so the next start can offer to report
+        it instead of the traceback just scrolling away."""
+        crashlog.record(error, type(self.screen).__name__)
+        super()._handle_exception(error)
 
     # ── clipboard: OSC 52 plus the system's own tool ─────────────────
     def copy_to_clipboard(self, text: str) -> None:
@@ -1226,6 +1292,42 @@ class ExamShellApp(App[None]):
             self.push_screen(ExamScreen())
         elif isinstance(self.start, tuple) and self.start[0] == "practice":
             self.push_screen(PracticeScreen(self.start[1]))
+        if self.ask_exam:
+            self.push_screen(
+                ChoiceModal(
+                    "Welcome! Which exam are you practising for?",
+                    self.exam_choices(),
+                ),
+                self.first_pick,
+            )
+        log = crashlog.pending()
+        if log is not None:  # asked first: it's on top of the welcome
+            self.push_screen(
+                ConfirmModal(
+                    "ExamShell crashed last time. Report it? It opens a "
+                    "GitHub form with the error filled in — nothing is "
+                    "sent until you submit it."
+                ),
+                lambda yes: self.report_crash(log, yes),
+            )
+
+    def first_pick(self, choice: Optional[str]) -> None:
+        """The welcome question's answer (Esc keeps the default — and
+        doesn't ask again)."""
+        if choice:
+            self.switch_exam(choice)
+        else:
+            settings.remember_exam(self.choice_id())
+
+    def choice_id(self) -> str:
+        """This tester as an exam_choices() id: "py03" … or "c"."""
+        rank = getattr(self.sh, "RANK", None)
+        return "py" + rank.id if rank is not None else "c"
+
+    def report_crash(self, log: str, yes: Optional[bool]) -> None:
+        crashlog.mark_seen()
+        if yes:
+            self.open_feedback("bug", details=crashlog.report_text(log))
 
     # ── switching between the Python ranks and the C exam ─────────────
     def exam_choices(self) -> List[Tuple[str, str]]:
@@ -1281,7 +1383,10 @@ class ExamShellApp(App[None]):
 
     # ── feedback ──────────────────────────────────────────────────────
     def open_feedback(
-        self, kind: Optional[str], exercise: Optional[str] = None
+        self,
+        kind: Optional[str],
+        exercise: Optional[str] = None,
+        details: Optional[str] = None,
     ) -> None:
         """Open the prefilled issue form in a browser where one exists; the
         link always goes to the clipboard too (OSC 52 works over ssh)."""
@@ -1290,7 +1395,7 @@ class ExamShellApp(App[None]):
         from .. import feedback
 
         url = feedback.issue_url(
-            kind, shell_common.tester_label(self.sh), exercise
+            kind, shell_common.tester_label(self.sh), exercise, details
         )
         try:
             self.copy_to_clipboard(url)

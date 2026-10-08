@@ -8,8 +8,9 @@ in `~/.examshell/` — or wherever `EXAMSHELL_HOME` points.
 
 ## The app
 
-`make` opens it (the first time it also installs it). It's made for a
-terminal next to your editor: subject on top, results below.
+`make` opens it (the first time it also installs it and asks which exam
+you're practising for). It's made for a terminal next to your editor:
+subject on top, results below.
 
 <p align="center"><img src="img/tui-menu.svg" alt="The menu: Exam, Practice, Progress, Switch exam, Quit" width="720"></p>
 
@@ -34,6 +35,7 @@ terminal next to your editor: subject on top, results below.
 | `/` | practice list | filter by name |
 | `q` | menu | quit |
 | `esc` | screens, dialogs | back (in the exam: quit & save) |
+| `?` | everywhere | all the keys |
 
 To copy text, drag over it with the mouse and press ctrl+c. Terminals that
 support OSC 52 (Ghostty, kitty, iTerm2, WezTerm) get it directly; for the
@@ -134,6 +136,13 @@ solution folders you'd sync yourself.
 the tester version, the exam and — in practice — the exercise filled in.
 Nothing is sent automatically: you submit the form yourself. Without a
 browser the link is shown and copied.
+
+## If the app crashes
+
+An unexpected error ends the app — but first it writes the traceback to
+`~/.examshell/crash.log`. The next start asks whether to report it: yes
+opens the GitHub bug form with the error filled in (nothing is sent until
+you submit it). Either way the log is kept as `crash.log.seen`.
 
 ## Doctor
 

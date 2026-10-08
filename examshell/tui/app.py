@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import os
 import random
+import shlex
+import shutil
+import subprocess
 import time
 from typing import (
     Any,
@@ -66,6 +69,19 @@ from . import render
 THEME = "ansi-dark"
 SUBJECT_SYNTAX = "ansi_dark"
 WATCH_INTERVAL = 1.0  # seconds between solution-file checks
+
+
+def editor_command(path: str) -> Optional[List[str]]:
+    """How to open `path`: VS Code when its `code` command is installed
+    (the editor next to the terminal), else $VISUAL / $EDITOR, else None."""
+    if shutil.which("code"):
+        return ["code", path]
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+    if editor:
+        return shlex.split(editor) + [path]
+    return None
+
+
 # below this many columns, side panels (dashboard, preview) hide
 NARROW = 120
 
@@ -529,17 +545,47 @@ class SplitScreen(AppScreen[None]):
         self.query_one("#results", Copyable).update(renderable)
         self.query_one("#results-pane").border_title = title
 
-    def action_stub(self) -> None:
+    def _cfg(self) -> TesterConfig:
         # ExamScreen: the exam's own config
         run: Optional[ExamRun] = getattr(self, "run", None)
-        cfg = run.cfg if run is not None else self.app.cfg
-        ok, kind, message = self.app.sh.write_stub(self.ex_name, cfg)
+        return run.cfg if run is not None else self.app.cfg
+
+    def action_stub(self) -> None:
+        ok, kind, message = self.app.sh.write_stub(self.ex_name, self._cfg())
         self.notify(
             message,
             severity="information"
             if ok
             else ("warning" if kind == "warn" else "error"),
         )
+
+    def action_edit(self) -> None:
+        """Open your solution in your editor (a stub first if there's no
+        file yet): VS Code when `code` is there, else $VISUAL / $EDITOR
+        right here in the terminal."""
+        if not self.ex_name:
+            return
+        cfg = self._cfg()
+        path = shell_common.solution_path(self.app.sh, self.ex_name, cfg)
+        if not os.path.exists(path):
+            self.app.sh.write_stub(self.ex_name, cfg)
+        command = editor_command(path)
+        if command is None:
+            self.notify(
+                "No editor found (no `code`, no $EDITOR) — open %s" % path,
+                severity="warning",
+            )
+        elif command[0] == "code":
+            subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.notify("Opened %s in VS Code" % path)
+        else:
+            with self.app.suspend():
+                subprocess.call(command)
 
 
 class PracticeScreen(SplitScreen):
@@ -550,6 +596,7 @@ class PracticeScreen(SplitScreen):
         Binding("g", "grade", "grademe"),
         Binding("d", "details", "details"),
         Binding("w", "toggle_watch", "watch"),
+        Binding("e", "edit", "edit"),
         Binding("t", "stub", "stub"),
         Binding("f", "feedback", "differs from exam?"),
         Binding("n", "next", "next", show=False),
@@ -702,6 +749,7 @@ class ExamScreen(SplitScreen):
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),
+        Binding("e", "edit", "edit"),
         Binding("t", "stub", "stub"),
         Binding("n", "redraw", "new", show=False),
         Binding("escape", "quit_exam", "quit & save"),

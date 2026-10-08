@@ -279,6 +279,32 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 self.assertIn("6 more", str(results.render()))
 
+    async def test_e_opens_the_solution_in_vs_code(self) -> None:
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        path = os.path.join(self.rendu, "py_inter.py")
+        with mock.patch(
+            "shutil.which", return_value="/usr/bin/code"
+        ), mock.patch("subprocess.Popen") as popen:
+            async with app.run_test(size=(100, 36)) as pilot:
+                await pilot.pause()
+                await pilot.press("e")
+                await pilot.pause()
+        self.assertTrue(os.path.isfile(path))  # a stub first
+        self.assertEqual(popen.call_args[0][0], ["code", path])
+
+    def test_editor_falls_back_to_editor_env(self) -> None:
+        with mock.patch("shutil.which", return_value=None):
+            with mock.patch.dict(
+                os.environ, {"VISUAL": "", "EDITOR": "vim -p"}
+            ):
+                self.assertEqual(
+                    tui_app.editor_command("x.py"), ["vim", "-p", "x.py"]
+                )
+            with mock.patch.dict(os.environ, {"VISUAL": "", "EDITOR": ""}):
+                self.assertIsNone(tui_app.editor_command("x.py"))
+
     async def test_drill_keeps_its_session_log_across_exercises(self) -> None:
         report = Report("x", "f")
         report.total = report.passed = 1

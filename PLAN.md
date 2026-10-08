@@ -76,6 +76,10 @@ TUI gemacht und eingestellt.
    Exam-Regeln gegen das echte Exam prüfen (Ablauf, Level, Zeit, Stub).
 6. **Settings-Screen** (`o`) im TUI ✔; **Makefile** auf `make`/`install`/
    `update`/`doctor`/`dev` reduzieren; `--help` zeigt nur die Kern-Flags.
+6b. **Nach dem Durchtesten (2026-10-08)** — Installation nur über uv,
+   `make` installiert beim ersten Mal selbst (auch uv) ✔ · gleiche Aufgabe
+   nach FAILURE per Test festgeschrieben ✔ · `e` öffnet die Lösung im
+   Editor (VS Code, sonst $EDITOR) ✔.
 7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG.
 8. **AGENTS.md** — Projekt, Befehle, Konventionen, Workflow (Branch → PR,
    nie selbst mergen, Tests nie ins echte `~/.examshell`).

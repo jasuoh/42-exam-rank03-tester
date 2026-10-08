@@ -63,7 +63,7 @@ TUI gemacht und eingestellt.
 ### Schritte
 
 0. **Branches** — `beta` angelegt ✔; CI auch bei Push auf `beta` ✔.
-1. **TUI-Menü & Screens bündeln** — 5 Einträge; Practice-Picker mit Tabs
+1. **TUI-Menü & Screens bündeln** ✔ — 5 Einträge; Practice-Picker mit Tabs
    (Exam / Lücken / Extra); Progress = Stats + Readiness; Sync/Feedback als
    Tasten.
 2. **Kompaktes grademe-Panel** — Ergebniszeile, 3 Fails einzeilig, `d` für

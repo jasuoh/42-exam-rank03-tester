@@ -132,14 +132,9 @@ async def shoot() -> None:
         await pilot.pause()
         app.save_screenshot(os.path.join(OUT, "tui-menu.svg"))
 
-        app.push_screen(_screen("ReadinessScreen"))
+        app.push_screen(_screen("ProgressScreen"))
         await pilot.pause()
-        app.save_screenshot(os.path.join(OUT, "tui-readiness.svg"))
-        await pilot.press("escape")
-
-        app.push_screen(_screen("StatsScreen"))
-        await pilot.pause()
-        app.save_screenshot(os.path.join(OUT, "tui-stats.svg"))
+        app.save_screenshot(os.path.join(OUT, "tui-progress.svg"))
         await pilot.press("escape")
 
         app.push_screen(_screen("PracticeScreen", "first_word"))

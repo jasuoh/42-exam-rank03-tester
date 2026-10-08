@@ -46,6 +46,8 @@ from textual.widgets import (
     Input,
     OptionList,
     Static,
+    Tab,
+    Tabs,
 )
 from textual.visual import VisualType
 from textual.widgets.option_list import Option
@@ -196,7 +198,11 @@ class ChoiceModal(ModalScreen[Optional[str]]):
 #  MAIN MENU
 # ══════════════════════════════════════════════════════════════
 class MenuScreen(AppScreen[None]):
-    BINDINGS = [Binding("q", "app.quit", "quit")]
+    BINDINGS = [
+        Binding("s", "app.sync", "sync"),
+        Binding("f", "feedback", "feedback"),
+        Binding("q", "app.quit", "quit"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -219,50 +225,21 @@ class MenuScreen(AppScreen[None]):
         self.app.sub_title = self.app.label()
         self.query_one("#logo", Static).update(render.logo(self.app.label()))
         items = [
+            ("exam", "Exam", "%d levels, real exam rules" % sh.N_LEVELS),
+            ("practice", "Practice", "any exercise, full feedback"),
             (
-                "exam",
-                "🎯  Start exam",
-                "%d levels, as strict as the real one" % sh.N_LEVELS,
+                "progress",
+                "Progress",
+                "what you've passed, where your gaps are",
             ),
-            (
-                "practice",
-                "📚  Practice",
-                "any exam exercise, lenient feedback",
-            ),
-            ("training", "🧠  Training", "LeetCode-style, by difficulty"),
-            (
-                "drill",
-                "🔁  Daily drill",
-                "%d exercises from your gaps" % shell_common.DRILL_SIZE,
-            ),
-            (
-                "readiness",
-                "📈  Exam readiness",
-                "what you've passed, level by level",
-            ),
-            ("stats", "📊  Stats", "history, streak, pass rates"),
+            ("switch", "Switch exam", "now: %s" % self.app.label()),
+            ("quit", "Quit", ""),
         ]
-        items.append(
-            (
-                "switch",
-                "🔀  Switch exam",
-                "Python 03 · 04 · 05 or C 02 — now: %s" % self.app.label(),
-            )
-        )
-        items.append(("sync", "🔄  Sync", self.app.sync_hint()))
-        items.append(
-            (
-                "feedback",
-                "💬  Feedback",
-                "differs from your real exam? a bug? an idea?",
-            )
-        )
-        items.append(("quit", "🚪  Quit", ""))
         menu = self.query_one("#menu", OptionList)
         highlighted = menu.highlighted
         menu.clear_options()
         for oid, label, hint in items:
-            prompt = "%s\n    [dim]%s[/dim]" % (label, hint) if hint else label
+            prompt = "%s\n  [dim]%s[/dim]" % (label, hint) if hint else label
             menu.add_option(Option(prompt, id=oid))
         menu.highlighted = highlighted if highlighted is not None else 0
         self.query_one("#glance", Static).update(self.glance())
@@ -296,56 +273,63 @@ class MenuScreen(AppScreen[None]):
         if choice == "exam":
             app.push_screen(ExamScreen())
         elif choice == "practice":
-            app.push_screen(PickerScreen("exam"))
-        elif choice == "training":
-            app.push_screen(PickerScreen("training"))
-        elif choice == "drill":
-            app.start_drill()
-        elif choice == "readiness":
-            app.push_screen(ReadinessScreen())
-        elif choice == "stats":
-            app.push_screen(StatsScreen())
+            app.push_screen(PickerScreen())
+        elif choice == "progress":
+            app.push_screen(ProgressScreen())
         elif choice == "switch":
             app.push_screen(
                 ChoiceModal("Switch exam", app.exam_choices()), app.switch_exam
             )
-        elif choice == "sync":
-            app.start_sync()
-        elif choice == "feedback":
-            from .. import feedback
-
-            app.push_screen(
-                ChoiceModal(
-                    "Give feedback — opens a GitHub form, nothing is "
-                    "sent until you submit it",
-                    list(feedback.KIND_LABELS),
-                ),
-                app.open_feedback,
-            )
         elif choice == "quit":
             app.exit()
+
+    def action_feedback(self) -> None:
+        from .. import feedback
+
+        self.app.push_screen(
+            ChoiceModal(
+                "Give feedback — opens a GitHub form, nothing is "
+                "sent until you submit it",
+                list(feedback.KIND_LABELS),
+            ),
+            self.app.open_feedback,
+        )
 
 
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE PICKER
 # ══════════════════════════════════════════════════════════════
 class PickerScreen(AppScreen[None]):
-    """Filterable table of the exam pool or the training pool."""
+    """Practice: one filterable table, three tabs — the exam pool, your gaps
+    (a short queue from stats.drill_queue(), weak spots first) and the extra
+    LeetCode-style pool, which the exam never draws from."""
 
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
         Binding("slash", "focus_filter", "filter"),
+        Binding("tab", "next_tab", "next tab"),
     ]
+
+    POOLS = (
+        ("exam", "Exam exercises"),
+        ("gaps", "My gaps"),
+        ("extra", "Extra"),
+    )
 
     entries: List[Tuple[Any, ...]]
     status: Dict[str, Dict[str, Any]]
 
-    def __init__(self, pool: str) -> None:
+    def __init__(self, pool: str = "exam") -> None:
         super().__init__()
         self.pool = pool
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Tabs(
+            *[Tab(label, id=pool) for pool, label in self.POOLS],
+            active=self.pool,
+            id="pools",
+        )
         with Horizontal(id="picker-body"):
             with Vertical(id="picker-left"):
                 yield Input(
@@ -359,34 +343,47 @@ class PickerScreen(AppScreen[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self.load_pool(self.pool)
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        pool = event.tab.id
+        if pool and pool != self.pool:
+            self.load_pool(pool)
+
+    def action_next_tab(self) -> None:
+        self.query_one(Tabs).action_next_tab()
+
+    def load_pool(self, pool: str) -> None:
         sh = self.app.sh
-        self.entries = (
-            sh.exercise_entries()
-            if self.pool == "exam"
-            else sh.training_entries()
-        )
+        self.pool = pool
+        exam = list(sh.exercise_entries())  # e[4]: the exam can draw it
+        if pool == "exam":
+            self.entries = [e for e in exam if e[4]]
+        elif pool == "gaps":
+            by_name = {e[2]: e for e in exam if e[4]}
+            queue = stats.drill_queue(
+                sh.TOOL, list(by_name), shell_common.DRILL_SIZE
+            )
+            self.entries = [by_name[name] for name in queue]
+        else:  # what the exam never draws: the bank's extras + training
+            self.entries = [
+                (e[0], "level %s" % e[1], e[2], e[3]) for e in exam if not e[4]
+            ] + list(sh.training_entries())
         self.status = stats.exercise_status(
             sh.TOOL, [e[2] for e in self.entries]
         )
         table: DataTable[str] = self.query_one(DataTable)
+        table.clear(columns=True)
         table.add_columns(
-            "",
-            "level" if self.pool == "exam" else "difficulty",
-            "",
-            "exercise",
-            "function",
+            "", "kind" if pool == "extra" else "level", "exercise"
         )
-        self.fill("")
+        self.fill(self.query_one("#filter", Input).value)
         table.focus()
 
     def on_screen_resume(self) -> None:
-        sh = self.app.sh
-        self.status = stats.exercise_status(
-            sh.TOOL, [e[2] for e in self.entries]
-        )
         table: DataTable[str] = self.query_one(DataTable)
         row = table.cursor_row
-        self.fill(self.query_one("#filter", Input).value)
+        self.load_pool(self.pool)
         table.move_cursor(row=row)
 
     def fill(self, query: str) -> None:
@@ -399,24 +396,21 @@ class PickerScreen(AppScreen[None]):
         }
         for entry in shell_common.filter_entries(self.entries, query, 2, 3):
             name = entry[2]
-            pool_mark = ""
-            if self.pool == "exam":
-                pool_mark = (
-                    "[yellow]★[/yellow]" if entry[4] else "[dim]○[/dim]"
-                )
             table.add_row(
                 mark[self.status[name]["status"]],
                 str(entry[1]),
-                pool_mark,
                 name,
-                entry[3],
                 key=name,
             )
         if not table.row_count:
             pane = self.query_one("#preview-pane")
             pane.border_title = pane.border_subtitle = None
             self.query_one("#preview", Copyable).update(
-                render.waiting_view("no exercise matches")
+                render.waiting_view(
+                    "no gaps right now — everything passed recently"
+                    if self.pool == "gaps" and not query
+                    else "no exercise matches"
+                )
             )
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -436,7 +430,7 @@ class PickerScreen(AppScreen[None]):
         name = cast(str, event.row_key.value)  # rows are keyed by name
         row = self.status[name]
         pane = self.query_one("#preview-pane")
-        pane.border_title = "📄 %s" % name
+        pane.border_title = name
         pane.border_subtitle = (
             "%d/%d passed" % (row["passes"], row["attempts"])
             if row["attempts"]
@@ -449,9 +443,20 @@ class PickerScreen(AppScreen[None]):
         )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        mode = "practice" if self.pool == "exam" else "train"
         name = cast(str, event.row_key.value)  # rows are keyed by name
-        self.app.push_screen(PracticeScreen(name, mode=mode))
+        if self.pool == "gaps":
+            # the rest of the gaps follow with `n`
+            queue = [e[2] for e in self.entries]
+            self.app.push_screen(
+                PracticeScreen(
+                    name, mode="drill", queue=queue, position=queue.index(name)
+                )
+            )
+            return
+        training = name in self.app.sh.TRAINING_EXERCISES
+        self.app.push_screen(
+            PracticeScreen(name, mode="train" if training else "practice")
+        )
 
 
 # ══════════════════════════════════════════════════════════════
@@ -896,17 +901,21 @@ class SummaryScreen(AppScreen[None]):
 
 
 # ══════════════════════════════════════════════════════════════
-#  READINESS · STATS
+#  PROGRESS  ·  readiness + stats on one screen
 # ══════════════════════════════════════════════════════════════
-class ReadinessScreen(AppScreen[None]):
+class ProgressScreen(AppScreen[None]):
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
-        Binding("d", "drill", "drill my gaps"),
+        Binding("p", "practice_gaps", "practice my gaps"),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield VerticalScroll(Static(id="readiness"), id="readiness-pane")
+        with Horizontal(id="stats-body"):
+            yield VerticalScroll(Static(id="readiness"), id="stats-pane")
+            yield VerticalScroll(
+                Static(id="per-exercise"), id="per-exercise-pane"
+            )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -917,48 +926,31 @@ class ReadinessScreen(AppScreen[None]):
 
     def refresh_view(self) -> None:
         sh = self.app.sh
-        self.query_one(
-            "#readiness-pane"
-        ).border_title = "exam readiness — every exercise the exam can draw"
-        self.query_one("#readiness", Static).update(
-            render.readiness_view(stats.readiness(sh.TOOL, sh.STANDARD_LEVELS))
-        )
-
-    def action_drill(self) -> None:
-        self.app.start_drill()
-
-
-class StatsScreen(AppScreen[None]):
-    BINDINGS = [Binding("escape", "app.pop_screen", "back")]
-
-    def compose(self) -> ComposeResult:
-        yield Header()
-        with Horizontal(id="stats-body"):
-            yield VerticalScroll(Static(id="stats"), id="stats-pane")
-            yield VerticalScroll(
-                Static(id="per-exercise"), id="per-exercise-pane"
-            )
-        yield Footer()
-
-    def on_mount(self) -> None:
-        tool = self.app.sh.TOOL
+        tool = sh.TOOL
         summary = stats.summarize(tool)
-        self.query_one("#stats-pane").border_title = "your history"
-        self.query_one(
-            "#per-exercise-pane"
-        ).border_title = "per exercise (worst first)"
-        self.query_one("#stats", Static).update(
-            render.stats_overview(
-                summary,
-                stats.daily_activity(tool),
-                stats.practice_streak(tool),
-                stats.exam_history(tool),
-                shell_common.fmt_duration,
+        self.query_one("#stats-pane").border_title = "readiness"
+        self.query_one("#per-exercise-pane").border_title = "per exercise"
+        self.query_one("#readiness", Static).update(
+            Group(
+                render.readiness_view(
+                    stats.readiness(tool, sh.STANDARD_LEVELS)
+                ),
+                Text(""),
+                render.stats_overview(
+                    summary,
+                    stats.daily_activity(tool),
+                    stats.practice_streak(tool),
+                    stats.exam_history(tool),
+                    shell_common.fmt_duration,
+                ),
             )
         )
         self.query_one("#per-exercise", Static).update(
             render.per_exercise_view(summary)
         )
+
+    def action_practice_gaps(self) -> None:
+        self.app.push_screen(PickerScreen("gaps"))
 
 
 # ══════════════════════════════════════════════════════════════
@@ -985,7 +977,8 @@ class ExamShellApp(App[None]):
     #results-pane {
         height: 1fr; min-height: 8; border: round $accent; padding: 0 1;
     }
-    #summary-pane, #readiness-pane {
+    #pools { margin: 0 1; }
+    #summary-pane {
         border: round $accent; padding: 1 2; margin: 1 2;
     }
     #stats-pane {
@@ -1060,14 +1053,6 @@ class ExamShellApp(App[None]):
             self.push_screen(ExamScreen())
         elif isinstance(self.start, tuple) and self.start[0] == "practice":
             self.push_screen(PracticeScreen(self.start[1]))
-
-    def start_drill(self) -> None:
-        names = [e[2] for e in self.sh.exercise_entries() if e[4]]
-        queue = stats.drill_queue(self.sh.TOOL, names, shell_common.DRILL_SIZE)
-        if queue:
-            self.push_screen(
-                PracticeScreen(queue[0], mode="drill", queue=queue, position=0)
-            )
 
     # ── switching between the Python ranks and the C exam ─────────────
     def exam_choices(self) -> List[Tuple[str, str]]:
@@ -1147,14 +1132,8 @@ class ExamShellApp(App[None]):
             )
 
     # ── sync ──────────────────────────────────────────────────────────
-    def sync_hint(self) -> str:
-        from .. import sync
-
-        if sync.is_configured(settings.DATA_DIR):
-            return "progress + solutions with %s" % sync.remote_url(
-                settings.DATA_DIR
-            )
-        return "not set up — make sync-setup REPO=… (docs/sync.md)"
+    def action_sync(self) -> None:
+        self.start_sync()
 
     def start_sync(self) -> None:
         from .. import settings, sync

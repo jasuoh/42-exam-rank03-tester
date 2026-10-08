@@ -239,7 +239,7 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             table: DataTable[str] = picker.query_one("#table", DataTable)
             name = table.coordinate_to_cell_key(Coordinate(2, 0)).row_key.value
             self.assertEqual(
-                picker.query_one("#preview-pane").border_title, "📄 %s" % name
+                picker.query_one("#preview-pane").border_title, name
             )
             await pilot.press("enter")  # open it, come back
             await pilot.press("escape")
@@ -295,16 +295,68 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 )
                 app.screen.clear_selection()
 
-    async def test_readiness_and_stats_screens_open(self) -> None:
+    async def test_menu_has_the_five_entries(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)):
+            menu = app.screen.query_one("#menu", OptionList)
+            self.assertEqual(
+                [
+                    menu.get_option_at_index(i).id
+                    for i in range(menu.option_count)
+                ],
+                ["exam", "practice", "progress", "switch", "quit"],
+            )
+
+    async def test_progress_screen_leads_to_the_gaps(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         async with app.run_test(size=(120, 36)) as pilot:
-            app.push_screen(tui_app.ReadinessScreen())
+            app.push_screen(tui_app.ProgressScreen())
             await pilot.pause()
-            self.assertIsInstance(app.screen, tui_app.ReadinessScreen)
-            await pilot.press("escape")
-            app.push_screen(tui_app.StatsScreen())
+            self.assertIsInstance(app.screen, tui_app.ProgressScreen)
+            await pilot.press("p")
             await pilot.pause()
-            self.assertIsInstance(app.screen, tui_app.StatsScreen)
+            picker = app.screen
+            assert isinstance(picker, tui_app.PickerScreen)
+            self.assertEqual(picker.pool, "gaps")
+            # nothing tried yet: the gaps are the first exam exercises,
+            # and picking one starts a drill through all of them
+            await pilot.press("enter")
+            await pilot.pause()
+            drill = app.screen
+            assert isinstance(drill, tui_app.PracticeScreen)
+            self.assertEqual(drill.mode, "drill")
+            self.assertEqual(len(drill.queue or []), shell_common.DRILL_SIZE)
+
+    async def test_picker_tabs_switch_the_pool(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            app.push_screen(tui_app.PickerScreen())
+            await pilot.pause()
+            picker = app.screen
+            assert isinstance(picker, tui_app.PickerScreen)
+            exam_names = {e[2] for e in picker.entries}
+            # only what the exam can draw
+            self.assertEqual(
+                exam_names,
+                {
+                    n
+                    for pool in py_shell.STANDARD_LEVELS.values()
+                    for n in pool
+                },
+            )
+            await pilot.press("tab", "tab")  # exam → gaps → extra
+            await pilot.pause()
+            self.assertEqual(picker.pool, "extra")
+            extra_names = {e[2] for e in picker.entries}
+            self.assertTrue(extra_names)
+            self.assertFalse(exam_names & extra_names)
+            table: DataTable[str] = picker.query_one("#table", DataTable)
+            table.move_cursor(row=table.row_count - 1)  # a training one
+            await pilot.press("enter")
+            await pilot.pause()
+            practice = app.screen
+            assert isinstance(practice, tui_app.PracticeScreen)
+            self.assertEqual(practice.mode, "train")
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
@@ -364,7 +416,8 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         with mock.patch.object(App, "notify") as notify:
             async with app.run_test(size=(120, 36)) as pilot:
-                await self._open_menu_item(app, pilot, "sync")
+                await pilot.press("s")
+                await pilot.pause()
         self.assertTrue(
             any("sync-setup" in str(c) for c in notify.call_args_list)
         )

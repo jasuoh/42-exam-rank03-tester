@@ -17,6 +17,12 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   found.
 
 ### Changed
+- **The exam you picked last is where the next session opens** — switch
+  to Rank 04 (menu entry 5) or to C Rank 02 (full-screen app), quit, and
+  the next `make run` / `make tui` starts there again instead of on Rank
+  03. Saved as `rank` / `tester` in `~/.examshell/config.json`; `RANK=`
+  still wins (a session started with it becomes the new pick), and `make check` still checks
+  every rank.
 - **Full-screen app uses wide terminals** — the menu's right side is now a
   dashboard (stat tiles, 4-week activity, readiness chips per level); the
   exercise picker previews the highlighted subject; practice and exam show

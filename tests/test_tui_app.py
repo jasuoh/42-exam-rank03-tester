@@ -83,6 +83,7 @@ class _Isolated(_Base):
             (session_store, "DATA_DIR", tmp.name),
             (report_export, "REPORTS_DIR", os.path.join(tmp.name, "reports")),
             (settings, "DATA_DIR", tmp.name),
+            (settings, "CONFIG_PATH", os.path.join(tmp.name, "config.json")),
         ):
             patcher = mock.patch.object(module, name, value)
             patcher.start()
@@ -345,9 +346,14 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             self.assertEqual(app.cfg.rendu, "c_rendu")
             self.assertTrue(app.cfg.relaxed)  # carried over
             self.assertIn("C · Exam Rank 02", app.label())
+            self.assertEqual(settings.load_config()["tester"], "c")
             app.switch_exam("py05")
             self.assertIs(app.sh, py_shell)
             self.assertEqual(py_shell.RANK.id, "05")
+            # remembered for the next `make tui` / `make run`
+            self.assertEqual(
+                settings.load_config(), {"tester": "py", "rank": "05"}
+            )
         py_shell.use_rank("03")
 
     async def test_feedback_from_practice_prefills_the_exercise(self) -> None:

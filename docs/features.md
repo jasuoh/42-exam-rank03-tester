@@ -17,7 +17,9 @@ python3 -m examshell --tui --practice inter   # straight into one exercise
 
 **🔀 Switch exam** in its menu moves between Python Rank 03 / 04 / 05 and
 C Rank 02 without restarting, and **🔄 Sync** runs `make sync` in the
-background.
+background. The exam you switch to is remembered (`~/.examshell/config.json`):
+the next `make tui` opens on it again, C Rank 02 included, unless `RANK=`
+picks a Python rank.
 
 Everything the plain interface does, in one screen: the subject on the
 left, grading results on the right, keys at the bottom. It drives exactly

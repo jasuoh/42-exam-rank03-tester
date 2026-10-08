@@ -15,8 +15,9 @@ import random
 import tempfile
 import unittest
 from typing import Any
+from unittest import mock
 
-from examshell import examshell, grader, ranks, report_export
+from examshell import examshell, grader, ranks, report_export, settings
 from examshell.grader import Report
 from examshell.training_bank import TRAINING_EXERCISES
 
@@ -182,6 +183,67 @@ class UseRankTests(unittest.TestCase):
             )
         self.assertIn("py_sliding_window_maximum", out.getvalue())
         self.assertNotIn("py_inter", out.getvalue())
+
+
+class LastExamTests(unittest.TestCase):
+    """The exam picked last is where the next session opens."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        for name, value in (
+            ("DATA_DIR", tmp.name),
+            ("CONFIG_PATH", os.path.join(tmp.name, "config.json")),
+        ):
+            patcher = mock.patch.object(settings, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.addCleanup(examshell.use_rank)
+
+    def _main(self, *argv: str) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return examshell.main(list(argv) + ["--no-color", "--no-rich"])
+
+    def test_remember_exam_keeps_the_python_rank_under_c(self) -> None:
+        settings.update_config("theme", "light")
+        settings.remember_exam("py04")
+        settings.remember_exam("c")
+        self.assertEqual(
+            settings.load_config(),
+            {"theme": "light", "rank": "04", "tester": "c"},
+        )
+
+    def test_without_rank_the_saved_one_is_active(self) -> None:
+        settings.remember_exam("py05")
+        self.assertEqual(self._main("--list"), 0)
+        self.assertEqual(examshell.RANK.id, "05")
+
+    def test_rank_flag_beats_the_saved_one(self) -> None:
+        settings.remember_exam("py05")
+        self.assertEqual(self._main("--rank", "04", "--list"), 0)
+        self.assertEqual(examshell.RANK.id, "04")
+
+    def test_a_bogus_saved_rank_falls_back_to_the_default(self) -> None:
+        settings.update_config("rank", "99")
+        self.assertEqual(self._main("--list"), 0)
+        self.assertEqual(examshell.RANK.id, ranks.DEFAULT_RANK)
+
+    def test_tui_opens_on_c_when_that_was_picked_last(self) -> None:
+        from c_exam import examshell as c_shell
+        from examshell import shell_common
+
+        settings.remember_exam("c")
+        with mock.patch.object(
+            shell_common, "run_tui", return_value=0
+        ) as run_tui:
+            self.assertEqual(self._main("--tui", "--relaxed"), 0)
+            self.assertIs(run_tui.call_args[0][0], c_shell)
+            self.assertTrue(run_tui.call_args[0][1].relaxed)
+            # an explicit --rank means Python, and is remembered
+            self.assertEqual(self._main("--tui", "--rank", "04"), 0)
+            self.assertIs(run_tui.call_args[0][0], examshell)
+        self.assertEqual(settings.load_config()["tester"], "py")
+        self.assertEqual(settings.load_config()["rank"], "04")
 
 
 class ValueCodecTests(unittest.TestCase):

@@ -89,7 +89,7 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 | `examshell/exam_bank_r05.py` | the 3-level Rank 05 exam bank ⚠ **contains the answers** |
 | `examshell/ranks.py` | which ranks exist: bank, level count, history tag |
 | `examshell/training_bank.py` | the LeetCode-style training bank, shared by every rank ⚠ **contains the answers** |
-| `examshell/settings.py` | `~/.examshell/config.json` — theme/timeout/fuzz/show-fails, shared by both testers |
+| `examshell/settings.py` | `~/.examshell/config.json` — theme/timeout/fuzz/show-fails and the exam picked last, shared by both testers |
 | `examshell/stats.py` | `~/.examshell/stats.jsonl` — local grading history, shared by both testers |
 | `examshell/session_store.py` | exam save/resume state, shared by both testers |
 | `examshell/report_export.py` | Markdown session reports in `~/.examshell/reports/`, shared by both testers |

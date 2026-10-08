@@ -47,6 +47,11 @@ make list RANK=05    # the Rank 05 pool
 make stats RANK=04   # your Rank 04 history specifically
 ```
 
+The rank you pick sticks: the next `make run` / `make tui` (or any target
+without `RANK=`) opens on it again — it's saved as `"rank"` in
+`~/.examshell/config.json`. `RANK=` always wins, and a session started
+with it (`make run RANK=04`, `make tui RANK=04`) makes it the new pick.
+
 Each rank keeps its own history, its own saved exam and its own session
 reports, so switching mid-practice never disturbs a run in progress on
 another one. The training pool (step 4 below) is shared by all three — it

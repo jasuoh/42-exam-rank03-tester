@@ -8,9 +8,11 @@ Testing the tool itself, the code layout, and how releases are made.
 
 ## 📦 Dependencies (uv)
 
-The tester itself needs **nothing** — `rich` (colours) and `textual` (the
-full-screen app, Python 3.9+) are optional. They are declared in
-`pyproject.toml` and pinned in `uv.lock`:
+Everything is installed with [uv](https://docs.astral.sh/uv/): `rich`
+(colours) and `textual` (the app, Python 3.9+), declared in
+`pyproject.toml` and pinned in `uv.lock`. `make install` (and the first
+`make`) runs `uv sync`, and fetches uv itself into `~/.local/bin` first if
+the machine has none:
 
 ```bash
 uv sync --extra tui          # what `make install` runs: .venv/ with rich, textual, ruff, flake8, mypy
@@ -19,11 +21,10 @@ uv lock --upgrade            # bump the pinned versions (commit uv.lock)
 uv add --optional tui <pkg>  # a new optional dependency
 ```
 
-Without uv, `make install` falls back to `venv/` + `pip install -r
-requirements.txt` — keep `requirements.txt` in step with `pyproject.toml`.
-The Makefile uses whichever of `.venv/` / `venv/` exists. CI installs the
-"rich" leg exactly like this (setup-uv + `make install`) and runs the other
-leg with no dependencies at all.
+The developer targets (`make dev` lists them) use `.venv/` once it exists
+and a bare `python3` before that. CI installs one leg exactly like a
+student (`make install`) and runs the other with no dependencies at all —
+the testers still work there, in the plain line-based menu.
 
 The package is `examshell/` (the Python tester and everything shared) plus
 `c_exam/` (the C tester); `pyproject.toml` installs them with the
@@ -81,6 +82,9 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 | `examshell/__main__.py` | entry point for `python3 -m examshell` |
 | `examshell/examshell.py` | the Python tester: its CLI, rank switching, stubs, and the hooks the shared flow needs |
 | `examshell/shell_common.py` | the exam / practice / training / readiness / drill flow **both** testers run — an I/O-free engine (`ExamRun`, `grade()`) plus the line-based UI on top of it |
+| `examshell/tui/app.py` | the app (Textual): menu, practice, exam, progress, settings |
+| `examshell/tui/render.py` | the app's rich renderables — pure functions, unit-tested without Textual |
+| `examshell/tui/clipboard.py` | copy/paste through the system clipboard where OSC 52 isn't enough |
 | `examshell/grader.py` | test building, the sandbox, the self-test |
 | `examshell/ui.py` | all rendering — `rich` when available, ANSI otherwise |
 | `examshell/bank_common.py` | tiny helpers shared by both exercise banks |
@@ -89,10 +93,9 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 | `examshell/exam_bank_r05.py` | the 3-level Rank 05 exam bank ⚠ **contains the answers** |
 | `examshell/ranks.py` | which ranks exist: bank, level count, history tag |
 | `examshell/training_bank.py` | the LeetCode-style training bank, shared by every rank ⚠ **contains the answers** |
-| `examshell/settings.py` | `~/.examshell/config.json` — theme/timeout/fuzz/show-fails and the exam picked last, shared by both testers |
+| `examshell/settings.py` | `~/.examshell/config.json` — the app's settings and the exam picked last, shared by both testers |
 | `examshell/stats.py` | `~/.examshell/stats.jsonl` — local grading history, shared by both testers |
 | `examshell/session_store.py` | exam save/resume state, shared by both testers |
-| `examshell/report_export.py` | Markdown session reports in `~/.examshell/reports/`, shared by both testers |
 | `examshell/case_labels.py` | names the edge case of a failing input, shared by both testers |
 | `examshell/update_check.py` | the once-a-day "new version available" notice |
 | `examshell/version.py` | the version number (`--version`, releases, the update check) |
@@ -116,7 +119,7 @@ runtime use `typing.List`/`Dict`/`Optional`, not `list[...]`/`X | None`.
 `docs/img/*.svg` are real Textual screenshots, regenerated with
 
 ```bash
-venv/bin/python tools/screenshots.py
+.venv/bin/python tools/screenshots.py
 ```
 
 It runs the app headless against a throwaway `HOME` with a made-up practice

@@ -74,7 +74,7 @@ wheels = [
 
 [[package]]
 name = "examshell"
-version = "0.6.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "rich", version = "14.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

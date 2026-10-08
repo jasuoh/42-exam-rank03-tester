@@ -10,7 +10,7 @@ release workflow refuses to publish a tag that doesn't match it.
 
 from __future__ import annotations
 
-__version__ = "0.6.0"
+__version__ = "1.0.0"
 
 REPO = "jasuoh/42-exam-tester"
 REPO_URL = "https://github.com/" + REPO

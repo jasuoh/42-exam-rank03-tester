@@ -80,7 +80,7 @@ TUI gemacht und eingestellt.
    `make` installiert beim ersten Mal selbst (auch uv) ✔ · gleiche Aufgabe
    nach FAILURE per Test festgeschrieben ✔ · `e` öffnet die Lösung im
    Editor (VS Code, sonst $EDITOR) ✔.
-7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG.
+7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG ✔ (Version 1.0.0; `TUTORIAL.md` entfällt).
 8. **AGENTS.md** — Projekt, Befehle, Konventionen, Workflow (Branch → PR,
    nie selbst mergen, Tests nie ins echte `~/.examshell`).
 9. **Multi-Agent-Testrunde** — parallele Agenten testen manuell wie neue

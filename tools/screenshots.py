@@ -24,7 +24,7 @@ from typing import Any
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "img")
-SIZE = (140, 38)
+SIZE = (100, 34)  # a terminal half a screen wide, next to the editor
 
 os.environ["HOME"] = tempfile.mkdtemp(prefix="examshell-shots-")
 os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"

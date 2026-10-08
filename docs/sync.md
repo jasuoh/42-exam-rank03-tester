@@ -2,21 +2,18 @@
 
 [← back to the README](../README.md) · 🇩🇪 [Deutsche Version](sync.de.md)
 
-`make sync` carries **your progress, a paused exam and your solutions** from
+Sync carries **your progress, a paused exam and your solutions** from
 one device to another — say, the cluster in the morning and your own laptop
 in the evening. Everything goes through **your own private git repository**.
 There is no server of ours in between.
 
 ## In short
 
-```bash
-# once, on GitHub: create an empty PRIVATE repo, e.g. "examshell-progress"
-# once per device, in the tester's folder:
-make sync-setup REPO=git@github.com:<your-name>/examshell-progress.git
-
-# from then on: when you stop AND when you start
-make sync
-```
+1. Once, on GitHub: create an empty **private** repo, e.g. `examshell-progress`.
+2. Once per device: in the app, **Settings** (`o`) → *Sync repo* → paste
+   `git@github.com:<your-name>/examshell-progress.git`.
+3. From then on: `s` in the menu when you stop **and** when you start —
+   or turn on *Auto-sync* in Settings and forget about it.
 
 That's all. The steps in detail:
 
@@ -57,44 +54,36 @@ ssh -T git@github.com
 
 ## 3. Connect the device (once per device)
 
-In the tester's folder (`42-exam-tester/`):
+Start the app (`make`), open **Settings** (`o`), pick *Sync repo* and paste
+the address. This connects the device and runs a first sync right away — on
+the first device it reports something like *↑ to the repo: 12 attempts,
+3 solutions*.
 
-```bash
-make sync-setup REPO=git@github.com:<your-name>/examshell-progress.git
-```
+Do the same on the second device — there everything comes down
+(*↓ from the repo: …*).
 
-This connects the device and runs a first sync right away. On the first
-device you'll see something like:
-
-```
-✔  this device is connected to git@github.com:<your-name>/examshell-progress.git
-✔  ↓ from the repo: nothing new  ·  ↑ to the repo: 12 attempts, 3 solutions
-```
-
-Run the same command on the second device — there everything comes down
-(`↓ from the repo: …`).
+> Without the app: `python3 -m examshell --sync-setup <address>`.
 
 ## 4. Day to day
 
 | When | What |
 |---|---|
-| before you stop | `make sync` |
-| before you start on the other device | `make sync` |
-| switching in the middle of an exam | `quit` in the exam (it saves), `make sync`, `make sync` on the other device, then `make exam` → answer "Resume?" with `y` |
+| before you stop | `s` in the menu |
+| before you start on the other device | `s` in the menu |
+| switching in the middle of an exam | `esc` in the exam (it saves), `s`; on the other device `s`, then **Exam** → answer "Resume?" with `y` |
 
-One `make sync` covers **both the Python and the C tester**. The same works as `make c-sync`, `s` in the menu, "🔄 Sync" in the full-screen app, and — if you installed with `uv tool install` — `examshell --sync` / `examshell --sync-setup <address>` — always from the folder that holds your `rendu/` and `c_rendu/`.
+One sync covers **both the Python and the C tester**. Without the app:
+`python3 -m examshell --sync` — always from the folder that holds your
+`rendu/` and `c_rendu/`.
 
 ---
 
 ## 5. Sync automatically (optional)
 
-```bash
-make auto-sync            # or examshell --auto-sync on   (off: make auto-sync ON=off)
-```
+**Settings** (`o`) → *Auto-sync* (or `python3 -m examshell --auto-sync on`).
 
-Every session (menu, exam, practice, training, drill, full-screen app) then
-pulls the repo's state when it starts and pushes yours when it ends — no more
-remembering `make sync`. Offline, you only get a one-line note; you can still
+Every session then pulls the repo's state when it starts and pushes yours
+when it ends — no more remembering `s`. Offline, you only get a one-line note; you can still
 practise, and the next session catches up. `make doctor` shows whether
 auto-sync is on.
 
@@ -104,9 +93,8 @@ auto-sync is on.
 |---|---|
 | practice history (stats, readiness, streak) | everything from both — nothing is lost |
 | paused exam | the **newer** one wins; a finished exam stays finished |
-| exam reports | all of them |
 | solutions in `rendu/` and `c_rendu/` | per file the **newer** edit wins — the older one is kept in `~/.examshell/sync-backup/` |
-| settings (theme, compiler, …) | **not synced** — they stay per device |
+| settings (compiler, time limit, …) | **not synced** — they stay per device |
 
 You never have to resolve a git conflict yourself: the tester combines both
 sides on its own, then pushes.
@@ -121,19 +109,18 @@ sides on its own, then pushes.
 | `git isn't installed` | Install git (`xcode-select --install` on macOS, `sudo apt install git` on Linux). |
 | "My file was overwritten!" | It was newer on the other device. Your version is in `~/.examshell/sync-backup/<date>/`. |
 
-**Use a different repo:** just run `make sync-setup REPO=<new-address>`
-again.
+**Use a different repo:** enter the new address under *Sync repo* again.
 **Turn sync off on a device:** delete the folder `~/.examshell/sync-repo/`.
 Your data and solutions stay untouched.
 
 ## Without git: `EXAMSHELL_HOME`
 
 If you already use iCloud, Dropbox or Nextcloud, you can simply put the data
-folder there — history, paused exams and reports then travel automatically:
+folder there — history and paused exams then travel automatically:
 
 ```bash
 export EXAMSHELL_HOME=~/Dropbox/examshell     # e.g. add this to ~/.zshrc
 ```
 
 Your solution folders (`rendu/`, `c_rendu/`) do **not** travel this way —
-that's what `make sync` is for.
+that's what sync is for.

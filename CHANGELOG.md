@@ -51,6 +51,14 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   moves earlier solutions to exam exercises into
   `rendu/archive/<date-time>/`, one folder per exam; practice-only files
   stay. Resuming a saved exam keeps its files as they are.
+- **A new exam draws different exercises** (#16) — with two or three
+  exercises per level, independent random draws often repeated the last
+  exam's. Each level is now dealt like a shuffled deck across exams
+  (remembered in `~/.examshell/exam_draws_<tool>.json`): you get every
+  exercise of a level once before any repeats. `--seed` exams are
+  unaffected.
+- Tests run against a throwaway `EXAMSHELL_HOME`, so no test can write
+  into the real `~/.examshell` anymore.
 - Full-screen exam: pressing `n` while a grade was still running drew a new
   exercise and then showed (and could pass the level with) the old one's
   result. `n` now waits for the grade.

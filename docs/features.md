@@ -192,6 +192,16 @@ badges earned) and prints the path at the end. Nothing to configure; it's
 just a record you can keep, diff between attempts, or paste into a study
 log.
 
+### 🔀 New exam, new exercises
+
+Each level has only two or three exercises, so purely random draws kept
+handing out the same ones exam after exam. A new exam now deals each
+level like a shuffled deck: what earlier exams drew is skipped until every
+exercise of that level came up once, and a new round never opens with the
+one that closed the last. The memory lives in
+`~/.examshell/exam_draws_<tool>.json`; `--seed N` ignores it, so a seeded
+exam stays reproducible.
+
 ### ⏸️ Resuming an aborted exam
 
 `quit` during an exam now saves your progress (level, passed exercises,

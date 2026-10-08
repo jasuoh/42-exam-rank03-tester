@@ -114,6 +114,24 @@ class ExamRunTests(_TempDataDir):
             with self.subTest(tester=sh.TOOL):
                 self.assertEqual(exercises(sh), exercises(sh))
 
+    def test_new_exams_go_through_every_exercise_of_a_level(self) -> None:
+        # issue #16: with 2-3 exercises per level, plain random draws kept
+        # handing out the same ones exam after exam
+        sh = py_shell
+
+        def first_exercise() -> str:
+            run = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+            run.start()
+            return run.ensure_exercise()
+
+        pool = sh.STANDARD_LEVELS[1]
+        for _ in range(3):
+            exams = [first_exercise() for _ in pool]
+            self.assertEqual(sorted(exams), sorted(pool))
+        # nor does a new round start with the one that ended the last
+        last = exams[-1]
+        self.assertNotEqual(first_exercise(), last)
+
     def test_redraw_only_when_relaxed(self) -> None:
         sh = py_shell
         strict = shell_common.ExamRun(sh, _cfg(sh))

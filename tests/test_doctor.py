@@ -68,7 +68,12 @@ class DoctorCheckTests(unittest.TestCase):
             update_check, "CACHE_PATH", cache
         ):
             newer = doctor.check_update(fetch=lambda: "v99.0.0")
+            # doctor asks again instead of trusting the day-long cache —
+            # a stale "v99.0.0" left in it must not survive
+            current = doctor.check_update(fetch=lambda: "v0.0.1")
         self.assertEqual(newer.status, "warn")
+        self.assertEqual(current.status, "ok")
+        self.assertEqual(current.detail, "up to date")
         self.assertIn("99.0.0", newer.detail)
         with mock.patch.dict(os.environ, {update_check.ENV_OPT_OUT: "1"}):
             self.assertIn("turned off", doctor.check_update().detail)

@@ -106,9 +106,9 @@ def check_update(
         )
     try:
         latest = (
-            update_check.latest_version(fetch=fetch)
+            update_check.latest_version(fetch=fetch, fresh=True)
             if fetch
-            else update_check.latest_version()
+            else update_check.latest_version(fresh=True)
         )
     except Exception:  # never let doctor crash
         latest = None

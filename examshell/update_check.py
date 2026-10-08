@@ -85,12 +85,15 @@ def _fetch_latest() -> Optional[str]:
 def latest_version(
     now: Optional[float] = None,
     fetch: Callable[[], Optional[str]] = _fetch_latest,
+    fresh: bool = False,
 ) -> Optional[str]:
     """The latest known release tag — from the cache when it's fresh,
-    otherwise fetched (and cached, even when the fetch failed)."""
+    otherwise fetched (and cached, even when the fetch failed). `fresh`
+    skips the cache: `doctor` is asked on purpose and must not repeat a
+    day-old (or bogus) answer."""
     now = time.time() if now is None else now
     cache = _load_cache()
-    if now - cache.get("checked", 0) < CHECK_EVERY:
+    if not fresh and now - cache.get("checked", 0) < CHECK_EVERY:
         cached = cache.get("latest")
         return cached if isinstance(cached, str) else None
     latest = fetch()

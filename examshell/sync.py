@@ -5,8 +5,8 @@ sync.py  ·  carry your progress and solutions between devices via git
 
 Set up once per device (the app's Settings, or --sync-setup URL), then sync
 before and after practising (`s` in the app, or --sync). The remote is the
-student's OWN (private) repository — there is no server of ours involved, and nothing leaves the machine except
-towards that repo.
+student's OWN (private) repository — there is no server of ours involved,
+and nothing leaves the machine except towards that repo.
 
 What travels, and how two devices' versions are combined:
 

@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import os
 import random
+import shlex
+import shutil
+import subprocess
 import time
 from typing import (
     Any,
@@ -31,7 +34,7 @@ from typing import (
 )
 
 from rich.console import Group, RenderableType
-from rich.syntax import Syntax
+from rich.table import Table
 from rich.text import Text
 from textual import events, work
 from textual.app import App, ComposeResult
@@ -47,6 +50,8 @@ from textual.widgets import (
     Input,
     OptionList,
     Static,
+    Tab,
+    Tabs,
 )
 from textual.visual import VisualType
 from textual.widgets.option_list import Option
@@ -58,14 +63,27 @@ from ..shell_common import ExamResult, ExamRun, GradeOutcome
 from ..sync import SyncResult
 from ..version import __version__
 from . import clipboard as system_clipboard
+from . import crashlog
 from . import render
 
-THEMES = {
-    "dark": "textual-dark",
-    "light": "textual-light",
-    "highcontrast": "textual-dark",
-}
+# the terminal's own colours: the app looks like the rest of your terminal
+# (your Ghostty / VS Code theme) instead of bringing its own
+THEME = "ansi-dark"
+SUBJECT_SYNTAX = "ansi_dark"
 WATCH_INTERVAL = 1.0  # seconds between solution-file checks
+
+
+def editor_command(path: str) -> Optional[List[str]]:
+    """How to open `path`: VS Code when its `code` command is installed
+    (the editor next to the terminal), else $VISUAL / $EDITOR, else None."""
+    if shutil.which("code"):
+        return ["code", path]
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+    if editor:
+        return shlex.split(editor) + [path]
+    return None
+
+
 # below this many columns, side panels (dashboard, preview) hide
 NARROW = 120
 
@@ -168,6 +186,54 @@ class PromptModal(ModalScreen[str]):
         self.dismiss(self.default)
 
 
+class HelpModal(ModalScreen[None]):
+    """`?` — every key, in one place."""
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "close"),
+        Binding("question_mark", "dismiss", "close", show=False),
+        Binding("q", "dismiss", "close", show=False),
+    ]
+
+    KEYS = (
+        ("Menu", ""),
+        ("enter", "open the highlighted entry"),
+        ("o", "settings"),
+        ("s", "sync with your other device"),
+        ("f", "feedback — an exercise that differs from your exam"),
+        ("q", "quit"),
+        ("Exam and practice", ""),
+        ("g", "grademe"),
+        ("e", "open your solution in your editor"),
+        ("t", "write a stub"),
+        ("esc", "back — in the exam: quit and save"),
+        ("Practice only", ""),
+        ("d", "all the details of the last grade"),
+        ("w", "grade every time you save"),
+        ("n", "next exercise of My gaps"),
+        ("f", "feedback on this exercise"),
+        ("Exercise list", ""),
+        ("tab", "next tab: Exam exercises · My gaps · Extra"),
+        ("/", "filter by name"),
+        ("Progress", ""),
+        ("p", "practise your gaps"),
+    )
+
+    def compose(self) -> ComposeResult:
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="bold", no_wrap=True)
+        table.add_column()
+        for key, text in self.KEYS:
+            if text:
+                table.add_row(key, text)
+            else:
+                table.add_row("", "")
+                table.add_row(Text(key, style="dim"), "")
+        with Vertical(classes="modal"):
+            yield Static(table)
+            yield Static("esc to close", classes="modal-hint")
+
+
 class ChoiceModal(ModalScreen[Optional[str]]):
     """Pick one of [(id, label)] → dismisses with the id (or None)."""
 
@@ -197,13 +263,17 @@ class ChoiceModal(ModalScreen[Optional[str]]):
 #  MAIN MENU
 # ══════════════════════════════════════════════════════════════
 class MenuScreen(AppScreen[None]):
-    BINDINGS = [Binding("q", "app.quit", "quit")]
+    BINDINGS = [
+        Binding("o", "settings", "settings"),
+        Binding("s", "app.sync", "sync"),
+        Binding("f", "feedback", "feedback"),
+        Binding("q", "app.quit", "quit"),
+    ]
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Horizontal(id="menu-body"):
             with Vertical(id="menu-left"):
-                yield Static(id="logo")
                 yield OptionList(id="menu")
             yield VerticalScroll(Static(id="glance"), id="menu-right")
         yield Footer()
@@ -218,52 +288,22 @@ class MenuScreen(AppScreen[None]):
     def refresh_menu(self) -> None:
         sh = self.app.sh
         self.app.sub_title = self.app.label()
-        self.query_one("#logo", Static).update(render.logo(self.app.label()))
         items = [
+            ("exam", "Exam", "%d levels, real exam rules" % sh.N_LEVELS),
+            ("practice", "Practice", "any exercise, full feedback"),
             (
-                "exam",
-                "🎯  Start exam",
-                "%d levels, as strict as the real one" % sh.N_LEVELS,
+                "progress",
+                "Progress",
+                "what you've passed, where your gaps are",
             ),
-            (
-                "practice",
-                "📚  Practice",
-                "any exam exercise, lenient feedback",
-            ),
-            ("training", "🧠  Training", "LeetCode-style, by difficulty"),
-            (
-                "drill",
-                "🔁  Daily drill",
-                "%d exercises from your gaps" % shell_common.DRILL_SIZE,
-            ),
-            (
-                "readiness",
-                "📈  Exam readiness",
-                "what you've passed, level by level",
-            ),
-            ("stats", "📊  Stats", "history, streak, pass rates"),
+            ("switch", "Switch exam", "now: %s" % self.app.label()),
+            ("quit", "Quit", ""),
         ]
-        items.append(
-            (
-                "switch",
-                "🔀  Switch exam",
-                "Python 03 · 04 · 05 or C 02 — now: %s" % self.app.label(),
-            )
-        )
-        items.append(("sync", "🔄  Sync", self.app.sync_hint()))
-        items.append(
-            (
-                "feedback",
-                "💬  Feedback",
-                "differs from your real exam? a bug? an idea?",
-            )
-        )
-        items.append(("quit", "🚪  Quit", ""))
         menu = self.query_one("#menu", OptionList)
         highlighted = menu.highlighted
         menu.clear_options()
         for oid, label, hint in items:
-            prompt = "%s\n    [dim]%s[/dim]" % (label, hint) if hint else label
+            prompt = "%s\n  [dim]%s[/dim]" % (label, hint) if hint else label
             menu.add_option(Option(prompt, id=oid))
         menu.highlighted = highlighted if highlighted is not None else 0
         self.query_one("#glance", Static).update(self.glance())
@@ -285,7 +325,7 @@ class MenuScreen(AppScreen[None]):
         ]
         notice = self.app.update_notice.get("notice")
         if notice:
-            parts += [Text(""), Text("🔔 " + notice, style="bold magenta")]
+            parts += [Text(""), Text(notice, style="bold yellow")]
         parts += [Text(""), Text("v%s" % __version__, style="dim")]
         return Group(*parts)
 
@@ -297,56 +337,66 @@ class MenuScreen(AppScreen[None]):
         if choice == "exam":
             app.push_screen(ExamScreen())
         elif choice == "practice":
-            app.push_screen(PickerScreen("exam"))
-        elif choice == "training":
-            app.push_screen(PickerScreen("training"))
-        elif choice == "drill":
-            app.start_drill()
-        elif choice == "readiness":
-            app.push_screen(ReadinessScreen())
-        elif choice == "stats":
-            app.push_screen(StatsScreen())
+            app.push_screen(PickerScreen())
+        elif choice == "progress":
+            app.push_screen(ProgressScreen())
         elif choice == "switch":
             app.push_screen(
                 ChoiceModal("Switch exam", app.exam_choices()), app.switch_exam
             )
-        elif choice == "sync":
-            app.start_sync()
-        elif choice == "feedback":
-            from .. import feedback
-
-            app.push_screen(
-                ChoiceModal(
-                    "Give feedback — opens a GitHub form, nothing is "
-                    "sent until you submit it",
-                    list(feedback.KIND_LABELS),
-                ),
-                app.open_feedback,
-            )
         elif choice == "quit":
             app.exit()
+
+    def action_settings(self) -> None:
+        self.app.push_screen(SettingsScreen())
+
+    def action_feedback(self) -> None:
+        from .. import feedback
+
+        self.app.push_screen(
+            ChoiceModal(
+                "Give feedback — opens a GitHub form, nothing is "
+                "sent until you submit it",
+                list(feedback.KIND_LABELS),
+            ),
+            self.app.open_feedback,
+        )
 
 
 # ══════════════════════════════════════════════════════════════
 #  EXERCISE PICKER
 # ══════════════════════════════════════════════════════════════
 class PickerScreen(AppScreen[None]):
-    """Filterable table of the exam pool or the training pool."""
+    """Practice: one filterable table, three tabs — the exam pool, your gaps
+    (a short queue from stats.drill_queue(), weak spots first) and the extra
+    LeetCode-style pool, which the exam never draws from."""
 
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
         Binding("slash", "focus_filter", "filter"),
+        Binding("tab", "next_tab", "next tab"),
     ]
+
+    POOLS = (
+        ("exam", "Exam exercises"),
+        ("gaps", "My gaps"),
+        ("extra", "Extra"),
+    )
 
     entries: List[Tuple[Any, ...]]
     status: Dict[str, Dict[str, Any]]
 
-    def __init__(self, pool: str) -> None:
+    def __init__(self, pool: str = "exam") -> None:
         super().__init__()
         self.pool = pool
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Tabs(
+            *[Tab(label, id=pool) for pool, label in self.POOLS],
+            active=self.pool,
+            id="pools",
+        )
         with Horizontal(id="picker-body"):
             with Vertical(id="picker-left"):
                 yield Input(
@@ -356,38 +406,53 @@ class PickerScreen(AppScreen[None]):
                 yield DataTable(
                     id="table", cursor_type="row", zebra_stripes=True
                 )
-            yield VerticalScroll(Copyable(id="preview"), id="preview-pane")
+            yield VerticalScroll(
+                Copyable(id="preview"), id="preview-pane", classes="pane"
+            )
         yield Footer()
 
     def on_mount(self) -> None:
+        self.load_pool(self.pool)
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        pool = event.tab.id
+        if pool and pool != self.pool:
+            self.load_pool(pool)
+
+    def action_next_tab(self) -> None:
+        self.query_one(Tabs).action_next_tab()
+
+    def load_pool(self, pool: str) -> None:
         sh = self.app.sh
-        self.entries = (
-            sh.exercise_entries()
-            if self.pool == "exam"
-            else sh.training_entries()
-        )
+        self.pool = pool
+        exam = list(sh.exercise_entries())  # e[4]: the exam can draw it
+        if pool == "exam":
+            self.entries = [e for e in exam if e[4]]
+        elif pool == "gaps":
+            by_name = {e[2]: e for e in exam if e[4]}
+            queue = stats.drill_queue(
+                sh.TOOL, list(by_name), shell_common.DRILL_SIZE
+            )
+            self.entries = [by_name[name] for name in queue]
+        else:  # what the exam never draws: the bank's extras + training
+            self.entries = [
+                (e[0], "level %s" % e[1], e[2], e[3]) for e in exam if not e[4]
+            ] + list(sh.training_entries())
         self.status = stats.exercise_status(
             sh.TOOL, [e[2] for e in self.entries]
         )
         table: DataTable[str] = self.query_one(DataTable)
+        table.clear(columns=True)
         table.add_columns(
-            "",
-            "level" if self.pool == "exam" else "difficulty",
-            "",
-            "exercise",
-            "function",
+            "", "kind" if pool == "extra" else "level", "exercise"
         )
-        self.fill("")
+        self.fill(self.query_one("#filter", Input).value)
         table.focus()
 
     def on_screen_resume(self) -> None:
-        sh = self.app.sh
-        self.status = stats.exercise_status(
-            sh.TOOL, [e[2] for e in self.entries]
-        )
         table: DataTable[str] = self.query_one(DataTable)
         row = table.cursor_row
-        self.fill(self.query_one("#filter", Input).value)
+        self.load_pool(self.pool)
         table.move_cursor(row=row)
 
     def fill(self, query: str) -> None:
@@ -400,24 +465,21 @@ class PickerScreen(AppScreen[None]):
         }
         for entry in shell_common.filter_entries(self.entries, query, 2, 3):
             name = entry[2]
-            pool_mark = ""
-            if self.pool == "exam":
-                pool_mark = (
-                    "[yellow]★[/yellow]" if entry[4] else "[dim]○[/dim]"
-                )
             table.add_row(
                 mark[self.status[name]["status"]],
                 str(entry[1]),
-                pool_mark,
                 name,
-                entry[3],
                 key=name,
             )
         if not table.row_count:
             pane = self.query_one("#preview-pane")
             pane.border_title = pane.border_subtitle = None
             self.query_one("#preview", Copyable).update(
-                render.waiting_view("no exercise matches")
+                render.waiting_view(
+                    "no gaps right now — everything passed recently"
+                    if self.pool == "gaps" and not query
+                    else "no exercise matches"
+                )
             )
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -437,7 +499,7 @@ class PickerScreen(AppScreen[None]):
         name = cast(str, event.row_key.value)  # rows are keyed by name
         row = self.status[name]
         pane = self.query_one("#preview-pane")
-        pane.border_title = "📄 %s" % name
+        pane.border_title = name
         pane.border_subtitle = (
             "%d/%d passed" % (row["passes"], row["attempts"])
             if row["attempts"]
@@ -450,56 +512,59 @@ class PickerScreen(AppScreen[None]):
         )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        mode = "practice" if self.pool == "exam" else "train"
         name = cast(str, event.row_key.value)  # rows are keyed by name
-        self.app.push_screen(PracticeScreen(name, mode=mode))
+        if self.pool == "gaps":
+            # the rest of the gaps follow with `n`
+            queue = [e[2] for e in self.entries]
+            self.app.push_screen(
+                PracticeScreen(
+                    name, mode="drill", queue=queue, position=queue.index(name)
+                )
+            )
+            return
+        training = name in self.app.sh.TRAINING_EXERCISES
+        self.app.push_screen(
+            PracticeScreen(name, mode="train" if training else "practice")
+        )
 
 
 # ══════════════════════════════════════════════════════════════
-#  THE SPLIT VIEW  ·  subject | results  (practice and exam)
+#  THE SPLIT VIEW  ·  subject over results  (practice and exam)
 # ══════════════════════════════════════════════════════════════
 class SplitScreen(AppScreen[None]):
-    """Subject on the left, grading results on the right. Subclasses decide
-    what grading means (practice vs exam)."""
+    """The subject on top, the grading results below — your code stays in
+    your editor. Subclasses decide what grading means (practice vs exam)."""
 
     def __init__(self) -> None:
         super().__init__()
         self.ex_name = ""  # empty while the exam still asks for the login
-        self.code_mtime: Optional[float] = None
         self.log_entries: List[LogEntry] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(id="status")
-        with Horizontal(id="split"):
-            with Vertical(id="split-left"):
-                yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
-                yield VerticalScroll(Copyable(id="code"), id="code-pane")
-            with Vertical(id="split-right"):
-                yield VerticalScroll(Copyable(id="results"), id="results-pane")
-                yield VerticalScroll(
-                    Static(render.attempt_log([]), id="log"), id="log-pane"
-                )
+        with Vertical(id="split"):
+            yield VerticalScroll(
+                Copyable(id="subject"), id="subject-pane", classes="pane"
+            )
+            yield VerticalScroll(
+                Copyable(id="results"), id="results-pane", classes="pane"
+            )
         yield Footer()
-
-    def on_mount(self) -> None:
-        self.set_interval(1.0, self.refresh_code)
-        self.query_one("#log-pane").border_title = "this session"
-        self.query_one("#log", Static).update(
-            render.attempt_log(self.log_entries)
-        )
 
     def show_exercise(self, ex_name: str) -> None:
         sh = self.app.sh
         self.ex_name = ex_name
         ex = sh.ALL_EXERCISES[ex_name]
         pane = self.query_one("#subject-pane")
-        pane.border_title = "📄 %s" % ex_name
+        pane.border_title = ex_name
         pane.border_subtitle = shell_common.solution_path(
             sh, ex_name, self.app.cfg
         )
         self.query_one("#subject", Copyable).update(
-            ui.subject_blocks(ex, code_background=None)
+            ui.subject_blocks(
+                ex, lexer_theme=SUBJECT_SYNTAX, code_background=None
+            )
         )  # the theme's own code background
         self.set_results(
             render.waiting_view(
@@ -507,68 +572,22 @@ class SplitScreen(AppScreen[None]):
                 % shell_common.solution_path(sh, ex_name, self.app.cfg)
             )
         )
-        self.refresh_code(force=True)
-
-    def refresh_code(self, force: bool = False) -> None:
-        """Your solution file under the subject — re-read whenever it's
-        saved."""
-        if not self.ex_name:
-            return
-        path = shell_common.solution_path(
-            self.app.sh, self.ex_name, self.app.cfg
-        )
-        try:
-            mtime: Optional[float] = os.path.getmtime(path)
-        except OSError:
-            mtime = None
-        if not force and mtime == self.code_mtime:
-            return
-        self.code_mtime = mtime
-        pane = self.query_one("#code-pane")
-        code = self.query_one("#code", Copyable)
-        if mtime is None:
-            pane.border_title = "your code"
-            code.update(
-                render.waiting_view(
-                    "no %s yet — write it in your editor, or press t for a "
-                    "stub" % os.path.basename(path)
-                )
-            )
-            return
-        with open(path, errors="replace") as fh:
-            source = fh.read()
-        pane.border_title = "your code · saved %s" % time.strftime(
-            "%H:%M:%S", time.localtime(mtime)
-        )
-        code.update(
-            Syntax(
-                source,
-                "c" if path.endswith(".c") else "python",
-                theme="monokai",
-                line_numbers=True,
-                word_wrap=True,
-            )
-        )
+        self.show_attempts()
 
     def log_report(self, report: Report) -> None:
         self.log_entries.append(
             (time.strftime("%H:%M:%S"), report.exercise, report)
         )
-        self.query_one("#log", Static).update(
-            render.attempt_log(self.log_entries)
-        )
+        self.show_attempts()
 
-    def fails_that_fit(
-        self, report: Report, hint: Optional[str] = None
-    ) -> int:
-        """At least --show-fails, more when the results pane has room (one
-        failing test takes ~4 lines) — but never pushing the warnings or
-        the hint below the fold."""
-        reserve = 6 + 2 * len(report.warnings)
-        if hint:
-            reserve += len(hint) // 40 + 4
-        height = self.query_one("#results-pane").size.height
-        return max(self.app.cfg.show_fails or 6, (height - reserve) // 4)
+    def show_attempts(self) -> None:
+        """This session's gradings of the current exercise, in one line
+        under the results."""
+        self.query_one(
+            "#results-pane"
+        ).border_subtitle = render.attempt_summary(
+            self.log_entries, self.ex_name
+        )
 
     def set_results(
         self, renderable: RenderableType, title: str = "results"
@@ -576,17 +595,47 @@ class SplitScreen(AppScreen[None]):
         self.query_one("#results", Copyable).update(renderable)
         self.query_one("#results-pane").border_title = title
 
-    def action_stub(self) -> None:
+    def _cfg(self) -> TesterConfig:
         # ExamScreen: the exam's own config
         run: Optional[ExamRun] = getattr(self, "run", None)
-        cfg = run.cfg if run is not None else self.app.cfg
-        ok, kind, message = self.app.sh.write_stub(self.ex_name, cfg)
+        return run.cfg if run is not None else self.app.cfg
+
+    def action_stub(self) -> None:
+        ok, kind, message = self.app.sh.write_stub(self.ex_name, self._cfg())
         self.notify(
             message,
             severity="information"
             if ok
             else ("warning" if kind == "warn" else "error"),
         )
+
+    def action_edit(self) -> None:
+        """Open your solution in your editor (a stub first if there's no
+        file yet): VS Code when `code` is there, else $VISUAL / $EDITOR
+        right here in the terminal."""
+        if not self.ex_name:
+            return
+        cfg = self._cfg()
+        path = shell_common.solution_path(self.app.sh, self.ex_name, cfg)
+        if not os.path.exists(path):
+            self.app.sh.write_stub(self.ex_name, cfg)
+        command = editor_command(path)
+        if command is None:
+            self.notify(
+                "No editor found (no `code`, no $EDITOR) — open %s" % path,
+                severity="warning",
+            )
+        elif command[0] == "code":
+            subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self.notify("Opened %s in VS Code" % path)
+        else:
+            with self.app.suspend():
+                subprocess.call(command)
 
 
 class PracticeScreen(SplitScreen):
@@ -595,7 +644,9 @@ class PracticeScreen(SplitScreen):
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),
+        Binding("d", "details", "details"),
         Binding("w", "toggle_watch", "watch"),
+        Binding("e", "edit", "edit"),
         Binding("t", "stub", "stub"),
         Binding("f", "feedback", "differs from exam?"),
         Binding("n", "next", "next", show=False),
@@ -611,6 +662,8 @@ class PracticeScreen(SplitScreen):
     ) -> None:
         super().__init__()
         self.start_ex, self.mode = ex_name, mode
+        self.outcome: Optional[GradeOutcome] = None
+        self.details = False
         self.queue, self.position = queue, position
         self.rng = random.Random()
         self.grading = False
@@ -618,7 +671,6 @@ class PracticeScreen(SplitScreen):
         self.watch_mtime: Optional[float] = None
 
     def on_mount(self) -> None:
-        super().on_mount()
         self.show_exercise(self.start_ex)
         self.update_status()
 
@@ -670,20 +722,35 @@ class PracticeScreen(SplitScreen):
         self.grading = False
         report = outcome.report
         self.log_report(report)
-        view = render.report_view(
-            report, report.function, self.fails_that_fit(report, outcome.hint)
-        )
-        if outcome.hint:
-            view = Group(view, Text(""), render.hint_view(outcome.hint))
-        self.set_results(view, "✔ passed" if report.ok else "✖ failed")
-        for emoji, label in outcome.badges:
-            self.notify(
-                "%s %s" % (emoji, label), title="New badge!", timeout=6
-            )
+        self.outcome, self.details = outcome, False
+        self.show_report()
         if report.ok and self.queue and self.position + 1 < len(self.queue):
             self.notify(
                 "Passed! Press n for the next drill exercise.", timeout=5
             )
+
+    def show_report(self) -> None:
+        """The last grade: compact, or every detail after `d`."""
+        outcome = self.outcome
+        if outcome is None:
+            return
+        report = outcome.report
+        if self.details:
+            view: RenderableType = render.report_view(
+                report, report.function, len(report.failures)
+            )
+            if outcome.hint:
+                view = Group(view, Text(""), render.hint_view(outcome.hint))
+        else:
+            view = render.compact_report_view(
+                report, report.function, hint=outcome.hint or ""
+            )
+        self.set_results(view, "grademe")
+
+    def action_details(self) -> None:
+        if self.outcome is not None and not self.outcome.report.ok:
+            self.details = not self.details
+            self.show_report()
 
     # ── watch mode ────────────────────────────────────────────────────
     def _mtime(self) -> Optional[float]:
@@ -732,6 +799,7 @@ class ExamScreen(SplitScreen):
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),
+        Binding("e", "edit", "edit"),
         Binding("t", "stub", "stub"),
         Binding("n", "redraw", "new", show=False),
         Binding("escape", "quit_exam", "quit & save"),
@@ -745,7 +813,6 @@ class ExamScreen(SplitScreen):
         self.over = False
 
     def on_mount(self) -> None:
-        super().on_mount()
         app = self.app
         self.run = shell_common.ExamRun(app.sh, app.cfg)
         self.set_results(render.waiting_view("Starting the exam …"))
@@ -855,13 +922,8 @@ class ExamScreen(SplitScreen):
         self.log_report(report)
         blind = getattr(self.run.cfg, "blind", False)
         self.set_results(
-            render.report_view(
-                report,
-                report.function,
-                self.fails_that_fit(report),
-                blind=blind,
-            ),
-            "✔ passed" if report.ok else "✖ failed",
+            render.exam_trace_view(report, report.function, blind=blind),
+            "grademe",
         )
         if not report.ok:
             return
@@ -871,8 +933,7 @@ class ExamScreen(SplitScreen):
             self.finish(passed=True)
             return
         self.notify(
-            "Level %d cleared! 🎉  On to level %d."
-            % (cleared, self.run.level),
+            "Level %d cleared — on to level %d." % (cleared, self.run.level),
             title="✔ PASSED",
             timeout=5,
         )
@@ -931,6 +992,7 @@ class SummaryScreen(AppScreen[None]):
         yield VerticalScroll(
             Copyable(render.exam_result_view(self.result), id="summary"),
             id="summary-pane",
+            classes="pane",
         )
         yield Footer()
 
@@ -939,25 +1001,31 @@ class SummaryScreen(AppScreen[None]):
         pane.border_title = "exam summary"
         if self.result.passed:
             pane.add_class("passed")
-        for badge in self.result.badges:
-            self.notify(badge, title="🏅", timeout=8)
         hint = None if self.result.passed else shell_common.sync_hint()
         if hint:
             self.notify(hint, timeout=10)
 
 
 # ══════════════════════════════════════════════════════════════
-#  READINESS · STATS
+#  PROGRESS  ·  readiness + stats on one screen
 # ══════════════════════════════════════════════════════════════
-class ReadinessScreen(AppScreen[None]):
+class ProgressScreen(AppScreen[None]):
     BINDINGS = [
         Binding("escape", "app.pop_screen", "back"),
-        Binding("d", "drill", "drill my gaps"),
+        Binding("p", "practice_gaps", "practice my gaps"),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield VerticalScroll(Static(id="readiness"), id="readiness-pane")
+        with Horizontal(id="stats-body"):
+            yield VerticalScroll(
+                Static(id="readiness"), id="stats-pane", classes="pane"
+            )
+            yield VerticalScroll(
+                Static(id="per-exercise"),
+                id="per-exercise-pane",
+                classes="pane",
+            )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -968,48 +1036,155 @@ class ReadinessScreen(AppScreen[None]):
 
     def refresh_view(self) -> None:
         sh = self.app.sh
-        self.query_one(
-            "#readiness-pane"
-        ).border_title = "exam readiness — every exercise the exam can draw"
-        self.query_one("#readiness", Static).update(
-            render.readiness_view(stats.readiness(sh.TOOL, sh.STANDARD_LEVELS))
-        )
-
-    def action_drill(self) -> None:
-        self.app.start_drill()
-
-
-class StatsScreen(AppScreen[None]):
-    BINDINGS = [Binding("escape", "app.pop_screen", "back")]
-
-    def compose(self) -> ComposeResult:
-        yield Header()
-        with Horizontal(id="stats-body"):
-            yield VerticalScroll(Static(id="stats"), id="stats-pane")
-            yield VerticalScroll(
-                Static(id="per-exercise"), id="per-exercise-pane"
-            )
-        yield Footer()
-
-    def on_mount(self) -> None:
-        tool = self.app.sh.TOOL
+        tool = sh.TOOL
         summary = stats.summarize(tool)
-        self.query_one("#stats-pane").border_title = "your history"
-        self.query_one(
-            "#per-exercise-pane"
-        ).border_title = "per exercise (worst first)"
-        self.query_one("#stats", Static).update(
-            render.stats_overview(
-                summary,
-                stats.daily_activity(tool),
-                stats.practice_streak(tool),
-                stats.exam_history(tool),
-                shell_common.fmt_duration,
+        self.query_one("#stats-pane").border_title = "readiness"
+        self.query_one("#per-exercise-pane").border_title = "per exercise"
+        self.query_one("#readiness", Static).update(
+            Group(
+                render.readiness_view(
+                    stats.readiness(tool, sh.STANDARD_LEVELS)
+                ),
+                Text(""),
+                render.stats_overview(
+                    summary,
+                    stats.daily_activity(tool),
+                    stats.practice_streak(tool),
+                    stats.exam_history(tool),
+                    shell_common.fmt_duration,
+                ),
             )
         )
         self.query_one("#per-exercise", Static).update(
             render.per_exercise_view(summary)
         )
+
+    def action_practice_gaps(self) -> None:
+        self.app.push_screen(PickerScreen("gaps"))
+
+
+# ══════════════════════════════════════════════════════════════
+#  SETTINGS  ·  what used to be flags and --save-config
+# ══════════════════════════════════════════════════════════════
+class SettingsScreen(AppScreen[None]):
+    """The few things worth changing, saved to ~/.examshell/config.json
+    (settings.py) and applied right away. Esc in a prompt keeps the value."""
+
+    BINDINGS = [Binding("escape", "app.pop_screen", "back")]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Vertical(id="settings-body"):
+            yield OptionList(id="settings")
+            yield Static(
+                "enter to change · saved for every session",
+                classes="modal-hint",
+            )
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.refresh_list()
+        self.query_one("#settings", OptionList).focus()
+
+    def rows(self) -> List[Tuple[str, str, str]]:
+        from .. import sync
+
+        cfg = self.app.cfg
+        limit = getattr(cfg, "time_limit", None)
+        repo = sync.remote_url(settings.DATA_DIR)
+        rows = [
+            (
+                "time_limit",
+                "Exam time limit",
+                "%d min" % limit if limit else "off",
+            ),
+            ("timeout", "Time per test", "%d s" % cfg.timeout),
+            ("fuzz", "Random tests per exercise", str(cfg.fuzz)),
+        ]
+        if hasattr(cfg, "cc"):
+            rows.append(("cc", "C compiler", str(getattr(cfg, "cc"))))
+        rows += [
+            ("sync_repo", "Sync repo", repo or "not set up"),
+            (
+                "auto_sync",
+                "Auto-sync",
+                "on" if shell_common.auto_sync_enabled() else "off",
+            ),
+        ]
+        return rows
+
+    def refresh_list(self) -> None:
+        menu = self.query_one("#settings", OptionList)
+        highlighted = menu.highlighted
+        menu.clear_options()
+        for key, label, value in self.rows():
+            menu.add_option(Option("%-28s [b]%s[/b]" % (label, value), id=key))
+        menu.highlighted = highlighted if highlighted is not None else 0
+
+    def on_option_list_option_selected(
+        self, event: OptionList.OptionSelected
+    ) -> None:
+        key = event.option.id or ""
+        cfg = self.app.cfg
+        if key == "auto_sync":
+            on = not shell_common.auto_sync_enabled()
+            self.save("auto_sync", on)
+            if on:
+                self.app.notify(
+                    "Auto-sync on: every session pulls first and pushes "
+                    "when it ends (once a sync repo is set up)."
+                )
+            return
+        if key == "sync_repo":
+            self.app.push_screen(
+                PromptModal(
+                    "URL of your PRIVATE git repo for sync "
+                    "(see docs/sync.md) — Esc to cancel",
+                ),
+                self.app.setup_sync,
+            )
+            return
+        prompts = {
+            "time_limit": "Exam time limit in minutes (0 = off):",
+            "timeout": "Seconds each test may run:",
+            "fuzz": "Random tests per exercise, on top of the fixed ones:",
+            "cc": "C compiler to use (cc, gcc, clang …):",
+        }
+        current = getattr(cfg, key, None)
+        default = str(current or 0) if key == "time_limit" else str(current)
+        self.app.push_screen(
+            PromptModal(prompts[key], default),
+            lambda value: self.apply(key, value),
+        )
+
+    def apply(self, key: str, value: Optional[str]) -> None:
+        if value is None:
+            return
+        if key == "cc":
+            if value:
+                self.save("cc", value)
+            return
+        try:
+            number = int(value)
+        except ValueError:
+            self.app.notify("%r is not a number" % value, severity="error")
+            return
+        if key == "time_limit":
+            self.save("time_limit", number if number > 0 else None)
+        elif number < (1 if key == "timeout" else 0):
+            self.app.notify("that's too small", severity="error")
+        else:
+            self.save(key, number)
+
+    def save(self, key: str, value: Any) -> None:
+        if not settings.update_config(key, value):
+            self.app.notify(
+                "could not write %s" % settings.CONFIG_PATH, severity="error"
+            )
+            return
+        if key != "auto_sync":
+            setattr(self.app.cfg, key, value)
+        self.refresh_list()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1018,45 +1193,30 @@ class StatsScreen(AppScreen[None]):
 class ExamShellApp(App[None]):
     TITLE = "ExamShell"
     CSS = """
-    Screen { background: $surface; }
+    Screen { background: $background; }
     #menu-body { height: 1fr; }
     #menu-left { width: 56; padding: 1 1 1 2; }
-    #logo { height: 4; content-align: center middle; }
-    #menu {
-        height: auto; max-height: 1fr; border: round $accent; padding: 0 1;
-    }
-    #menu-right {
-        width: 1fr; border: round $secondary; padding: 1 2; margin: 1 2 1 1;
-    }
-    #status { height: 1; padding: 0 1; background: $panel; }
+    #menu { height: auto; max-height: 1fr; border: round $border-blurred; }
+    #menu:focus { border: round $primary; }
+    #menu-right { width: 1fr; padding: 1 2; margin: 1 2 1 1; }
+    #status { height: 1; padding: 0 1; }
     #split, #picker-body, #stats-body { height: 1fr; }
-    #split-left { width: 3fr; }
-    #subject-pane {
-        height: auto; max-height: 60%; border: round $warning; padding: 0 1;
-    }
-    #code-pane {
-        height: 1fr; min-height: 5; border: round $secondary; padding: 0 1;
-    }
-    #split-right { width: 2fr; }
-    #results-pane { height: 1fr; border: round $accent; padding: 0 1; }
-    #log-pane {
-        height: auto; max-height: 10; border: round $secondary; padding: 0 1;
-    }
-    #summary-pane, #readiness-pane {
-        border: round $accent; padding: 1 2; margin: 1 2;
-    }
-    #stats-pane {
-        width: 1fr; border: round $accent; padding: 1 2; margin: 1 1 1 2;
-    }
-    #per-exercise-pane {
-        width: 1fr; border: round $secondary; padding: 0 1; margin: 1 2 1 1;
-    }
-    #summary-pane.passed { border: heavy $success; }
+    .pane { border: round $border-blurred; padding: 0 1; }
+    #subject-pane { height: 1fr; min-height: 6; }
+    #results-pane { height: auto; max-height: 70%; }
+    #pools { margin: 0 1; }
+    #settings-body { padding: 1 2; }
+    #settings { height: auto; border: round $border-blurred; }
+    #summary-pane { padding: 1 2; margin: 1 2; }
+    #summary-pane.passed { border: round $success; }
+    #stats-pane { width: 1fr; padding: 1 2; margin: 1 1 1 2; }
+    #per-exercise-pane { width: 1fr; margin: 1 2 1 1; }
     #picker-left { width: 2fr; max-width: 72; }
-    #preview-pane {
-        width: 3fr; border: round $warning; padding: 0 1; margin: 0 1 0 0;
+    #preview-pane { width: 3fr; margin: 0 1 0 0; }
+    #filter { margin: 0 1 1 1; border: none; height: 1; padding: 0 1; }
+    DataTable > .datatable--header {
+        background: $background; color: $text-muted; text-style: bold;
     }
-    #filter { margin: 0 1; }
     #table { height: 1fr; margin: 0 1; }
     .-narrow #menu-right, .-narrow #preview-pane { display: none; }
     .-narrow #menu-left { width: 1fr; }
@@ -1065,23 +1225,38 @@ class ExamShellApp(App[None]):
     .-narrow #stats-pane { width: 1fr; height: auto; margin: 1 2 0 2; }
     .-narrow #per-exercise-pane { width: 1fr; margin: 0 2 1 2; }
     .modal {
-        width: 64; height: auto; padding: 1 2; border: thick $accent;
-        background: $panel;
+        width: 64; height: auto; padding: 1 2; border: round $primary;
     }
     ModalScreen { align: center middle; }
     .modal-question { margin-bottom: 1; }
     .modal-hint { color: $text-muted; }
     """
 
+    BINDINGS = [Binding("question_mark", "help", "keys")]
+
     def __init__(
         self,
         sh: Tester,
         cfg: TesterConfig,
         start: Union[None, str, Tuple[str, str]] = None,
+        ask_exam: bool = False,
     ) -> None:
         super().__init__()
         self.sh, self.cfg, self.start = sh, cfg, start
+        # the very first start: ask which exam, instead of assuming Rank 03
+        self.ask_exam = ask_exam
         self.update_notice: Dict[str, Optional[str]] = {"notice": None}
+
+    def action_help(self) -> None:
+        if not isinstance(self.screen, HelpModal):
+            self.push_screen(HelpModal())
+
+    def _handle_exception(self, error: Exception) -> None:
+        """An unexpected error ends the app (Textual's own handling) — but
+        first it goes to crash.log, so the next start can offer to report
+        it instead of the traceback just scrolling away."""
+        crashlog.record(error, type(self.screen).__name__)
+        super()._handle_exception(error)
 
     # ── clipboard: OSC 52 plus the system's own tool ─────────────────
     def copy_to_clipboard(self, text: str) -> None:
@@ -1100,15 +1275,15 @@ class ExamShellApp(App[None]):
 
     def label(self) -> str:
         if hasattr(self.sh, "RANK"):
-            return "🐍 Python · %s" % self.sh.RANK.label
-        return "🔧 C · Exam Rank 02"
+            return "Python · %s" % self.sh.RANK.label
+        return "C · Exam Rank 02"
 
     def on_resize(self, event: events.Resize) -> None:
         self.set_class(event.size.width < NARROW, "-narrow")
 
     def on_mount(self) -> None:
         self.set_class(self.size.width < NARROW, "-narrow")
-        self.theme = THEMES.get(ui.current_theme(), "textual-dark")
+        self.theme = THEME
         self.update_notice = update_check.start_background_check(
             getattr(self.cfg, "no_update_check", False)
         )
@@ -1117,14 +1292,42 @@ class ExamShellApp(App[None]):
             self.push_screen(ExamScreen())
         elif isinstance(self.start, tuple) and self.start[0] == "practice":
             self.push_screen(PracticeScreen(self.start[1]))
-
-    def start_drill(self) -> None:
-        names = [e[2] for e in self.sh.exercise_entries() if e[4]]
-        queue = stats.drill_queue(self.sh.TOOL, names, shell_common.DRILL_SIZE)
-        if queue:
+        if self.ask_exam:
             self.push_screen(
-                PracticeScreen(queue[0], mode="drill", queue=queue, position=0)
+                ChoiceModal(
+                    "Welcome! Which exam are you practising for?",
+                    self.exam_choices(),
+                ),
+                self.first_pick,
             )
+        log = crashlog.pending()
+        if log is not None:  # asked first: it's on top of the welcome
+            self.push_screen(
+                ConfirmModal(
+                    "ExamShell crashed last time. Report it? It opens a "
+                    "GitHub form with the error filled in — nothing is "
+                    "sent until you submit it."
+                ),
+                lambda yes: self.report_crash(log, yes),
+            )
+
+    def first_pick(self, choice: Optional[str]) -> None:
+        """The welcome question's answer (Esc keeps the default — and
+        doesn't ask again)."""
+        if choice:
+            self.switch_exam(choice)
+        else:
+            settings.remember_exam(self.choice_id())
+
+    def choice_id(self) -> str:
+        """This tester as an exam_choices() id: "py03" … or "c"."""
+        rank = getattr(self.sh, "RANK", None)
+        return "py" + rank.id if rank is not None else "c"
+
+    def report_crash(self, log: str, yes: Optional[bool]) -> None:
+        crashlog.mark_seen()
+        if yes:
+            self.open_feedback("bug", details=crashlog.report_text(log))
 
     # ── switching between the Python ranks and the C exam ─────────────
     def exam_choices(self) -> List[Tuple[str, str]]:
@@ -1134,7 +1337,7 @@ class ExamShellApp(App[None]):
         choices = [
             (
                 "py" + rid,
-                "🐍 Python · %s  ·  %d exercises · %d levels"
+                "Python · %s  ·  %d exercises · %d levels"
                 % (label, count, levels),
             )
             for rid, label, count, levels in ranks.summary()
@@ -1142,7 +1345,7 @@ class ExamShellApp(App[None]):
         choices.append(
             (
                 "c",
-                "🔧 C · Exam Rank 02  ·  %d exercises · %d levels"
+                "C · Exam Rank 02  ·  %d exercises · %d levels"
                 % (len(c_bank.EXERCISES), c_bank.N_LEVELS),
             )
         )
@@ -1175,10 +1378,15 @@ class ExamShellApp(App[None]):
         self.notify("Switched to %s" % self.label())
         if isinstance(self.screen, MenuScreen):
             self.screen.refresh_menu()
+        elif isinstance(self.screen, SettingsScreen):
+            self.screen.refresh_list()
 
     # ── feedback ──────────────────────────────────────────────────────
     def open_feedback(
-        self, kind: Optional[str], exercise: Optional[str] = None
+        self,
+        kind: Optional[str],
+        exercise: Optional[str] = None,
+        details: Optional[str] = None,
     ) -> None:
         """Open the prefilled issue form in a browser where one exists; the
         link always goes to the clipboard too (OSC 52 works over ssh)."""
@@ -1187,7 +1395,7 @@ class ExamShellApp(App[None]):
         from .. import feedback
 
         url = feedback.issue_url(
-            kind, shell_common.tester_label(self.sh), exercise
+            kind, shell_common.tester_label(self.sh), exercise, details
         )
         try:
             self.copy_to_clipboard(url)
@@ -1204,23 +1412,16 @@ class ExamShellApp(App[None]):
             )
 
     # ── sync ──────────────────────────────────────────────────────────
-    def sync_hint(self) -> str:
-        from .. import sync
-
-        if sync.is_configured(settings.DATA_DIR):
-            return "progress + solutions with %s" % sync.remote_url(
-                settings.DATA_DIR
-            )
-        return "not set up — make sync-setup REPO=… (docs/sync.md)"
+    def action_sync(self) -> None:
+        self.start_sync()
 
     def start_sync(self) -> None:
         from .. import settings, sync
 
         if not sync.is_configured(settings.DATA_DIR):
             self.notify(
-                "Sync isn't set up on this device yet — run "
-                "`make sync-setup REPO=<your private repo>` "
-                "(see docs/sync.md).",
+                "Sync isn't set up on this device yet — add your private "
+                "repo in Settings (o). See docs/sync.md.",
                 severity="warning",
                 timeout=8,
             )
@@ -1228,14 +1429,21 @@ class ExamShellApp(App[None]):
         self.notify("Syncing with your repo …")
         self.sync_worker()
 
+    def setup_sync(self, url: Optional[str]) -> None:
+        if url:
+            self.notify("Connecting to %s …" % url)
+            self.sync_worker(url)
+
     @work(thread=True, exclusive=True, group="sync")
-    def sync_worker(self) -> None:
+    def sync_worker(self, setup_url: Optional[str] = None) -> None:
         from .. import settings, sync
 
+        dirs = shell_common.sync_dirs(self.sh, self.cfg)
         try:
-            result = sync.sync(
-                settings.DATA_DIR, shell_common.sync_dirs(self.sh, self.cfg)
-            )
+            if setup_url:
+                result = sync.setup(setup_url, settings.DATA_DIR, dirs)
+            else:
+                result = sync.sync(settings.DATA_DIR, dirs)
         except sync.SyncError as exc:
             self.call_from_thread(
                 self.notify,

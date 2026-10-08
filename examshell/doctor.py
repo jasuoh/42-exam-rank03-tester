@@ -44,8 +44,9 @@ class Check(object):
 
 
 def is_git_checkout() -> bool:
-    """Running from a cloned repo (vs. installed with uv tool / pip)?"""
-    return os.path.isdir(os.path.join(ROOT, ".git")) and os.path.isfile(
+    """Running from a cloned repo (vs. installed with uv tool)? `.git` is a
+    file, not a folder, in a git worktree or submodule."""
+    return os.path.exists(os.path.join(ROOT, ".git")) and os.path.isfile(
         os.path.join(ROOT, "Makefile")
     )
 
@@ -237,7 +238,7 @@ def check_git() -> Check:
     return Check(
         WARN,
         "git",
-        "not installed — `make sync` needs it",
+        "not installed — sync needs it",
         "macOS: xcode-select --install · Linux: sudo apt install git",
     )
 
@@ -269,7 +270,8 @@ def check_sync(data_dir: Optional[str] = None) -> Check:
             WARN,
             "Sync",
             "not set up — progress stays on this device",
-            "make sync-setup REPO=<your private repo> (see docs/sync.md)",
+            "add your private repo: Settings (o) in the app, or "
+            "--sync-setup URL · docs/sync.md",
         )
     auto = (
         " · auto-sync on"

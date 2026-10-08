@@ -35,9 +35,7 @@ from examshell._types import Exercise
 # reachable as examshell.<name> for callers and tests that patch them through
 # it.
 from examshell import (  # noqa: F401
-    achievements,
     hints,
-    report_export,
     session_store,
     stats,
 )
@@ -315,7 +313,7 @@ int main(void)
          cc -DSELF_TEST {path} -o /tmp/t && /tmp/t
        then compare the printed output against the Examples above by eye —
        this does NOT check pass/fail like the Python tool's stub does.
-       The real check is `grademe` / `make c-grade EX={short}`. */
+       The real check is grademe (g in the app). */
 {examples}
     return 0;
 }}
@@ -336,7 +334,7 @@ int main(int argc, char **argv)
     /* your code here — try it yourself:
          cc {path} -o /tmp/t && /tmp/t{example_args}
        then compare the output against the Examples above by eye.
-       The real check is `grademe` / `make c-grade EX={short}`. */
+       The real check is grademe (g in the app). */
     (void)argc;
     (void)argv;
     return (0);
@@ -499,16 +497,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog=PROG,
         description="42 Exam Rank 02 (C) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="examples:\n"
-        "  python3 -m c_exam                       interactive menu\n"
-        "  python3 -m c_exam --exam --seed 42      reproducible exam\n"
-        "  python3 -m c_exam --practice ft_atoi    drill one exercise\n"
-        "  python3 -m c_exam --train easy          "
-        "drill an easy training exercise\n"
-        "  python3 -m c_exam --grade ft_atoi       grade once, no UI\n"
-        "  python3 -m c_exam --grade-all           "
-        "grade every c_rendu/ solution\n"
-        "  python3 -m c_exam --check                validate the banks\n",
+        epilog="usually you just run `make`: the full-screen app does the "
+        "rest\n(exam, practice, progress, settings).\n\n"
+        "examples:\n"
+        "  python3 -m c_exam --exam            the exam, no menu\n"
+        "  python3 -m c_exam --grade ft_atoi   grade one solution\n\n"
+        "more options (timeouts, strict mode, sync, ...): docs/c.md",
     )
     mode = p.add_mutually_exclusive_group()
     mode.add_argument(
@@ -667,10 +661,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="N",
         help="random extra cases per fuzzable exercise (default: %d, or "
-        'your saved --save-config value) — only "function"-kind '
-        "exercises whose args are all safe to randomise are "
-        "affected; everything else still grades on curated cases "
-        "alone" % grader.DEFAULT_FUZZ,
+        "your saved value) — exercises whose inputs can't be "
+        "randomised safely grade on curated cases alone" % grader.DEFAULT_FUZZ,
     )
     p.add_argument(
         "--valgrind",
@@ -702,16 +694,9 @@ def build_parser() -> argparse.ArgumentParser:
         "where they differ, instead of a 70-char clip",
     )
     p.add_argument(
-        "--theme",
-        choices=ui.THEME_NAMES,
-        default=None,
-        help="colour theme: dark (default), light, or highcontrast "
-        "(colour-blind friendly)",
-    )
-    p.add_argument(
         "--save-config",
         action="store_true",
-        help="remember --theme/--timeout/--fuzz/--show-fails/--cc for "
+        help="remember --timeout/--fuzz/--show-fails/--cc for "
         "next time, then exit",
     )
     p.add_argument(
@@ -736,8 +721,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--tui",
         action="store_true",
-        help="full-screen interface (needs Python 3.9+ and "
-        "`pip install textual`; falls back to the normal one)",
+        help="the app (needs Python 3.9+ and Textual, which make "
+        "installs; falls back to the plain menu)",
     )
     p.add_argument(
         "--time-limit",
@@ -761,6 +746,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="force the plain ANSI UI even if rich is installed",
     )
+    shell_common.hide_advanced_flags(p)
     return p
 
 
@@ -768,12 +754,12 @@ def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     """Fill every flag the student didn't pass from ~/.examshell/config.json,
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
-    args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(
         args, file_config, "timeout", grader.DEFAULT_TIMEOUT
     )
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
+    args.time_limit = settings.merged(args, file_config, "time_limit", None)
     args.cc = settings.merged(args, file_config, "cc", grader.DEFAULT_CC)
     if args.strict_valgrind:
         args.valgrind = True
@@ -795,26 +781,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     ui.configure(
         rich=not args.no_rich,
         color=False if args.no_color else None,
-        theme=args.theme,
     )
     cfg = Config(args)
 
     if args.save_config:
         ok = settings.save_config(
-            {
-                "theme": args.theme,
-                "timeout": args.timeout,
-                "fuzz": args.fuzz,
-                "show_fails": args.show_fails,
-                "cc": args.cc,
-            }
+            dict(
+                settings.load_config(),
+                **{
+                    "timeout": args.timeout,
+                    "fuzz": args.fuzz,
+                    "show_fails": args.show_fails,
+                    "cc": args.cc,
+                },
+            )
         )
         if ok:
             ui.success(
-                "saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d cc=%s"
+                "saved to %s — timeout=%d fuzz=%d show_fails=%d cc=%s"
                 % (
                     settings.CONFIG_PATH,
-                    args.theme,
                     args.timeout,
                     args.fuzz,
                     args.show_fails,

@@ -21,7 +21,6 @@ from c_exam import examshell as c_shell
 from examshell import examshell as py_shell
 from examshell import hints
 from examshell._types import Tester, TesterConfig
-from examshell import report_export
 from examshell import ui
 from examshell import session_store, shell_common, stats
 from examshell.grader import Report
@@ -131,6 +130,26 @@ class ExamRunTests(_TempDataDir):
         # nor does a new round start with the one that ended the last
         last = exams[-1]
         self.assertNotEqual(first_exercise(), last)
+
+    def test_a_failed_level_keeps_its_exercise(self) -> None:
+        # like the real exam: after FAILURE you work on the same exercise
+        # until it passes — across fails, a redraw attempt and a resume
+        sh = py_shell
+        run = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        run.start("erin")
+        first = run.ensure_exercise()
+        for _ in range(5):
+            run.begin_attempt()  # graded, failed: no pass_level()
+            self.assertEqual(run.ensure_exercise(), first)
+        self.assertFalse(run.redraw())
+        self.assertEqual(run.current_ex, first)
+        run.save()
+        resumed = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        saved = session_store.load(sh.TOOL)
+        assert saved is not None
+        resumed.resume(saved)
+        self.assertEqual(resumed.ensure_exercise(), first)
+        self.assertEqual(resumed.level_attempts, 5)
 
     def test_redraw_only_when_relaxed(self) -> None:
         sh = py_shell
@@ -325,9 +344,6 @@ class GradeTests(_TempDataDir):
             )
         )
         self.assertEqual(len(stats.load_all(sh.TOOL)), 1)
-        self.assertIn(
-            "First Blood", [label for _emoji, label in outcome.badges]
-        )
 
     def test_hint_after_repeated_fails_but_never_in_the_exam(self) -> None:
         sh = py_shell
@@ -351,22 +367,33 @@ class GradeTests(_TempDataDir):
 class FinishAndBlindTests(_TempDataDir):
     def test_finish_exam_returns_the_summary_as_data(self) -> None:
         sh = py_shell
-        tmp = tempfile.mkdtemp()
         run = shell_common.ExamRun(sh, _cfg(sh))
         run.start("carol")
         run.ensure_exercise()
         run.begin_attempt()
-        with mock.patch.object(
-            report_export, "REPORTS_DIR", tmp
-        ), mock.patch.object(ui, "summary") as rendered:
+        with mock.patch.object(ui, "summary") as rendered:
             result = shell_common.finish_exam(
                 sh, run.session, passed=False, timed_out=True
             )
         rendered.assert_not_called()
         self.assertIn("TIME'S UP", result.title)
         self.assertEqual(dict(result.rows)["Attempts"], 1)
-        assert result.report_path is not None
-        self.assertTrue(os.path.isfile(result.report_path))
+
+    def test_a_faster_passed_exam_is_a_personal_best(self) -> None:
+        sh = py_shell
+        stats.record_exam_complete(sh.TOOL, 3600, 6, 100)
+        run = shell_common.ExamRun(sh, _cfg(sh))
+        run.start("dave")
+        assert run.session.start_time is not None
+        run.session.start_time -= 1800
+        result = shell_common.finish_exam(sh, run.session, passed=True)
+        self.assertIn("Personal best", dict(result.rows))
+        slower = shell_common.ExamRun(sh, _cfg(sh))
+        slower.start("dave")
+        assert slower.session.start_time is not None
+        slower.session.start_time -= 7200
+        result = shell_common.finish_exam(sh, slower.session, passed=True)
+        self.assertNotIn("Personal best", dict(result.rows))
 
     def test_blind_exam_report_hides_failing_cases(self) -> None:
         sh = py_shell

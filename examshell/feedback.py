@@ -44,7 +44,10 @@ def environment() -> str:
 
 
 def issue_url(
-    kind: str, tester_label: str = "", exercise: Optional[str] = None
+    kind: str,
+    tester_label: str = "",
+    exercise: Optional[str] = None,
+    details: Optional[str] = None,
 ) -> str:
     """The prefilled issue-form link. GitHub fills a form field from a query
     parameter named after that field's `id`."""
@@ -60,6 +63,8 @@ def issue_url(
             params["exercise"] = exercise
     elif kind == "bug":
         params.update(version=version, env=environment())
+        if details:  # e.g. a crash log: the "what happened" field
+            params["what"] = details
     return ISSUES_URL + "?" + urlencode(params)
 
 

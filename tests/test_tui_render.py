@@ -66,6 +66,33 @@ class ReportViewTests(unittest.TestCase):
         report.total = report.passed = 5
         self.assertIn("PASSED", text_of(render.report_view(report, "f")))
 
+    def test_compact_is_one_line_per_failure(self) -> None:
+        report = self._failing()
+        report.failures *= 3  # 6 failures
+        out = text_of(render.compact_report_view(report, "inter", hint="h"))
+        lines = out.strip().splitlines()
+        self.assertTrue(lines[0].startswith("✖ FAILED  1/3"))
+        self.assertIn("inter('', 'abc')  (empty string)  got 'x' ≠ ''", out)
+        self.assertEqual(sum("✖ inter(" in line for line in lines), 3)
+        self.assertIn("… 3 more · d for details", out)
+        self.assertEqual(lines[-1], "hint: h")
+
+    def test_exam_trace_shows_only_the_first_failure(self) -> None:
+        out = text_of(render.exam_trace_view(self._failing(), "inter"))
+        self.assertTrue(out.startswith("FAILURE"))
+        self.assertIn("inter('', 'abc')", out)
+        self.assertNotIn("inter('a\\tb', 'b')", out)
+        self.assertNotIn("edge case", out)  # no hints in the exam
+        blind = text_of(
+            render.exam_trace_view(self._failing(), "inter", blind=True)
+        )
+        self.assertEqual(blind.strip(), "FAILURE")
+        report = Report("x", "f")
+        report.total = report.passed = 5
+        self.assertEqual(
+            text_of(render.exam_trace_view(report, "f")).strip(), "SUCCESS"
+        )
+
 
 @unittest.skipUnless(HAVE_RICH, "rich not installed")
 class ChartTests(unittest.TestCase):
@@ -100,16 +127,22 @@ class ChartTests(unittest.TestCase):
         ):
             self.assertIn(piece, out)
 
-    def test_attempt_log_newest_first(self) -> None:
-        ok, bad = Report("a", "a"), Report("b", "b")
-        ok.total = ok.passed = 2
+    def test_attempt_summary_counts_this_exercise_only(self) -> None:
+        bad, ok, other = Report("a", "a"), Report("a", "a"), Report("b", "b")
         bad.total, bad.passed = 2, 1
-        self.assertIn("nothing graded", render.attempt_log([]).plain)
-        lines = render.attempt_log(
-            [("10:00:00", "a", ok), ("10:01:00", "b", bad)]
-        ).plain
+        ok.total = ok.passed = 2
+        self.assertEqual(render.attempt_summary([], "a"), "")
+        entries = [
+            ("10:00:00", "a", bad),
+            ("10:01:00", "b", other),
+        ]
         self.assertEqual(
-            lines.splitlines(), ["10:01:00  ✖ b  1/2", "10:00:00  ✔ a  2/2"]
+            render.attempt_summary(entries, "a"),
+            "graded 1× · last 10:00:00 ✖ 1/2",
+        )
+        entries.append(("10:02:00", "a", ok))
+        self.assertEqual(
+            render.attempt_summary(entries, "a"), "graded 2× · last 10:02:00 ✔"
         )
 
     def test_per_exercise_worst_first(self) -> None:

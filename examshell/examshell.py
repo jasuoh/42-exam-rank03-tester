@@ -42,9 +42,7 @@ from ._types import Exercise
 # reachable as examshell.<name> for callers and tests that patch them through
 # it.
 from . import (  # noqa: F401
-    achievements,
     hints,
-    report_export,
     session_store,
     stats,
 )
@@ -318,7 +316,7 @@ STUB_TEMPLATE = """\
 
 if __name__ == "__main__":
     # Quick self-check — run this file directly for instant feedback.
-    # NOT the real grader: `grademe` / `make grade EX={short}` also cover
+    # NOT the real grader: grademe (g in the app) also covers
     # dozens of edge cases and randomised inputs these examples don't.
     _tests = [
 {cases_block}
@@ -353,7 +351,7 @@ STUB_MULTI_TEMPLATE = """\
 
 if __name__ == "__main__":
     # Quick self-check — run this file directly for instant feedback.
-    # NOT the real grader: `grademe` / `make grade EX={short}` also cover
+    # NOT the real grader: grademe (g in the app) also covers
     # dozens of edge cases and randomised inputs these examples don't.
     # Both functions are graded together: neither one alone passes.
     _tests = [
@@ -573,19 +571,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog=PROG,
         description="42 Exam Rank 03/04/05 (Python) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="examples:\n"
-        "  python3 -m examshell                       "
-        "interactive menu (Rank 03)\n"
-        "  python3 -m examshell --rank 04             "
-        "the Rank 04 pool instead\n"
-        "  python3 -m examshell --exam --seed 42      reproducible exam\n"
-        "  python3 -m examshell --practice py_inter   drill one exercise\n"
-        "  python3 -m examshell --train easy          "
-        "drill an easy training exercise\n"
-        "  python3 -m examshell --grade py_inter      grade once, no UI\n"
-        "  python3 -m examshell --grade-all           "
-        "grade every rendu/ solution\n"
-        "  python3 -m examshell --check               validate the banks\n",
+        epilog="usually you just run `make`: the full-screen app does the "
+        "rest\n(exam, practice, progress, settings).\n\n"
+        "examples:\n"
+        "  python3 -m examshell --exam            the exam, no menu\n"
+        "  python3 -m examshell --grade py_inter  grade one solution\n\n"
+        "more options (timeouts, strict mode, sync, ...): docs/python.md",
     )
     mode = p.add_mutually_exclusive_group()
     mode.add_argument(
@@ -701,7 +692,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="RANK",
         help="which exam pool to use: %s (default: %s). Each "
-        "rank keeps its own stats, saved exam and reports."
+        "rank keeps its own stats and saved exam."
         % (" / ".join(ranks.CHOICES), ranks.DEFAULT_RANK),
     )
     p.add_argument(
@@ -761,17 +752,9 @@ def build_parser() -> argparse.ArgumentParser:
         "where they differ, instead of a 70-char clip",
     )
     p.add_argument(
-        "--theme",
-        choices=ui.THEME_NAMES,
-        default=None,
-        help="colour theme: dark (default), light, or highcontrast "
-        "(colour-blind friendly)",
-    )
-    p.add_argument(
         "--save-config",
         action="store_true",
-        help="remember --theme/--timeout/--fuzz/--show-fails "
-        "for next time, then exit",
+        help="remember --timeout/--fuzz/--show-fails for next time, then exit",
     )
     p.add_argument(
         "--no-color",
@@ -794,8 +777,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--tui",
         action="store_true",
-        help="full-screen interface (needs Python 3.9+ and "
-        "`pip install textual`; falls back to the normal one)",
+        help="the app (needs Python 3.9+ and Textual, which make "
+        "installs; falls back to the plain menu)",
     )
     p.add_argument(
         "--time-limit",
@@ -819,6 +802,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="force the plain ANSI UI even if rich is installed",
     )
+    shell_common.hide_advanced_flags(p)
     return p
 
 
@@ -845,7 +829,7 @@ def list_ranks() -> None:
 def run_tui_on_last_exam(
     args: argparse.Namespace, cfg: Config
 ) -> Optional[int]:
-    """`make tui` opens on the C exam when that's the one the full-screen
+    """`make` opens on the C exam when that's the one the full-screen
     app was switched to last — unless --rank (or a Python exercise to
     practice) says Python."""
     if (
@@ -914,12 +898,12 @@ def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     """Fill every flag the student didn't pass from ~/.examshell/config.json,
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
-    args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(
         args, file_config, "timeout", grader.DEFAULT_TIMEOUT
     )
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
+    args.time_limit = settings.merged(args, file_config, "time_limit", None)
     return args
 
 
@@ -938,7 +922,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     ui.configure(
         rich=not args.no_rich,
         color=False if args.no_color else None,
-        theme=args.theme,
     )
     cfg = Config(args)
 
@@ -956,19 +939,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.save_config:
         ok = settings.save_config(
-            {
-                "theme": args.theme,
-                "timeout": args.timeout,
-                "fuzz": args.fuzz,
-                "show_fails": args.show_fails,
-            }
+            dict(
+                settings.load_config(),
+                **{
+                    "timeout": args.timeout,
+                    "fuzz": args.fuzz,
+                    "show_fails": args.show_fails,
+                },
+            )
         )
         if ok:
             ui.success(
-                "saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d"
+                "saved to %s — timeout=%d fuzz=%d show_fails=%d"
                 % (
                     settings.CONFIG_PATH,
-                    args.theme,
                     args.timeout,
                     args.fuzz,
                     args.show_fails,
@@ -1062,7 +1046,7 @@ def run_interactive(args: argparse.Namespace, cfg: Config) -> int:
     """The modes that keep the student in a session: full-screen app, exam,
     practice, training, drill, or the menu."""
     if args.rank:
-        # an explicit `make tui RANK=04` is the exam picked last, too
+        # an explicit `--rank 04` is the exam picked last, too
         settings.remember_exam("py" + RANK.id)
     if args.tui:
         code = run_tui_on_last_exam(args, cfg)

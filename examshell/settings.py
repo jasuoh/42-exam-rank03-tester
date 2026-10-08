@@ -4,8 +4,9 @@
 settings.py  ·  persistent CLI preferences, shared by both testers
 
 A tiny JSON file at ~/.examshell/config.json holds a handful of "sticky"
-preferences (theme, timeout, fuzz, show-fails, C compiler) so students
-don't have to retype the same flags every run. Precedence is always
+preferences (timeout, fuzz, show-fails, C compiler, the exam picked last)
+so students don't have to retype the same flags every run. Precedence is
+always
 
     explicit CLI flag  >  saved config file  >  built-in default
 
@@ -22,7 +23,7 @@ from typing import Any, Dict, Mapping
 
 # EXAMSHELL_HOME moves everything (stats, saved exams, reports, config) —
 # e.g. into a folder iCloud/Dropbox already syncs, the zero-setup
-# alternative to `make sync` (examshell/sync.py).
+# alternative to sync (examshell/sync.py).
 DATA_DIR = os.environ.get("EXAMSHELL_HOME") or os.path.join(
     os.path.expanduser("~"), ".examshell"
 )
@@ -34,15 +35,15 @@ CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 # make a saved "off" sticky forever — everything below is instead a
 # value flag (or has an unambiguous None-means-unset CLI default).
 PERSISTABLE_KEYS = (
-    "theme",
     "timeout",
     "fuzz",
     "show_fails",
     "cc",
     "auto_sync",
-    # the exam picked last (remember_exam()), so the next `make run` /
-    # `make tui` opens on it: the Python rank ("03"), and which tester
-    # the full-screen app was on ("py" or "c")
+    "time_limit",
+    # the exam picked last (remember_exam()), so the next `make` opens on
+    # it: the Python rank ("03"), and which tester the app was on ("py" or
+    # "c")
     "rank",
     "tester",
 )

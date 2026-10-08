@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Unit tests for the shared quality-of-life layer used by both testers:
-settings.py, stats.py, session_store.py, report_export.py, hints.py,
-achievements.py. Every test patches each module's own path constants to a
-throwaway temp directory — never touches the student's real ~/.examshell/."""
+settings.py, stats.py, session_store.py, hints.py. Every test patches
+each module's own path constants to a throwaway temp directory — never
+touches the student's real ~/.examshell/."""
 
 from __future__ import annotations
 
@@ -13,13 +13,11 @@ import random
 import tempfile
 import time
 import unittest
-from typing import Any, Dict, List, Optional, Sequence, Set, TypeVar
+from typing import Any, Dict, List, Optional, Sequence, TypeVar
 from unittest.mock import patch
 
 from examshell import (
-    achievements,
     hints,
-    report_export,
     session_store,
     settings,
     stats,
@@ -75,22 +73,20 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.load_config(), {})
 
     def test_save_and_load_round_trip(self) -> None:
-        ok = settings.save_config({"theme": "light", "timeout": 5})
+        ok = settings.save_config({"fuzz": 7, "timeout": 5})
         self.assertTrue(ok)
-        self.assertEqual(
-            settings.load_config(), {"theme": "light", "timeout": 5}
-        )
+        self.assertEqual(settings.load_config(), {"fuzz": 7, "timeout": 5})
 
     def test_save_config_drops_non_persistable_keys(self) -> None:
-        settings.save_config({"theme": "dark", "totally_made_up": "x"})
+        settings.save_config({"timeout": 3, "totally_made_up": "x"})
         saved = settings.load_config()
-        self.assertIn("theme", saved)
+        self.assertIn("timeout", saved)
         self.assertNotIn("totally_made_up", saved)
 
     def test_save_config_drops_none_values(self) -> None:
-        settings.save_config({"theme": "dark", "fuzz": None})
+        settings.save_config({"timeout": 3, "fuzz": None})
         saved = settings.load_config()
-        self.assertIn("theme", saved)
+        self.assertIn("timeout", saved)
         self.assertNotIn("fuzz", saved)
 
     def test_save_config_survives_unwritable_dir(self) -> None:
@@ -100,7 +96,7 @@ class SettingsTests(unittest.TestCase):
         with patch.object(settings, "DATA_DIR", bad_dir), patch.object(
             settings, "CONFIG_PATH", os.path.join(bad_dir, "config.json")
         ):
-            self.assertFalse(settings.save_config({"theme": "dark"}))
+            self.assertFalse(settings.save_config({"timeout": 3}))
 
     def test_merged_prefers_explicit_cli_flag(self) -> None:
         args = argparse.Namespace(theme="highcontrast")
@@ -278,195 +274,6 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.weakest_exercises("py", ["py_inter"]), [])
 
 
-class AchievementsTests(unittest.TestCase):
-    """Every badge is a pure function of stats.jsonl — see achievements.py's
-    module docstring. N_LEVELS is fixed at 6 for these tests (matches the
-    real Python tester; the exact number doesn't matter to the logic)."""
-
-    N_LEVELS = 6
-
-    def setUp(self) -> None:
-        self.tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmpdir.cleanup)
-        self.stats_path = os.path.join(self.tmpdir.name, "stats.jsonl")
-        patcher = patch.object(stats, "STATS_PATH", self.stats_path)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        data_patcher = patch.object(stats, "DATA_DIR", self.tmpdir.name)
-        data_patcher.start()
-        self.addCleanup(data_patcher.stop)
-
-    def _ids(self) -> Set[str]:
-        return {b[0] for b in achievements.unlocked("py", self.N_LEVELS)}
-
-    def _write_raw(self, entry: Dict[str, Any]) -> None:
-        """Append one hand-built event, bypassing stats.record() — used
-        only when a test needs to control "ts" precisely (night_owl/
-        early_bird), which record() always sets to the real clock."""
-        import json
-
-        os.makedirs(self.tmpdir.name, exist_ok=True)
-        with open(self.stats_path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry) + "\n")
-
-    def test_nothing_unlocked_with_no_history(self) -> None:
-        self.assertEqual(achievements.unlocked("py", self.N_LEVELS), [])
-
-    def test_first_blood_needs_one_pass(self) -> None:
-        stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        self.assertNotIn("first_blood", self._ids())
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        self.assertIn("first_blood", self._ids())
-
-    def test_perfectionist_needs_a_first_attempt_at_100_percent(self) -> None:
-        stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        self.assertNotIn("perfectionist", self._ids())  # first try failed
-        stats.record("py", "py_hidenp", 1, True, 6, 6, "practice")
-        self.assertIn("perfectionist", self._ids())  # nailed on try 1
-
-    def test_comeback_kid_needs_a_pass_right_after_the_threshold_streak(
-        self,
-    ) -> None:
-        for _ in range(hints.STUCK_THRESHOLD - 1):
-            stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        self.assertNotIn("comeback_kid", self._ids())  # streak too short
-        for _ in range(hints.STUCK_THRESHOLD):
-            stats.record("py", "py_hidenp", 1, False, 1, 10, "practice")
-        stats.record("py", "py_hidenp", 1, True, 6, 6, "practice")
-        self.assertIn("comeback_kid", self._ids())
-
-    def test_redemption_needs_every_attempted_exercise_eventually_passed(
-        self,
-    ) -> None:
-        stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        stats.record("py", "py_hidenp", 1, True, 6, 6, "practice")
-        self.assertNotIn("redemption", self._ids())  # py_inter never passed
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        self.assertIn("redemption", self._ids())
-
-    def test_redemption_needs_a_fail_to_redeem(self) -> None:
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        self.assertNotIn("redemption", self._ids())  # first try, no fail
-        stats.record("py", "py_hidenp", 1, False, 1, 6, "practice")
-        stats.record("py", "py_hidenp", 1, True, 6, 6, "practice")
-        self.assertIn("redemption", self._ids())
-
-    def test_full_coverage_needs_a_pass_on_every_level(self) -> None:
-        for level in range(1, self.N_LEVELS):
-            stats.record("py", "ex%d" % level, level, True, 1, 1, "practice")
-        self.assertNotIn(
-            "full_coverage", self._ids()
-        )  # missing the last level
-        stats.record(
-            "py", "ex%d" % self.N_LEVELS, self.N_LEVELS, True, 1, 1, "practice"
-        )
-        self.assertIn("full_coverage", self._ids())
-
-    def test_century_needs_100_total_attempts(self) -> None:
-        for _ in range(achievements.CENTURY_THRESHOLD - 1):
-            stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        self.assertNotIn("century", self._ids())
-        stats.record("py", "py_inter", 1, False, 3, 10, "practice")
-        self.assertIn("century", self._ids())
-
-    def test_exam_cleared_needs_an_exam_complete_event(self) -> None:
-        self.assertNotIn("exam_cleared", self._ids())
-        stats.record_exam_complete("py", 100.0, self.N_LEVELS, 100)
-        self.assertIn("exam_cleared", self._ids())
-
-    def test_flawless_exam_needs_exactly_one_attempt_per_level(self) -> None:
-        stats.record_exam_complete("py", 200.0, self.N_LEVELS + 2, 100)
-        self.assertNotIn("flawless_exam", self._ids())  # 2 retries somewhere
-        stats.record_exam_complete("py", 100.0, self.N_LEVELS, 100)
-        self.assertIn("flawless_exam", self._ids())
-
-    def test_night_owl_needs_a_pass_between_midnight_and_5am_local(
-        self,
-    ) -> None:
-        import datetime
-
-        three_am = datetime.datetime(2024, 1, 1, 3, 0, 0).timestamp()
-        noon = datetime.datetime(2024, 1, 1, 12, 0, 0).timestamp()
-        self._write_raw(
-            {
-                "ts": noon,
-                "tool": "py",
-                "exercise": "py_inter",
-                "level": 1,
-                "ok": True,
-                "passed": 10,
-                "total": 10,
-                "mode": "practice",
-            }
-        )
-        self.assertNotIn("night_owl", self._ids())
-        self._write_raw(
-            {
-                "ts": three_am,
-                "tool": "py",
-                "exercise": "py_hidenp",
-                "level": 1,
-                "ok": True,
-                "passed": 6,
-                "total": 6,
-                "mode": "practice",
-            }
-        )
-        self.assertIn("night_owl", self._ids())
-
-    def test_early_bird_needs_a_pass_between_5am_and_7am_local(self) -> None:
-        import datetime
-
-        six_am = datetime.datetime(2024, 1, 1, 6, 0, 0).timestamp()
-        self._write_raw(
-            {
-                "ts": six_am,
-                "tool": "py",
-                "exercise": "py_inter",
-                "level": 1,
-                "ok": True,
-                "passed": 10,
-                "total": 10,
-                "mode": "practice",
-            }
-        )
-        self.assertIn("early_bird", self._ids())
-        self.assertNotIn("night_owl", self._ids())  # ranges don't overlap
-
-    def test_new_since_reports_only_the_freshly_unlocked_ones(self) -> None:
-        # A first-ever pass unlocks first_blood/perfectionist at once
-        # (each is trivially true for "one pass, no history") — new_since()
-        # must report exactly those two, nothing stale.
-        before = achievements.unlocked("py", self.N_LEVELS)
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        after = achievements.unlocked("py", self.N_LEVELS)
-        fresh = achievements.new_since(before, after)
-        self.assertEqual(
-            {b[0] for b in fresh},
-            {"first_blood", "perfectionist"},
-        )
-
-    def test_new_since_is_empty_when_nothing_changed(self) -> None:
-        stats.record("py", "py_inter", 1, True, 10, 10, "practice")
-        before = achievements.unlocked("py", self.N_LEVELS)
-        after = achievements.unlocked("py", self.N_LEVELS)
-        self.assertEqual(achievements.new_since(before, after), [])
-
-    def test_is_new_best_time_false_with_no_prior_runs(self) -> None:
-        self.assertFalse(achievements.is_new_best_time("py", 100.0))
-
-    def test_is_new_best_time(self) -> None:
-        stats.record_exam_complete("py", 200.0, self.N_LEVELS, 100)
-        self.assertTrue(achievements.is_new_best_time("py", 150.0))
-        self.assertFalse(achievements.is_new_best_time("py", 250.0))
-
-    def test_badges_are_scoped_per_tool(self) -> None:
-        stats.record("c", "ft_atoi", 1, True, 10, 10, "practice")
-        self.assertNotIn("first_blood", self._ids())
-
-
 class SessionStoreTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -580,80 +387,6 @@ class SessionStoreTests(unittest.TestCase):
         session_store.save("py", session, random.Random(1), "py_hidenp")
         self.assertIsNone(session_store.load("c"))
         self.assertIsNotNone(session_store.load("py"))
-
-
-class ReportExportTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.tmpdir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmpdir.cleanup)
-        self.reports_dir = os.path.join(self.tmpdir.name, "reports")
-        patcher = patch.object(report_export, "REPORTS_DIR", self.reports_dir)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
-    def _session(self) -> SessionState:
-        s = Session(login="bob")
-        s.start()
-        s.passed = ["py_inter"]
-        s.attempts = 3
-        s.history = [(1, "py_inter", 3, 45.0)]
-        return s
-
-    def test_write_report_returns_a_path_that_exists(self) -> None:
-        session = self._session()
-        path = report_export.write_exam_report(
-            "py", session, 6, True, ["🏅 Flawless"]
-        )
-        assert path is not None
-        self.assertIsNotNone(path)
-        self.assertTrue(os.path.isfile(path))
-
-    def test_report_content_has_key_fields(self) -> None:
-        session = self._session()
-        path = report_export.write_exam_report(
-            "py", session, 6, True, ["🏅 Flawless"]
-        )
-        assert path is not None
-        with open(path, encoding="utf-8") as fh:
-            content = fh.read()
-        self.assertIn("Exam PASSED", content)
-        self.assertIn("bob", content)
-        self.assertIn("Python (Rank 03)", content)
-        self.assertIn("🏅 Flawless", content)
-        self.assertIn("py_inter", content)
-
-    def test_aborted_report_has_no_achievements_line(self) -> None:
-        session = self._session()
-        path = report_export.write_exam_report("c", session, 4, False)
-        assert path is not None
-        with open(path, encoding="utf-8") as fh:
-            content = fh.read()
-        self.assertIn("Exam aborted", content)
-        self.assertIn("C (Rank 02)", content)
-        self.assertNotIn("Achievements", content)
-
-    def test_a_login_with_path_separators_cannot_escape_reports_dir(
-        self,
-    ) -> None:
-        # session.login is free-form student input (see ui.ask("  Login…")
-        # in both examshell.py's) — a "/" or ".." in it must never let the
-        # report land outside REPORTS_DIR.
-        session = self._session()
-        session.login = "../../../tmp/evil"
-        path = report_export.write_exam_report("py", session, 6, True)
-        assert path is not None
-        self.assertIsNotNone(path)
-        self.assertEqual(
-            os.path.dirname(os.path.abspath(path)),
-            os.path.abspath(self.reports_dir),
-        )
-        self.assertTrue(os.path.isfile(path))
-
-    def test_write_report_survives_unwritable_dir(self) -> None:
-        with patch.object(report_export, "REPORTS_DIR", unwritable_dir(self)):
-            session = self._session()
-            path = report_export.write_exam_report("py", session, 6, True)
-        self.assertIsNone(path)
 
 
 class HintsTests(unittest.TestCase):

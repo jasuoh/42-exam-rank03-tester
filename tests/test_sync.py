@@ -110,7 +110,7 @@ class SyncTests(unittest.TestCase):
     def test_not_set_up(self) -> None:
         with self.assertRaises(sync.SyncError) as ctx:
             self.a.sync()
-        self.assertIn("sync-setup", str(ctx.exception))
+        self.assertIn("Settings (o)", str(ctx.exception))
         self.assertFalse(sync.is_configured(self.a.data))
 
     def test_solutions_and_history_travel_between_devices(self) -> None:

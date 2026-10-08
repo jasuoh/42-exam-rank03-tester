@@ -11,12 +11,11 @@ import sys
 import tempfile
 import time
 import unittest
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from unittest import mock
 
 from examshell import examshell as py_shell
 from examshell import (
-    report_export,
     session_store,
     settings,
     shell_common,
@@ -29,7 +28,6 @@ from examshell.tui import clipboard
 
 HAVE_TEXTUAL = tui.available()
 if HAVE_TEXTUAL:
-    from rich.syntax import Syntax
     from textual.app import App
     from textual.coordinate import Coordinate
     from textual.widgets import DataTable, OptionList
@@ -82,7 +80,6 @@ class _Isolated(_Base):
             (stats, "STATS_PATH", os.path.join(tmp.name, "stats.jsonl")),
             (stats, "DATA_DIR", tmp.name),
             (session_store, "DATA_DIR", tmp.name),
-            (report_export, "REPORTS_DIR", os.path.join(tmp.name, "reports")),
             (settings, "DATA_DIR", tmp.name),
             (settings, "CONFIG_PATH", os.path.join(tmp.name, "config.json")),
         ):
@@ -118,9 +115,19 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await app.workers.wait_for_complete()
             await pilot.pause()
             self.assertEqual(
-                app.screen.query_one("#results-pane").border_title, "✔ passed"
+                app.screen.query_one("#results-pane").border_title, "grademe"
+            )
+            self.assertIn(
+                "✔ PASSED",
+                str(
+                    app.screen.query_one("#results", tui_app.Copyable).render()
+                ),
             )
             self.assertEqual(len(screen.log_entries), 1)
+            self.assertIn(
+                "graded 1×",
+                str(app.screen.query_one("#results-pane").border_subtitle),
+            )
         self.assertEqual(
             stats.exercise_status("py", ["py_inter"])["py_inter"]["status"],
             "passed",
@@ -147,18 +154,15 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 with open(path, "w") as fh:
                     fh.write(GOOD_INTER)
                 os.utime(path, (time.time() + 5, time.time() + 5))
+                screen = app.screen
+                assert isinstance(screen, tui_app.PracticeScreen)
                 for _ in range(40):
                     await pilot.pause(0.1)
                     await app.workers.wait_for_complete()
-                    if (
-                        app.screen.query_one("#results-pane").border_title
-                        == "✔ passed"
-                    ):
+                    if screen.outcome and screen.outcome.report.ok:
                         break
-                self.assertEqual(
-                    app.screen.query_one("#results-pane").border_title,
-                    "✔ passed",
-                )
+                assert screen.outcome is not None
+                self.assertTrue(screen.outcome.report.ok)
 
     async def test_exam_login_refused_new_and_quit_to_summary(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
@@ -236,7 +240,7 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             table: DataTable[str] = picker.query_one("#table", DataTable)
             name = table.coordinate_to_cell_key(Coordinate(2, 0)).row_key.value
             self.assertEqual(
-                picker.query_one("#preview-pane").border_title, "📄 %s" % name
+                picker.query_one("#preview-pane").border_title, name
             )
             await pilot.press("enter")  # open it, come back
             await pilot.press("escape")
@@ -245,6 +249,61 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await pilot.press("slash", *"zzqqxx")  # no match clears it
             await pilot.pause()
             self.assertIsNone(picker.query_one("#preview-pane").border_title)
+
+    async def test_d_toggles_the_full_details(self) -> None:
+        from examshell.grader import Failure
+
+        report = Report("py_inter", "inter")
+        report.total, report.passed = 9, 0
+        report.failures = [
+            Failure(["a%d" % i, "b"], "", "'x'") for i in range(9)
+        ]
+        outcome = shell_common.GradeOutcome(report, "unused")
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        with mock.patch.object(shell_common, "grade", return_value=outcome):
+            async with app.run_test(size=(100, 40)) as pilot:
+                await pilot.pause()
+                await pilot.press("g")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                results = app.screen.query_one("#results", tui_app.Copyable)
+                self.assertIn("6 more", str(results.render()))
+                await pilot.press("d")
+                await pilot.pause()
+                full = str(results.render())
+                self.assertIn("expected", full)
+                self.assertIn("inter('a8', 'b')", full)
+                await pilot.press("d")
+                await pilot.pause()
+                self.assertIn("6 more", str(results.render()))
+
+    async def test_e_opens_the_solution_in_vs_code(self) -> None:
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        path = os.path.join(self.rendu, "py_inter.py")
+        with mock.patch(
+            "shutil.which", return_value="/usr/bin/code"
+        ), mock.patch("subprocess.Popen") as popen:
+            async with app.run_test(size=(100, 36)) as pilot:
+                await pilot.pause()
+                await pilot.press("e")
+                await pilot.pause()
+        self.assertTrue(os.path.isfile(path))  # a stub first
+        self.assertEqual(popen.call_args[0][0], ["code", path])
+
+    def test_editor_falls_back_to_editor_env(self) -> None:
+        with mock.patch("shutil.which", return_value=None):
+            with mock.patch.dict(
+                os.environ, {"VISUAL": "", "EDITOR": "vim -p"}
+            ):
+                self.assertEqual(
+                    tui_app.editor_command("x.py"), ["vim", "-p", "x.py"]
+                )
+            with mock.patch.dict(os.environ, {"VISUAL": "", "EDITOR": ""}):
+                self.assertIsNone(tui_app.editor_command("x.py"))
 
     async def test_drill_keeps_its_session_log_across_exercises(self) -> None:
         report = Report("x", "f")
@@ -271,27 +330,7 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(screen.position, 1)
                 self.assertEqual(len(screen.log_entries), 1)
 
-    async def test_code_pane_follows_the_solution_file(self) -> None:
-        path = os.path.join(self.rendu, "py_inter.py")
-        app = tui_app.ExamShellApp(
-            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
-        )
-        async with app.run_test(size=(140, 36)) as pilot:
-            await pilot.pause()
-            screen = app.screen
-            assert isinstance(screen, tui_app.PracticeScreen)
-            code = screen.query_one("#code", tui_app.Copyable)
-            self.assertIn("press t for a stub", str(code.source))
-            with open(path, "w") as fh:
-                fh.write(GOOD_INTER)
-            screen.refresh_code()  # what the 1s timer does
-            await pilot.pause()
-            title = screen.query_one("#code-pane").border_title
-            self.assertIn("saved", str(title))
-            assert isinstance(code.source, Syntax)
-            self.assertIn("def inter", code.source.code)
-
-    async def test_subject_and_code_can_be_copied(self) -> None:
+    async def test_subject_and_results_can_be_copied(self) -> None:
         with open(os.path.join(self.rendu, "py_inter.py"), "w") as fh:
             fh.write(GOOD_INTER)
         app = tui_app.ExamShellApp(
@@ -301,7 +340,7 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             for wid, piece in (
                 ("#subject", "Assignment name"),
-                ("#code", "def inter(s1, s2):"),
+                ("#results", "press g to grade"),
             ):
                 app.screen.query_one(wid).text_select_all()
                 await pilot.pause()
@@ -312,16 +351,68 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 )
                 app.screen.clear_selection()
 
-    async def test_readiness_and_stats_screens_open(self) -> None:
+    async def test_menu_has_the_five_entries(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)):
+            menu = app.screen.query_one("#menu", OptionList)
+            self.assertEqual(
+                [
+                    menu.get_option_at_index(i).id
+                    for i in range(menu.option_count)
+                ],
+                ["exam", "practice", "progress", "switch", "quit"],
+            )
+
+    async def test_progress_screen_leads_to_the_gaps(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         async with app.run_test(size=(120, 36)) as pilot:
-            app.push_screen(tui_app.ReadinessScreen())
+            app.push_screen(tui_app.ProgressScreen())
             await pilot.pause()
-            self.assertIsInstance(app.screen, tui_app.ReadinessScreen)
-            await pilot.press("escape")
-            app.push_screen(tui_app.StatsScreen())
+            self.assertIsInstance(app.screen, tui_app.ProgressScreen)
+            await pilot.press("p")
             await pilot.pause()
-            self.assertIsInstance(app.screen, tui_app.StatsScreen)
+            picker = app.screen
+            assert isinstance(picker, tui_app.PickerScreen)
+            self.assertEqual(picker.pool, "gaps")
+            # nothing tried yet: the gaps are the first exam exercises,
+            # and picking one starts a drill through all of them
+            await pilot.press("enter")
+            await pilot.pause()
+            drill = app.screen
+            assert isinstance(drill, tui_app.PracticeScreen)
+            self.assertEqual(drill.mode, "drill")
+            self.assertEqual(len(drill.queue or []), shell_common.DRILL_SIZE)
+
+    async def test_picker_tabs_switch_the_pool(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            app.push_screen(tui_app.PickerScreen())
+            await pilot.pause()
+            picker = app.screen
+            assert isinstance(picker, tui_app.PickerScreen)
+            exam_names = {e[2] for e in picker.entries}
+            # only what the exam can draw
+            self.assertEqual(
+                exam_names,
+                {
+                    n
+                    for pool in py_shell.STANDARD_LEVELS.values()
+                    for n in pool
+                },
+            )
+            await pilot.press("tab", "tab")  # exam → gaps → extra
+            await pilot.pause()
+            self.assertEqual(picker.pool, "extra")
+            extra_names = {e[2] for e in picker.entries}
+            self.assertTrue(extra_names)
+            self.assertFalse(exam_names & extra_names)
+            table: DataTable[str] = picker.query_one("#table", DataTable)
+            table.move_cursor(row=table.row_count - 1)  # a training one
+            await pilot.press("enter")
+            await pilot.pause()
+            practice = app.screen
+            assert isinstance(practice, tui_app.PracticeScreen)
+            self.assertEqual(practice.mode, "train")
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
@@ -381,10 +472,147 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         with mock.patch.object(App, "notify") as notify:
             async with app.run_test(size=(120, 36)) as pilot:
-                await self._open_menu_item(app, pilot, "sync")
+                await pilot.press("s")
+                await pilot.pause()
         self.assertTrue(
-            any("sync-setup" in str(c) for c in notify.call_args_list)
+            any("Settings (o)" in str(c) for c in notify.call_args_list)
         )
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiSettingsTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.isolate()
+        config = mock.patch.object(
+            settings, "CONFIG_PATH", os.path.join(self.rendu, "config.json")
+        )
+        config.start()
+        self.addCleanup(config.stop)
+
+    async def _change(
+        self, app: Any, pilot: Any, key: str, text: Optional[str]
+    ) -> None:
+        menu = app.screen.query_one("#settings", OptionList)
+        ids = [
+            menu.get_option_at_index(i).id for i in range(menu.option_count)
+        ]
+        menu.highlighted = ids.index(key)
+        await pilot.press("enter")
+        await pilot.pause()
+        if text is not None:
+            await pilot.press(*text, "enter")
+            await pilot.pause()
+
+    async def test_settings_are_saved_and_applied(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.press("o")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.SettingsScreen)
+            await self._change(app, pilot, "time_limit", "90")
+            await self._change(app, pilot, "timeout", "7")
+            await self._change(app, pilot, "fuzz", "x")  # not a number
+            await self._change(app, pilot, "auto_sync", None)  # a toggle
+            self.assertEqual(app.cfg.time_limit, 90)
+            self.assertEqual(app.cfg.timeout, 7)
+            self.assertEqual(app.cfg.fuzz, 5)  # unchanged
+            await self._change(app, pilot, "time_limit", "0")
+            self.assertIsNone(app.cfg.time_limit)
+        saved = settings.load_config()
+        self.assertEqual(saved["timeout"], 7)
+        self.assertTrue(saved["auto_sync"])
+        self.assertNotIn("time_limit", saved)  # None isn't stored
+        self.assertNotIn("fuzz", saved)
+        # and a new session starts with them
+        self.assertEqual(py_shell.default_config().timeout, 7)
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiFirstImpressionTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    """The welcome question, `?` and the crash log."""
+
+    def setUp(self) -> None:
+        self.isolate()
+        config = mock.patch.object(
+            settings, "CONFIG_PATH", os.path.join(self.rendu, "config.json")
+        )
+        config.start()
+        self.addCleanup(config.stop)
+        self.addCleanup(py_shell.use_rank)
+
+    async def test_the_first_start_asks_which_exam(self) -> None:
+        from c_exam import examshell as c_shell
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), ask_exam=True)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.ChoiceModal)
+            app.screen.dismiss("c")
+            await pilot.pause()
+            self.assertIs(app.sh, c_shell)
+        self.assertEqual(settings.load_config()["tester"], "c")
+
+    async def test_esc_at_the_welcome_keeps_the_default(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), ask_exam=True)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.pause()
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+        self.assertEqual(
+            settings.load_config(), {"tester": "py", "rank": "03"}
+        )
+
+    async def test_question_mark_lists_the_keys(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(100, 40)) as pilot:
+            await pilot.press("question_mark")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.HelpModal)
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+
+    async def test_an_unexpected_error_lands_in_crash_log(self) -> None:
+        from examshell.tui import crashlog
+
+        def boom() -> None:
+            raise ZeroDivisionError("on purpose")
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with self.assertRaises(ZeroDivisionError):
+            async with app.run_test(size=(100, 36)) as pilot:
+                app.call_later(boom)
+                await pilot.pause()
+        log = crashlog.pending()
+        assert log is not None
+        self.assertIn("ZeroDivisionError: on purpose", log)
+
+    async def test_a_crash_is_logged_and_offered_as_a_bug_report(
+        self,
+    ) -> None:
+        from examshell import feedback
+        from examshell.tui import crashlog
+
+        try:
+            raise RuntimeError("boom")
+        except RuntimeError as exc:
+            crashlog.record(exc, "PracticeScreen")
+        log = crashlog.pending()
+        assert log is not None
+        self.assertIn("RuntimeError: boom", log)
+        self.assertIn("where: PracticeScreen", log)
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with mock.patch.object(
+            feedback, "open_in_browser", return_value=True
+        ) as opened:
+            async with app.run_test(size=(100, 36)) as pilot:
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui_app.ConfirmModal)
+                await pilot.press("y")
+                await pilot.pause()
+        self.assertIn("RuntimeError", opened.call_args[0][0])
+        self.assertIsNone(crashlog.pending())  # answered: not asked again
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")

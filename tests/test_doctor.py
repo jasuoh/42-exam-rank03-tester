@@ -54,7 +54,7 @@ class DoctorCheckTests(unittest.TestCase):
     def test_sync_not_set_up_is_a_warning_with_the_setup_command(self) -> None:
         check = doctor.check_sync(tempfile.mkdtemp())
         self.assertEqual(check.status, "warn")
-        self.assertIn("make sync-setup", check.fix)
+        self.assertIn("Settings (o)", check.fix)
 
     def test_update_check(self) -> None:
         # a cache of its own: the real ~/.examshell/update_check.json would

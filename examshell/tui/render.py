@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from ..grader import Report
     from ..shell_common import ExamResult, Session
 
-OK, KO, TODO = "green", "red", "grey50"
+OK, KO, TODO = "green", "red", "bright_black"
 SPARKS = "▁▂▃▄▅▆▇█"
 
 
@@ -205,7 +205,7 @@ def exam_trace_view(
 
 def hint_view(hint: str) -> Panel:
     return Panel(
-        Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED
+        Text(hint), title="hint", border_style="yellow", box=box.ROUNDED
     )
 
 
@@ -449,22 +449,4 @@ def to_text(renderable: RenderableType, width: int, console: Console) -> Text:
         for segment in line:
             if not segment.control:
                 text.append(segment.text, segment.style)
-    return text
-
-
-def logo(subtitle: str) -> Text:
-    """The menu's title block."""
-    text = Text(justify="center")
-    word = "E X A M S H E L L"
-    colours = [
-        "#5fd7ff",
-        "#5fafff",
-        "#8787ff",
-        "#af87ff",
-        "#d787ff",
-        "#ff87d7",
-    ]
-    for i, ch in enumerate(word):
-        text.append(ch, style="bold %s" % colours[(i // 3) % len(colours)])
-    text.append("\n" + subtitle, style="dim")
     return text

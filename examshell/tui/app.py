@@ -61,11 +61,10 @@ from ..version import __version__
 from . import clipboard as system_clipboard
 from . import render
 
-THEMES = {
-    "dark": "textual-dark",
-    "light": "textual-light",
-    "highcontrast": "textual-dark",
-}
+# the terminal's own colours: the app looks like the rest of your terminal
+# (your Ghostty / VS Code theme) instead of bringing its own
+THEME = "ansi-dark"
+SUBJECT_SYNTAX = "ansi_dark"
 WATCH_INTERVAL = 1.0  # seconds between solution-file checks
 # below this many columns, side panels (dashboard, preview) hide
 NARROW = 120
@@ -208,7 +207,6 @@ class MenuScreen(AppScreen[None]):
         yield Header(show_clock=True)
         with Horizontal(id="menu-body"):
             with Vertical(id="menu-left"):
-                yield Static(id="logo")
                 yield OptionList(id="menu")
             yield VerticalScroll(Static(id="glance"), id="menu-right")
         yield Footer()
@@ -223,7 +221,6 @@ class MenuScreen(AppScreen[None]):
     def refresh_menu(self) -> None:
         sh = self.app.sh
         self.app.sub_title = self.app.label()
-        self.query_one("#logo", Static).update(render.logo(self.app.label()))
         items = [
             ("exam", "Exam", "%d levels, real exam rules" % sh.N_LEVELS),
             ("practice", "Practice", "any exercise, full feedback"),
@@ -261,7 +258,7 @@ class MenuScreen(AppScreen[None]):
         ]
         notice = self.app.update_notice.get("notice")
         if notice:
-            parts += [Text(""), Text("🔔 " + notice, style="bold magenta")]
+            parts += [Text(""), Text(notice, style="bold yellow")]
         parts += [Text(""), Text("v%s" % __version__, style="dim")]
         return Group(*parts)
 
@@ -339,7 +336,9 @@ class PickerScreen(AppScreen[None]):
                 yield DataTable(
                     id="table", cursor_type="row", zebra_stripes=True
                 )
-            yield VerticalScroll(Copyable(id="preview"), id="preview-pane")
+            yield VerticalScroll(
+                Copyable(id="preview"), id="preview-pane", classes="pane"
+            )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -475,8 +474,12 @@ class SplitScreen(AppScreen[None]):
         yield Header()
         yield Static(id="status")
         with Vertical(id="split"):
-            yield VerticalScroll(Copyable(id="subject"), id="subject-pane")
-            yield VerticalScroll(Copyable(id="results"), id="results-pane")
+            yield VerticalScroll(
+                Copyable(id="subject"), id="subject-pane", classes="pane"
+            )
+            yield VerticalScroll(
+                Copyable(id="results"), id="results-pane", classes="pane"
+            )
         yield Footer()
 
     def show_exercise(self, ex_name: str) -> None:
@@ -484,12 +487,14 @@ class SplitScreen(AppScreen[None]):
         self.ex_name = ex_name
         ex = sh.ALL_EXERCISES[ex_name]
         pane = self.query_one("#subject-pane")
-        pane.border_title = "📄 %s" % ex_name
+        pane.border_title = ex_name
         pane.border_subtitle = shell_common.solution_path(
             sh, ex_name, self.app.cfg
         )
         self.query_one("#subject", Copyable).update(
-            ui.subject_blocks(ex, code_background=None)
+            ui.subject_blocks(
+                ex, lexer_theme=SUBJECT_SYNTAX, code_background=None
+            )
         )  # the theme's own code background
         self.set_results(
             render.waiting_view(
@@ -830,8 +835,7 @@ class ExamScreen(SplitScreen):
             self.finish(passed=True)
             return
         self.notify(
-            "Level %d cleared! 🎉  On to level %d."
-            % (cleared, self.run.level),
+            "Level %d cleared — on to level %d." % (cleared, self.run.level),
             title="✔ PASSED",
             timeout=5,
         )
@@ -890,6 +894,7 @@ class SummaryScreen(AppScreen[None]):
         yield VerticalScroll(
             Copyable(render.exam_result_view(self.result), id="summary"),
             id="summary-pane",
+            classes="pane",
         )
         yield Footer()
 
@@ -917,9 +922,13 @@ class ProgressScreen(AppScreen[None]):
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal(id="stats-body"):
-            yield VerticalScroll(Static(id="readiness"), id="stats-pane")
             yield VerticalScroll(
-                Static(id="per-exercise"), id="per-exercise-pane"
+                Static(id="readiness"), id="stats-pane", classes="pane"
+            )
+            yield VerticalScroll(
+                Static(id="per-exercise"),
+                id="per-exercise-pane",
+                classes="pane",
             )
         yield Footer()
 
@@ -964,40 +973,28 @@ class ProgressScreen(AppScreen[None]):
 class ExamShellApp(App[None]):
     TITLE = "ExamShell"
     CSS = """
-    Screen { background: $surface; }
+    Screen { background: $background; }
     #menu-body { height: 1fr; }
     #menu-left { width: 56; padding: 1 1 1 2; }
-    #logo { height: 4; content-align: center middle; }
-    #menu {
-        height: auto; max-height: 1fr; border: round $accent; padding: 0 1;
-    }
-    #menu-right {
-        width: 1fr; border: round $secondary; padding: 1 2; margin: 1 2 1 1;
-    }
-    #status { height: 1; padding: 0 1; background: $panel; }
+    #menu { height: auto; max-height: 1fr; border: round $border-blurred; }
+    #menu:focus { border: round $primary; }
+    #menu-right { width: 1fr; padding: 1 2; margin: 1 2 1 1; }
+    #status { height: 1; padding: 0 1; }
     #split, #picker-body, #stats-body { height: 1fr; }
-    #subject-pane {
-        height: 1fr; min-height: 6; border: round $warning; padding: 0 1;
-    }
-    #results-pane {
-        height: auto; max-height: 70%; border: round $accent; padding: 0 1;
-    }
+    .pane { border: round $border-blurred; padding: 0 1; }
+    #subject-pane { height: 1fr; min-height: 6; }
+    #results-pane { height: auto; max-height: 70%; }
     #pools { margin: 0 1; }
-    #summary-pane {
-        border: round $accent; padding: 1 2; margin: 1 2;
-    }
-    #stats-pane {
-        width: 1fr; border: round $accent; padding: 1 2; margin: 1 1 1 2;
-    }
-    #per-exercise-pane {
-        width: 1fr; border: round $secondary; padding: 0 1; margin: 1 2 1 1;
-    }
-    #summary-pane.passed { border: heavy $success; }
+    #summary-pane { padding: 1 2; margin: 1 2; }
+    #summary-pane.passed { border: round $success; }
+    #stats-pane { width: 1fr; padding: 1 2; margin: 1 1 1 2; }
+    #per-exercise-pane { width: 1fr; margin: 1 2 1 1; }
     #picker-left { width: 2fr; max-width: 72; }
-    #preview-pane {
-        width: 3fr; border: round $warning; padding: 0 1; margin: 0 1 0 0;
+    #preview-pane { width: 3fr; margin: 0 1 0 0; }
+    #filter { margin: 0 1 1 1; border: none; height: 1; padding: 0 1; }
+    DataTable > .datatable--header {
+        background: $background; color: $text-muted; text-style: bold;
     }
-    #filter { margin: 0 1; }
     #table { height: 1fr; margin: 0 1; }
     .-narrow #menu-right, .-narrow #preview-pane { display: none; }
     .-narrow #menu-left { width: 1fr; }
@@ -1006,8 +1003,7 @@ class ExamShellApp(App[None]):
     .-narrow #stats-pane { width: 1fr; height: auto; margin: 1 2 0 2; }
     .-narrow #per-exercise-pane { width: 1fr; margin: 0 2 1 2; }
     .modal {
-        width: 64; height: auto; padding: 1 2; border: thick $accent;
-        background: $panel;
+        width: 64; height: auto; padding: 1 2; border: round $primary;
     }
     ModalScreen { align: center middle; }
     .modal-question { margin-bottom: 1; }
@@ -1041,15 +1037,15 @@ class ExamShellApp(App[None]):
 
     def label(self) -> str:
         if hasattr(self.sh, "RANK"):
-            return "🐍 Python · %s" % self.sh.RANK.label
-        return "🔧 C · Exam Rank 02"
+            return "Python · %s" % self.sh.RANK.label
+        return "C · Exam Rank 02"
 
     def on_resize(self, event: events.Resize) -> None:
         self.set_class(event.size.width < NARROW, "-narrow")
 
     def on_mount(self) -> None:
         self.set_class(self.size.width < NARROW, "-narrow")
-        self.theme = THEMES.get(ui.current_theme(), "textual-dark")
+        self.theme = THEME
         self.update_notice = update_check.start_background_check(
             getattr(self.cfg, "no_update_check", False)
         )
@@ -1067,7 +1063,7 @@ class ExamShellApp(App[None]):
         choices = [
             (
                 "py" + rid,
-                "🐍 Python · %s  ·  %d exercises · %d levels"
+                "Python · %s  ·  %d exercises · %d levels"
                 % (label, count, levels),
             )
             for rid, label, count, levels in ranks.summary()
@@ -1075,7 +1071,7 @@ class ExamShellApp(App[None]):
         choices.append(
             (
                 "c",
-                "🔧 C · Exam Rank 02  ·  %d exercises · %d levels"
+                "C · Exam Rank 02  ·  %d exercises · %d levels"
                 % (len(c_bank.EXERCISES), c_bank.N_LEVELS),
             )
         )

@@ -1,7 +1,6 @@
 # PLAN — ExamShell
 
-Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-10-01 · aktuell auf `main`: **0.5.0** (dieser PR: **0.6.0**)
-(noch **kein** veröffentlichtes Release — es gibt keinen einzigen Tag)
+Branch: `tui-clean-split` (lokal, noch kein PR) · Stand: 2026-10-08 · auf `main`: **0.6.0**
 
 ---
 
@@ -13,69 +12,66 @@ Branch: `claude/dreamy-bohr-q3sw4d` · Stand: 2026-10-01 · aktuell auf `main`: 
 | 0.3.0 | Gemeinsame Engine für beide Tester (`ExamRun`, `grade()`), Vollbild-App (TUI), `--blind`, kurzes README + `docs/`, Issue-Vorlagen | #5, #6 |
 | 0.4.0 | `make sync` über eigenes privates Git-Repo, `EXAMSHELL_HOME`, Anleitung DE/EN | #7 |
 | 0.5.0 | Paket `examshell`, `uv tool install` → `examshell` / `examshell-c`, uv + Lockfile, `--doctor`, Sync im C-Tester und in den Menüs, Exam-Wechsel in der TUI | #8 |
+| 0.6.0 | Releases automatisch, Feedback-Formular, Randfall-Tests für die letzten C-Aufgaben, Auto-Sync; danach Fixes, mypy strict, TUI-Layout, leeres rendu/ pro Exam, Exam-Ziehung als Deck | #9–#21 |
 
 Details: CHANGELOG.md.
 
 ---
 
-## ▶ 0.6.0 — „bereit für echte Nutzer“ · R1, F1, F2, T1, S1 ✔ umgesetzt
+## ▶ 0.7.0 — Aufräumen: weniger, kompakter, das Wichtige läuft
 
-Ziel: Das Tool ist technisch weit — jetzt soll es **bei Leuten ankommen**,
-**Feedback einsammeln** und **zuverlässig Updates ausliefern**. Dazu die
-letzten bekannten Test-Lücken schließen.
+**Ziel:** Wer zum ersten Mal kommt, ist nicht überfordert. Ein Weg zum Üben
+(das TUI), eine Handvoll Befehle, ein ruhiges Aussehen — und die Kern-Features
+laufen wirklich zuverlässig. Seltenes bleibt technisch drin, wird aber nicht
+mehr beworben.
 
-### R1 · Releases automatisch veröffentlichen ⭐ ✔
-**Problem:** Ein Release entsteht nur durch einen manuell gepushten Tag — das
-ist seit 0.2.0 jedes Mal liegen geblieben. Ohne Release funktionieren der
-Update-Hinweis im Menü und der Update-Check in `doctor` nicht.
-**Lösung:** Workflow auf `main`: Hat sich `examshell/version.py` geändert und
-gibt es den Tag noch nicht → Tests laufen → Tag `vX.Y.Z` + GitHub-Release mit
-dem passenden CHANGELOG-Abschnitt und Paket (wheel + sdist). Manuell
-nachholen: Actions → Release → „Run workflow“.
-**Einmalig:** 0.2–0.5 werden nicht nachträglich veröffentlicht — **v0.6.0 wird
-das erste Release** (entsteht automatisch beim Merge dieses PRs).
-**Aufwand:** ~30–45 min
+**Kern (muss perfekt laufen):** Exam starten · eine Aufgabe üben · grademe ·
+Stub anlegen · Rank 03/04/05 + C 02 wechseln (merkt sich die letzte Wahl) ·
+Fortschritt sehen.
 
-### F1 · Feedback mit einem Klick ✔
-- `examshell --feedback` / `examshell-c --feedback` und ein Menüpunkt
-  „Feedback geben“ (Terminal-Menü + TUI): öffnet die passende Issue-Vorlage
-  im Browser, **Version, Tester und Betriebssystem schon ausgefüllt**. Ohne
-  Browser wird der Link nur angezeigt.
-- Auswahl: „Aufgabe weicht vom echten Exam ab“ · „Bug“ · „Feedback“.
-- Nichts wird automatisch gesendet — der Nutzer sieht und schickt das Issue
-  selbst ab.
-**Aufwand:** ~45 min
+### Entscheidungen (mit dir, 2026-10-08)
 
-### F2 · Richtige Haltung nach außen ✔
-- Kurzer Hinweis im README: *Übungstool — im echten Exam gibt es nichts davon;
-  es ersetzt nicht das eigene Lernen.* Signalisiert die richtige Absicht, falls
-  Staff/Bocal draufschaut.
-- GitHub-Repo: Beschreibung aktualisieren (nennt Rank 04/05 und die Vollbild-App
-  noch nicht) und Topics setzen (`42school`, `42-exam`, `exam-rank-02`,
-  `exam-rank-03`, `tester`, `tui`) — damit Suchende es finden.
-  *Das Setzen von Beschreibung/Topics machst du in den Repo-Einstellungen
-  (Zahnrad bei „About“) — ich liefere die Texte.*
-**Aufwand:** ~15 min
+| Thema | Entscheidung |
+|---|---|
+| Oberfläche | **TUI ist die Hauptsache.** Das Textmenü bleibt nur als schlanker Fallback (ohne Textual / Python 3.8), wird nicht weiter ausgebaut |
+| Layout Übung/Exam | Aufgabe oben, Ergebnis unten, keine Code-Ansicht, kein Session-Log ✔ (Commit auf diesem Branch) |
+| TUI-Menü | **5 Einträge:** Exam · Practice · Progress · Switch exam · Quit. Sync (`s`) und Feedback (`f`) als Tasten in der Fußzeile |
+| Practice | Ein Picker mit Tabs/Filter: **Exam-Aufgaben** · **Meine Lücken** (heutiger Drill) · **Extra** (heutiger Training-Pool) |
+| Progress | Stats + Readiness auf **einem** Screen |
+| Training-Pool | Kein eigener Menüpunkt mehr → Tab „Extra“ in Practice |
+| Theme | **Terminal-Farben** (Textual `textual-ansi`): übernimmt das Terminal-Theme (z.B. Ghostty), ein Akzent für ✔/✖; `--theme` light/highcontrast fallen weg |
+| grademe-Panel | **Kompakt + aufklappbar:** Panel nur so hoch wie nötig, eine Ergebniszeile, die ersten 3 Fails je 1 Zeile (`input  got ≠ expected`), `d` zeigt alle Details |
+| Raus | **Badges/Achievements** und **Markdown-Reports** (`~/.examshell/reports/`) |
+| Bleibt versteckt | Blind-Modus, Auto-Sync, `--relaxed`, `--time-limit`, `--strict*`, `--fuzz`, `--diff`, `--show-fails`, `--no-rich`/`--no-color`, `--seed` — funktionieren weiter, stehen aber nur in `docs/` |
+| `make` | `make` ohne Argument **startet das TUI** (letzte Wahl, auch C). `make help` zeigt ~8 Befehle: `tui/run`, `exam`, `practice EX=`, `grade EX=`, `doctor`, `update`, `install`, `sync`. Entwickler-Targets unter `make dev` |
+| C-Befehle | `c-*` Targets entfallen — C über „Switch exam“ oder `make exam T=c` |
+| README | Neu, kurz: was es ist · Installation · 3 Befehle · ein Screenshot. Alles andere in `docs/` |
 
-### T1 · Randfall-Tests für die letzten 3 C-Aufgaben ✔
-`flood_fill`, `ft_list_foreach` und `ft_list_remove_if` werden bisher nur mit
-festen Fällen geprüft. Eigene Zufallsgeneratoren:
-- **Listen:** leer, ein Element, alle gleich, Treffer am Anfang / am Ende /
-  überall / nirgends — die klassischen `remove_if`-Bugs (Kopf nicht
-  umgehängt, Speicher nicht freigegeben, nach dem Löschen falsch weiter).
-- **flood_fill:** zufällige Grids, Start in Ecke / am Rand / in einer
-  1×1-Fläche, die ganze Fläche gleich, Zeichen, die nicht gefüllt werden
-  dürfen.
-- Alles auch unter valgrind im Bank-Selbsttest (keine Leaks in den Referenzlösungen).
-**Aufwand:** ~2 h
+### Schritte
 
-### S1 · Optional: Auto-Sync ✔
-Einstellung (per `--save-config`): beim Start automatisch holen, beim Beenden
-automatisch hochladen — nur wenn Sync eingerichtet ist, Fehler (offline)
-werden nur als Hinweis gezeigt, nie als Abbruch.
-**Aufwand:** ~1 h
+1. **TUI-Menü & Screens bündeln** — 5 Einträge; Practice-Picker mit Tabs
+   (Exam / Lücken / Extra); Progress = Stats + Readiness; Sync/Feedback als
+   Tasten.
+2. **Kompaktes grademe-Panel** — Ergebniszeile, 3 Fails einzeilig, `d` für
+   Details; Panel-Höhe nach Inhalt.
+3. **Theme** — `textual-ansi`, weniger Emojis/Rahmen/Farben, schlichte
+   Statuszeile; Rich-Ausgabe im Textmenü ebenfalls auf Terminal-Farben.
+4. **Entfernen** — Badges (`achievements.py`), Markdown-Reports
+   (`report_export.py`), Theme-Varianten; Tests/Doku nachziehen.
+5. **Makefile** — `make` = TUI, `make help` kurz, `make dev`, `T=c`, `c-*` weg.
+6. **Hilfe & Flags** — `--help` zeigt nur die Kern-Flags (Rest unter
+   „advanced“).
+7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG.
+8. **AGENTS.md** — Projekt, Befehle, Konventionen, Workflow (Branch → PR,
+   nie selbst mergen, Tests nie ins echte `~/.examshell`).
+9. **Multi-Agent-Testrunde** — parallele Agenten testen manuell wie neue
+   Nutzer: Python-Exam · C-Exam · Practice/Progress im TUI · Installation +
+   `make`/doctor · README/Doku-Review. Bugs sammeln → fixen → zweite
+   Durchsicht.
 
-**Gesamt 0.6.0:** ~5 h, ein PR, ein Commit pro Punkt.
+Erst nach Schritt 9 und deinem OK: PR.
+
+---
 
 ### Außerhalb des Codes (du)
 - [ ] Beim Staff/Bocal deines Campus kurz nachfragen, ob ein öffentlicher

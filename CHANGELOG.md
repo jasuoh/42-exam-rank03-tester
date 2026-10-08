@@ -41,6 +41,10 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- **`make doctor` no longer reports an update that doesn't exist** — it
+  trusted the day-long update-check cache, so a stale or bogus entry (a
+  test run once left "99.0.0" there) showed up as "available". `doctor`
+  now always asks GitHub afresh and rewrites the cache.
 - **A new exam starts from an empty `rendu/`** (#15) — drawing an exercise
   you had already solved meant `stub` refused to create the file, and the
   old solution sat there in the middle of the exam. Starting a new exam now

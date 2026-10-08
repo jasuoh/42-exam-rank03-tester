@@ -258,11 +258,6 @@ def exam_result_view(result: ExamResult) -> Group:
         Text(""),
         table,
     ]
-    if result.report_path:
-        blocks += [
-            Text(""),
-            Text("report saved to %s" % result.report_path, style="dim"),
-        ]
     return Group(*blocks)
 
 

@@ -23,7 +23,6 @@ from unittest import mock
 from c_exam import bank as c_bank
 from c_exam import grader as c_grader
 from examshell import hints
-from examshell import report_export
 from examshell import session_store
 from examshell import shell_common
 from examshell import ui
@@ -505,8 +504,6 @@ class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
         ), mock.patch.object(session_store, "save") as save, mock.patch.object(
             session_store, "clear"
         ) as clear, mock.patch.object(
-            report_export, "write_exam_report", return_value=None
-        ), mock.patch.object(
             stats, "best_exam_time", return_value=None
         ), mock.patch.object(stats, "record_exam_complete"), mock.patch.object(
             ui, "ask", side_effect=ask_calls

@@ -68,9 +68,9 @@ TUI gemacht und eingestellt.
    Tasten.
 2. **Kompaktes grademe-Panel** ✔ — Ergebniszeile, 3 Fails einzeilig, `d` für
    Details; Panel-Höhe nach Inhalt.
-3. **Theme** ✔ (TUI) — `textual-ansi`, weniger Emojis/Rahmen/Farben, schlichte
+3. **Theme** ✔ — `textual-ansi`, weniger Emojis/Rahmen/Farben, schlichte
    Statuszeile; Rich-Ausgabe im Textmenü ebenfalls auf Terminal-Farben.
-4. **Entfernen** — Badges (`achievements.py`), Markdown-Reports
+4. **Entfernen** ✔ — Badges (`achievements.py`), Markdown-Reports
    (`report_export.py`), Theme-Varianten; Tests/Doku nachziehen.
 5. **Exam = echtes Exam** — grademe im Exam: SUCCESS/FAILURE + Trace ✔;
    Exam-Regeln gegen das echte Exam prüfen (Ablauf, Level, Zeit, Stub).

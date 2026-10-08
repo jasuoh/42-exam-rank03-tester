@@ -16,7 +16,6 @@ from unittest import mock
 
 from examshell import examshell as py_shell
 from examshell import (
-    report_export,
     session_store,
     settings,
     shell_common,
@@ -81,7 +80,6 @@ class _Isolated(_Base):
             (stats, "STATS_PATH", os.path.join(tmp.name, "stats.jsonl")),
             (stats, "DATA_DIR", tmp.name),
             (session_store, "DATA_DIR", tmp.name),
-            (report_export, "REPORTS_DIR", os.path.join(tmp.name, "reports")),
             (settings, "DATA_DIR", tmp.name),
             (settings, "CONFIG_PATH", os.path.join(tmp.name, "config.json")),
         ):

@@ -17,7 +17,7 @@ import unittest
 from typing import Any
 from unittest import mock
 
-from examshell import examshell, grader, ranks, report_export, settings
+from examshell import examshell, grader, ranks, settings
 from examshell.grader import Report
 from examshell.training_bank import TRAINING_EXERCISES
 
@@ -68,10 +68,6 @@ class RankRegistryTests(unittest.TestCase):
         self.assertEqual(ranks.DEFAULT_RANK, "03")
         self.assertEqual(examshell.RANK.id, "03")
         self.assertEqual(examshell.TOOL, "py")
-
-    def test_every_tag_has_a_report_label(self) -> None:
-        for rank_id in ranks.CHOICES:
-            self.assertIn(ranks.get(rank_id).tool, report_export.TOOL_LABELS)
 
 
 class BankShapeTests(unittest.TestCase):
@@ -205,12 +201,12 @@ class LastExamTests(unittest.TestCase):
             return examshell.main(list(argv) + ["--no-color", "--no-rich"])
 
     def test_remember_exam_keeps_the_python_rank_under_c(self) -> None:
-        settings.update_config("theme", "light")
+        settings.update_config("timeout", 5)
         settings.remember_exam("py04")
         settings.remember_exam("c")
         self.assertEqual(
             settings.load_config(),
-            {"theme": "light", "rank": "04", "tester": "c"},
+            {"timeout": 5, "rank": "04", "tester": "c"},
         )
 
     def test_without_rank_the_saved_one_is_active(self) -> None:

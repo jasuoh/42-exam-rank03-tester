@@ -623,10 +623,6 @@ class PracticeScreen(SplitScreen):
         self.log_report(report)
         self.outcome, self.details = outcome, False
         self.show_report()
-        for emoji, label in outcome.badges:
-            self.notify(
-                "%s %s" % (emoji, label), title="New badge!", timeout=6
-            )
         if report.ok and self.queue and self.position + 1 < len(self.queue):
             self.notify(
                 "Passed! Press n for the next drill exercise.", timeout=5
@@ -903,8 +899,6 @@ class SummaryScreen(AppScreen[None]):
         pane.border_title = "exam summary"
         if self.result.passed:
             pane.add_class("passed")
-        for badge in self.result.badges:
-            self.notify(badge, title="🏅", timeout=8)
         hint = None if self.result.passed else shell_common.sync_hint()
         if hint:
             self.notify(hint, timeout=10)

@@ -4,8 +4,9 @@
 settings.py  ·  persistent CLI preferences, shared by both testers
 
 A tiny JSON file at ~/.examshell/config.json holds a handful of "sticky"
-preferences (theme, timeout, fuzz, show-fails, C compiler) so students
-don't have to retype the same flags every run. Precedence is always
+preferences (timeout, fuzz, show-fails, C compiler, the exam picked last)
+so students don't have to retype the same flags every run. Precedence is
+always
 
     explicit CLI flag  >  saved config file  >  built-in default
 
@@ -34,7 +35,6 @@ CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 # make a saved "off" sticky forever — everything below is instead a
 # value flag (or has an unambiguous None-means-unset CLI default).
 PERSISTABLE_KEYS = (
-    "theme",
     "timeout",
     "fuzz",
     "show_fails",

@@ -104,12 +104,12 @@ class AutoSyncSettingTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
 
     def test_set_auto_sync_keeps_other_settings(self) -> None:
-        settings.save_config({"theme": "light", "cc": "clang"})
+        settings.save_config({"timeout": 5, "cc": "clang"})
         with contextlib.redirect_stdout(io.StringIO()):
             shell_common.set_auto_sync(True)
         self.assertEqual(
             settings.load_config(),
-            {"theme": "light", "cc": "clang", "auto_sync": True},
+            {"timeout": 5, "cc": "clang", "auto_sync": True},
         )
         with contextlib.redirect_stdout(io.StringIO()):
             shell_common.set_auto_sync(False)

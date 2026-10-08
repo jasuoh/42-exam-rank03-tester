@@ -42,9 +42,7 @@ from ._types import Exercise
 # reachable as examshell.<name> for callers and tests that patch them through
 # it.
 from . import (  # noqa: F401
-    achievements,
     hints,
-    report_export,
     session_store,
     stats,
 )
@@ -701,7 +699,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="RANK",
         help="which exam pool to use: %s (default: %s). Each "
-        "rank keeps its own stats, saved exam and reports."
+        "rank keeps its own stats and saved exam."
         % (" / ".join(ranks.CHOICES), ranks.DEFAULT_RANK),
     )
     p.add_argument(
@@ -761,17 +759,9 @@ def build_parser() -> argparse.ArgumentParser:
         "where they differ, instead of a 70-char clip",
     )
     p.add_argument(
-        "--theme",
-        choices=ui.THEME_NAMES,
-        default=None,
-        help="colour theme: dark (default), light, or highcontrast "
-        "(colour-blind friendly)",
-    )
-    p.add_argument(
         "--save-config",
         action="store_true",
-        help="remember --theme/--timeout/--fuzz/--show-fails "
-        "for next time, then exit",
+        help="remember --timeout/--fuzz/--show-fails for next time, then exit",
     )
     p.add_argument(
         "--no-color",
@@ -914,7 +904,6 @@ def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     """Fill every flag the student didn't pass from ~/.examshell/config.json,
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
-    args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(
         args, file_config, "timeout", grader.DEFAULT_TIMEOUT
     )
@@ -938,7 +927,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     ui.configure(
         rich=not args.no_rich,
         color=False if args.no_color else None,
-        theme=args.theme,
     )
     cfg = Config(args)
 
@@ -956,19 +944,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.save_config:
         ok = settings.save_config(
-            {
-                "theme": args.theme,
-                "timeout": args.timeout,
-                "fuzz": args.fuzz,
-                "show_fails": args.show_fails,
-            }
+            dict(
+                settings.load_config(),
+                **{
+                    "timeout": args.timeout,
+                    "fuzz": args.fuzz,
+                    "show_fails": args.show_fails,
+                },
+            )
         )
         if ok:
             ui.success(
-                "saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d"
+                "saved to %s — timeout=%d fuzz=%d show_fails=%d"
                 % (
                     settings.CONFIG_PATH,
-                    args.theme,
                     args.timeout,
                     args.fuzz,
                     args.show_fails,

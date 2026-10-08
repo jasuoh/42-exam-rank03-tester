@@ -35,9 +35,7 @@ from examshell._types import Exercise
 # reachable as examshell.<name> for callers and tests that patch them through
 # it.
 from examshell import (  # noqa: F401
-    achievements,
     hints,
-    report_export,
     session_store,
     stats,
 )
@@ -702,16 +700,9 @@ def build_parser() -> argparse.ArgumentParser:
         "where they differ, instead of a 70-char clip",
     )
     p.add_argument(
-        "--theme",
-        choices=ui.THEME_NAMES,
-        default=None,
-        help="colour theme: dark (default), light, or highcontrast "
-        "(colour-blind friendly)",
-    )
-    p.add_argument(
         "--save-config",
         action="store_true",
-        help="remember --theme/--timeout/--fuzz/--show-fails/--cc for "
+        help="remember --timeout/--fuzz/--show-fails/--cc for "
         "next time, then exit",
     )
     p.add_argument(
@@ -768,7 +759,6 @@ def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     """Fill every flag the student didn't pass from ~/.examshell/config.json,
     then the built-in default (see settings.merged())."""
     file_config = settings.load_config()
-    args.theme = settings.merged(args, file_config, "theme", "dark")
     args.timeout = settings.merged(
         args, file_config, "timeout", grader.DEFAULT_TIMEOUT
     )
@@ -795,26 +785,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     ui.configure(
         rich=not args.no_rich,
         color=False if args.no_color else None,
-        theme=args.theme,
     )
     cfg = Config(args)
 
     if args.save_config:
         ok = settings.save_config(
-            {
-                "theme": args.theme,
-                "timeout": args.timeout,
-                "fuzz": args.fuzz,
-                "show_fails": args.show_fails,
-                "cc": args.cc,
-            }
+            dict(
+                settings.load_config(),
+                **{
+                    "timeout": args.timeout,
+                    "fuzz": args.fuzz,
+                    "show_fails": args.show_fails,
+                    "cc": args.cc,
+                },
+            )
         )
         if ok:
             ui.success(
-                "saved to %s — theme=%s timeout=%d fuzz=%d show_fails=%d cc=%s"
+                "saved to %s — timeout=%d fuzz=%d show_fails=%d cc=%s"
                 % (
                     settings.CONFIG_PATH,
-                    args.theme,
                     args.timeout,
                     args.fuzz,
                     args.show_fails,

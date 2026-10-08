@@ -17,6 +17,12 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   found.
 
 ### Changed
+- **The exam you picked last is where the next session opens** — switch
+  to Rank 04 (menu entry 5) or to C Rank 02 (full-screen app), quit, and
+  the next `make run` / `make tui` starts there again instead of on Rank
+  03. Saved as `rank` / `tester` in `~/.examshell/config.json`; `RANK=`
+  still wins (a session started with it becomes the new pick), and `make check` still checks
+  every rank.
 - **Full-screen app uses wide terminals** — the menu's right side is now a
   dashboard (stat tiles, 4-week activity, readiness chips per level); the
   exercise picker previews the highlighted subject; practice and exam show
@@ -42,6 +48,14 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   keep the full helper stub.
 
 ### Fixed
+- **Copy and paste in the full-screen app outside Ghostty & co.** (beta —
+  not yet confirmed on a real Linux desktop; feedback welcome) —
+  ctrl+c only sent OSC 52, which GNOME Terminal (and every VTE terminal),
+  macOS Terminal and xterm ignore, so nothing was copied there; ctrl+v in
+  an input field only pasted what was copied inside the app. On a local
+  session both now also go through the system clipboard (`pbcopy`,
+  `wl-copy`, `xclip` or `xsel`, whichever is installed); over ssh it stays
+  OSC 52 only.
 - **`make doctor` no longer reports an update that doesn't exist** — it
   trusted the day-long update-check cache, so a stale or bogus entry (a
   test run once left "99.0.0" there) showed up as "available". `doctor`

@@ -50,12 +50,13 @@ from textual.widgets import (
 from textual.visual import VisualType
 from textual.widgets.option_list import Option
 
-from .. import session_store, shell_common, stats, ui, update_check
+from .. import session_store, settings, shell_common, stats, ui, update_check
 from .._types import Event, Tester, TesterConfig
 from ..grader import BankError, Report
 from ..shell_common import ExamResult, ExamRun, GradeOutcome
 from ..sync import SyncResult
 from ..version import __version__
+from . import clipboard as system_clipboard
 from . import render
 
 THEMES = {
@@ -1025,6 +1026,21 @@ class ExamShellApp(App[None]):
         self.sh, self.cfg, self.start = sh, cfg, start
         self.update_notice: Dict[str, Optional[str]] = {"notice": None}
 
+    # ── clipboard: OSC 52 plus the system's own tool ─────────────────
+    def copy_to_clipboard(self, text: str) -> None:
+        """OSC 52 (what Textual does) for the terminals that support it,
+        and the system clipboard for the ones that don't (GNOME Terminal,
+        macOS Terminal, ...) — see clipboard.py."""
+        super().copy_to_clipboard(text)
+        system_clipboard.copy(text)
+
+    @property
+    def clipboard(self) -> str:
+        """What ctrl+v in an input field pastes: the system clipboard where
+        it can be read, else what was last copied inside the app."""
+        text = system_clipboard.paste()
+        return self._clipboard if text is None else text
+
     def label(self) -> str:
         if hasattr(self.sh, "RANK"):
             return "🐍 Python · %s" % self.sh.RANK.label
@@ -1092,6 +1108,7 @@ class ExamShellApp(App[None]):
 
             py_shell.use_rank(choice[2:])
             new_sh = py_shell
+        settings.remember_exam(choice)
         keep = {
             k: getattr(self.cfg, k, None)
             for k in ("relaxed", "time_limit", "blind", "no_update_check")
@@ -1107,7 +1124,7 @@ class ExamShellApp(App[None]):
         self, kind: Optional[str], exercise: Optional[str] = None
     ) -> None:
         """Open the prefilled issue form in a browser where one exists; the
-        link always goes to the clipboard too (OSC 52, works over ssh)."""
+        link always goes to the clipboard too (OSC 52 works over ssh)."""
         if not kind:
             return
         from .. import feedback
@@ -1131,7 +1148,7 @@ class ExamShellApp(App[None]):
 
     # ── sync ──────────────────────────────────────────────────────────
     def sync_hint(self) -> str:
-        from .. import settings, sync
+        from .. import sync
 
         if sync.is_configured(settings.DATA_DIR):
             return "progress + solutions with %s" % sync.remote_url(

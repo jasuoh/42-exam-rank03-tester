@@ -17,7 +17,9 @@ python3 -m examshell --tui --practice inter   # straight into one exercise
 
 **🔀 Switch exam** in its menu moves between Python Rank 03 / 04 / 05 and
 C Rank 02 without restarting, and **🔄 Sync** runs `make sync` in the
-background.
+background. The exam you switch to is remembered (`~/.examshell/config.json`):
+the next `make tui` opens on it again, C Rank 02 included, unless `RANK=`
+picks a Python rank.
 
 Everything the plain interface does, in one screen: the subject on top,
 grading results below, keys at the bottom — made for a terminal next to
@@ -25,6 +27,12 @@ your editor, where your code already is. It drives exactly
 the same engine — same rules, same grading, same stats, saves and reports —
 so you can switch between the two whenever you like. Without Textual (or
 on Python 3.8) `--tui` says why and falls back to the plain interface.
+
+To copy text out of it (beta outside OSC 52 terminals), drag over the subject, your code or the results
+with the mouse and press ctrl+c. Terminals that support OSC 52 (Ghostty,
+kitty, iTerm2, WezTerm) get it directly; for the others (GNOME Terminal,
+macOS Terminal, xterm) the app uses the system clipboard tool — on Linux
+install `wl-clipboard` (Wayland) or `xclip` / `xsel` (X11) for that.
 
 | Key | Where | |
 |---|---|---|

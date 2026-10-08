@@ -11,7 +11,9 @@ of tests, and you only move up at **100 %** — same rules as the real thing.
 
 **Three exam pools, one tool.** Rank 03 is the default; `RANK=04` /
 `RANK=05` (or `--rank 04`) switches to the Rank 04 or Rank 05 pool, and
-menu entry **5** switches ranks without leaving the tool.
+menu entry **5** switches ranks without leaving the tool. The rank picked
+last is where the next session opens; `make check` without `RANK=` still
+checks every rank.
 
 | Rank | Levels | Exercises | Tag its history lives under |
 |---|:---:|:---:|---|

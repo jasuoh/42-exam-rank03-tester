@@ -557,6 +557,7 @@ def rank_menu() -> None:
             time.sleep(0.8)
             continue
         use_rank(picked)
+        settings.remember_exam("py" + picked)
         ui.success("switched to %s" % RANK.label)
         time.sleep(0.6)
         return
@@ -841,6 +842,27 @@ def list_ranks() -> None:
     )
 
 
+def run_tui_on_last_exam(
+    args: argparse.Namespace, cfg: Config
+) -> Optional[int]:
+    """`make tui` opens on the C exam when that's the one the full-screen
+    app was switched to last — unless --rank (or a Python exercise to
+    practice) says Python."""
+    if (
+        args.rank
+        or args.practice
+        or settings.load_config().get("tester") != "c"
+    ):
+        return shell_common.run_tui(_SH, cfg, args)
+    from c_exam import examshell as c_shell
+
+    keep = {
+        k: getattr(cfg, k, None)
+        for k in ("relaxed", "time_limit", "blind", "no_update_check")
+    }
+    return shell_common.run_tui(c_shell, c_shell.default_config(**keep), args)
+
+
 def check_banks(
     cfg: Config, seed: Optional[int], rank_ids: Sequence[str]
 ) -> int:
@@ -928,7 +950,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
     # Everything below reads the rank through this module's globals, so
     # this one call is what makes --rank take effect (see use_rank()).
-    use_rank(args.rank)
+    # Without --rank, the rank picked last (rank_menu(), the full-screen
+    # app) — except for --check, where no --rank means every rank.
+    use_rank(args.rank or (None if args.check else saved_rank()))
 
     if args.save_config:
         ok = settings.save_config(
@@ -1029,11 +1053,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         shell_common.auto_sync(_SH, cfg, "end")
 
 
+def saved_rank() -> Optional[str]:
+    """The Python rank picked last (settings.remember_exam()), or None."""
+    return ranks.normalize(settings.load_config().get("rank"))
+
+
 def run_interactive(args: argparse.Namespace, cfg: Config) -> int:
     """The modes that keep the student in a session: full-screen app, exam,
     practice, training, drill, or the menu."""
+    if args.rank:
+        # an explicit `make tui RANK=04` is the exam picked last, too
+        settings.remember_exam("py" + RANK.id)
     if args.tui:
-        code = shell_common.run_tui(_SH, cfg, args)
+        code = run_tui_on_last_exam(args, cfg)
         if code is not None:
             return code
 

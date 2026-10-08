@@ -40,6 +40,11 @@ PERSISTABLE_KEYS = (
     "show_fails",
     "cc",
     "auto_sync",
+    # the exam picked last (remember_exam()), so the next `make run` /
+    # `make tui` opens on it: the Python rank ("03"), and which tester
+    # the full-screen app was on ("py" or "c")
+    "rank",
+    "tester",
 )
 
 
@@ -75,6 +80,19 @@ def update_config(key: str, value: Any) -> bool:
     replaces the whole file). Best-effort, like the rest."""
     data = load_config()
     data[key] = value
+    return save_config(data)
+
+
+def remember_exam(choice: str) -> bool:
+    """Remember the exam the student switched to — "py03", "py04", ... or
+    "c", the full-screen app's choice ids. Switching to C keeps the
+    Python rank, so the line-based Python menu still opens on it."""
+    data = load_config()
+    if choice == "c":
+        data["tester"] = "c"
+    else:
+        data["tester"] = "py"
+        data["rank"] = choice[2:]
     return save_config(data)
 
 

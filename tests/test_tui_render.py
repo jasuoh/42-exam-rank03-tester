@@ -66,6 +66,33 @@ class ReportViewTests(unittest.TestCase):
         report.total = report.passed = 5
         self.assertIn("PASSED", text_of(render.report_view(report, "f")))
 
+    def test_compact_is_one_line_per_failure(self) -> None:
+        report = self._failing()
+        report.failures *= 3  # 6 failures
+        out = text_of(render.compact_report_view(report, "inter", hint="h"))
+        lines = out.strip().splitlines()
+        self.assertTrue(lines[0].startswith("✖ FAILED  1/3"))
+        self.assertIn("inter('', 'abc')  (empty string)  got 'x' ≠ ''", out)
+        self.assertEqual(sum("✖ inter(" in line for line in lines), 3)
+        self.assertIn("… 3 more · d for details", out)
+        self.assertEqual(lines[-1], "hint: h")
+
+    def test_exam_trace_shows_only_the_first_failure(self) -> None:
+        out = text_of(render.exam_trace_view(self._failing(), "inter"))
+        self.assertTrue(out.startswith("FAILURE"))
+        self.assertIn("inter('', 'abc')", out)
+        self.assertNotIn("inter('a\\tb', 'b')", out)
+        self.assertNotIn("edge case", out)  # no hints in the exam
+        blind = text_of(
+            render.exam_trace_view(self._failing(), "inter", blind=True)
+        )
+        self.assertEqual(blind.strip(), "FAILURE")
+        report = Report("x", "f")
+        report.total = report.passed = 5
+        self.assertEqual(
+            text_of(render.exam_trace_view(report, "f")).strip(), "SUCCESS"
+        )
+
 
 @unittest.skipUnless(HAVE_RICH, "rich not installed")
 class ChartTests(unittest.TestCase):

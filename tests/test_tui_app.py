@@ -117,7 +117,13 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await app.workers.wait_for_complete()
             await pilot.pause()
             self.assertEqual(
-                app.screen.query_one("#results-pane").border_title, "✔ passed"
+                app.screen.query_one("#results-pane").border_title, "grademe"
+            )
+            self.assertIn(
+                "✔ PASSED",
+                str(
+                    app.screen.query_one("#results", tui_app.Copyable).render()
+                ),
             )
             self.assertEqual(len(screen.log_entries), 1)
             self.assertIn(
@@ -150,18 +156,15 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 with open(path, "w") as fh:
                     fh.write(GOOD_INTER)
                 os.utime(path, (time.time() + 5, time.time() + 5))
+                screen = app.screen
+                assert isinstance(screen, tui_app.PracticeScreen)
                 for _ in range(40):
                     await pilot.pause(0.1)
                     await app.workers.wait_for_complete()
-                    if (
-                        app.screen.query_one("#results-pane").border_title
-                        == "✔ passed"
-                    ):
+                    if screen.outcome and screen.outcome.report.ok:
                         break
-                self.assertEqual(
-                    app.screen.query_one("#results-pane").border_title,
-                    "✔ passed",
-                )
+                assert screen.outcome is not None
+                self.assertTrue(screen.outcome.report.ok)
 
     async def test_exam_login_refused_new_and_quit_to_summary(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
@@ -248,6 +251,35 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await pilot.press("slash", *"zzqqxx")  # no match clears it
             await pilot.pause()
             self.assertIsNone(picker.query_one("#preview-pane").border_title)
+
+    async def test_d_toggles_the_full_details(self) -> None:
+        from examshell.grader import Failure
+
+        report = Report("py_inter", "inter")
+        report.total, report.passed = 9, 0
+        report.failures = [
+            Failure(["a%d" % i, "b"], "", "'x'") for i in range(9)
+        ]
+        outcome = shell_common.GradeOutcome(report, "unused")
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        with mock.patch.object(shell_common, "grade", return_value=outcome):
+            async with app.run_test(size=(100, 40)) as pilot:
+                await pilot.pause()
+                await pilot.press("g")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                results = app.screen.query_one("#results", tui_app.Copyable)
+                self.assertIn("6 more", str(results.render()))
+                await pilot.press("d")
+                await pilot.pause()
+                full = str(results.render())
+                self.assertIn("expected", full)
+                self.assertIn("inter('a8', 'b')", full)
+                await pilot.press("d")
+                await pilot.pause()
+                self.assertIn("6 more", str(results.render()))
 
     async def test_drill_keeps_its_session_log_across_exercises(self) -> None:
         report = Report("x", "f")

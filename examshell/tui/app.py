@@ -514,18 +514,6 @@ class SplitScreen(AppScreen[None]):
             self.log_entries, self.ex_name
         )
 
-    def fails_that_fit(
-        self, report: Report, hint: Optional[str] = None
-    ) -> int:
-        """At least --show-fails, more when the results pane has room (one
-        failing test takes ~4 lines) — but never pushing the warnings or
-        the hint below the fold."""
-        reserve = 6 + 2 * len(report.warnings)
-        if hint:
-            reserve += len(hint) // 40 + 4
-        height = self.query_one("#results-pane").size.height
-        return max(self.app.cfg.show_fails or 6, (height - reserve) // 4)
-
     def set_results(
         self, renderable: RenderableType, title: str = "results"
     ) -> None:
@@ -551,6 +539,7 @@ class PracticeScreen(SplitScreen):
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),
+        Binding("d", "details", "details"),
         Binding("w", "toggle_watch", "watch"),
         Binding("t", "stub", "stub"),
         Binding("f", "feedback", "differs from exam?"),
@@ -567,6 +556,8 @@ class PracticeScreen(SplitScreen):
     ) -> None:
         super().__init__()
         self.start_ex, self.mode = ex_name, mode
+        self.outcome: Optional[GradeOutcome] = None
+        self.details = False
         self.queue, self.position = queue, position
         self.rng = random.Random()
         self.grading = False
@@ -625,12 +616,8 @@ class PracticeScreen(SplitScreen):
         self.grading = False
         report = outcome.report
         self.log_report(report)
-        view = render.report_view(
-            report, report.function, self.fails_that_fit(report, outcome.hint)
-        )
-        if outcome.hint:
-            view = Group(view, Text(""), render.hint_view(outcome.hint))
-        self.set_results(view, "✔ passed" if report.ok else "✖ failed")
+        self.outcome, self.details = outcome, False
+        self.show_report()
         for emoji, label in outcome.badges:
             self.notify(
                 "%s %s" % (emoji, label), title="New badge!", timeout=6
@@ -639,6 +626,29 @@ class PracticeScreen(SplitScreen):
             self.notify(
                 "Passed! Press n for the next drill exercise.", timeout=5
             )
+
+    def show_report(self) -> None:
+        """The last grade: compact, or every detail after `d`."""
+        outcome = self.outcome
+        if outcome is None:
+            return
+        report = outcome.report
+        if self.details:
+            view: RenderableType = render.report_view(
+                report, report.function, len(report.failures)
+            )
+            if outcome.hint:
+                view = Group(view, Text(""), render.hint_view(outcome.hint))
+        else:
+            view = render.compact_report_view(
+                report, report.function, hint=outcome.hint or ""
+            )
+        self.set_results(view, "grademe")
+
+    def action_details(self) -> None:
+        if self.outcome is not None and not self.outcome.report.ok:
+            self.details = not self.details
+            self.show_report()
 
     # ── watch mode ────────────────────────────────────────────────────
     def _mtime(self) -> Optional[float]:
@@ -809,13 +819,8 @@ class ExamScreen(SplitScreen):
         self.log_report(report)
         blind = getattr(self.run.cfg, "blind", False)
         self.set_results(
-            render.report_view(
-                report,
-                report.function,
-                self.fails_that_fit(report),
-                blind=blind,
-            ),
-            "✔ passed" if report.ok else "✖ failed",
+            render.exam_trace_view(report, report.function, blind=blind),
+            "grademe",
         )
         if not report.ok:
             return
@@ -972,10 +977,10 @@ class ExamShellApp(App[None]):
     #status { height: 1; padding: 0 1; background: $panel; }
     #split, #picker-body, #stats-body { height: 1fr; }
     #subject-pane {
-        height: auto; max-height: 55%; border: round $warning; padding: 0 1;
+        height: 1fr; min-height: 6; border: round $warning; padding: 0 1;
     }
     #results-pane {
-        height: 1fr; min-height: 8; border: round $accent; padding: 0 1;
+        height: auto; max-height: 70%; border: round $accent; padding: 0 1;
     }
     #pools { margin: 0 1; }
     #summary-pane {

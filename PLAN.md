@@ -66,13 +66,13 @@ TUI gemacht und eingestellt.
 1. **TUI-Menü & Screens bündeln** ✔ — 5 Einträge; Practice-Picker mit Tabs
    (Exam / Lücken / Extra); Progress = Stats + Readiness; Sync/Feedback als
    Tasten.
-2. **Kompaktes grademe-Panel** — Ergebniszeile, 3 Fails einzeilig, `d` für
+2. **Kompaktes grademe-Panel** ✔ — Ergebniszeile, 3 Fails einzeilig, `d` für
    Details; Panel-Höhe nach Inhalt.
 3. **Theme** — `textual-ansi`, weniger Emojis/Rahmen/Farben, schlichte
    Statuszeile; Rich-Ausgabe im Textmenü ebenfalls auf Terminal-Farben.
 4. **Entfernen** — Badges (`achievements.py`), Markdown-Reports
    (`report_export.py`), Theme-Varianten; Tests/Doku nachziehen.
-5. **Exam = echtes Exam** — grademe im Exam: Ergebnis + erster Fail;
+5. **Exam = echtes Exam** — grademe im Exam: SUCCESS/FAILURE + Trace ✔;
    Exam-Regeln gegen das echte Exam prüfen (Ablauf, Level, Zeit, Stub).
 6. **Settings-Screen** (`o`) im TUI; **Makefile** auf `make`/`install`/
    `update`/`doctor`/`dev` reduzieren; `--help` zeigt nur die Kern-Flags.

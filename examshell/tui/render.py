@@ -127,6 +127,82 @@ def report_view(
     return Group(*blocks)
 
 
+def compact_report_view(
+    report: Report, function: str, show: int = 3, hint: str = ""
+) -> Group:
+    """Practice: what you need at a glance — one verdict line, the first
+    `show` failing tests one line each (input, got ≠ expected), warnings
+    and the hint. report_view() has the full details (`d`)."""
+    ok = report.ok
+    lines: List[RenderableType] = []
+    verdict = Text(
+        "✔ PASSED" if ok else "✖ FAILED", style="bold " + (OK if ok else KO)
+    )
+    if report.fatal:
+        verdict.append("  " + report.fatal_title, style="bold")
+    elif report.total:
+        verdict.append("  %d/%d" % (report.passed, report.total), style="bold")
+    if report.duration:
+        verdict.append("  ·  %.1fs" % report.duration, style="dim")
+    lines.append(verdict)
+    if report.fatal and report.detail:
+        detail = report.detail.strip().splitlines()
+        lines.append(Text("\n".join(detail[:6]), style=KO))
+        if len(detail) > 6:
+            lines.append(Text("… d for the full error", style="dim"))
+    for f in report.failures[:show]:
+        exp_text, got_text = ui._failure_texts(f)
+        row = Text(no_wrap=True, overflow="ellipsis")
+        row.append("✖ ", style=KO)
+        row.append(f.call(function), style="bold")
+        label = case_labels.describe(f)
+        if label:
+            row.append("  (%s)" % label, style="yellow")
+        row.append("  got ", style="dim")
+        row.append(got_text[:120], style=KO)
+        row.append(" ≠ ", style="dim")
+        row.append(exp_text[:120], style=OK)
+        lines.append(row)
+    rest = len(report.failures) - show
+    if rest > 0:
+        lines.append(Text("… %d more · d for details" % rest, style="dim"))
+    for warning in report.warnings:
+        lines.append(Text("⚠ " + warning, style="yellow"))
+    if hint:
+        lines.append(Text("hint: " + hint, style="yellow"))
+    return Group(*lines)
+
+
+def exam_trace_view(
+    report: Report, function: str, blind: bool = False
+) -> Group:
+    """The exam's grademe, like the real one: SUCCESS or FAILURE, and on a
+    FAILURE a trace of the first failing test — nothing more."""
+    if report.ok:
+        return Group(Text("SUCCESS", style="bold " + OK))
+    lines: List[RenderableType] = [Text("FAILURE", style="bold " + KO)]
+    if blind:
+        return Group(*lines)
+    lines.append(Text(""))
+    if report.fatal:
+        lines.append(Text(report.fatal_title, style="bold"))
+        if report.detail:
+            detail = report.detail.strip().splitlines()
+            lines.append(Text("\n".join(detail[:12]), style=KO))
+        return Group(*lines)
+    if report.failures:
+        f = report.failures[0]
+        exp_text, got_text = ui._failure_texts(f)
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(style="dim", no_wrap=True)
+        grid.add_column(overflow="fold")
+        grid.add_row("test", Text(f.call(function), style="bold"))
+        grid.add_row("expected", Text(exp_text[:400], style=OK))
+        grid.add_row("got", Text(got_text[:400], style=KO))
+        lines.append(grid)
+    return Group(*lines)
+
+
 def hint_view(hint: str) -> Panel:
     return Panel(
         Text(hint), title="💡 hint", border_style="yellow", box=box.ROUNDED

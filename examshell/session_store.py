@@ -118,7 +118,7 @@ def load(tool: str) -> Optional[Event]:
 
 def clear(tool: str) -> None:
     """Forget the saved exam. Leaves a small tombstone instead of just
-    deleting the file: with `make sync`, a plain delete would look like
+    deleting the file: with sync, a plain delete would look like
     "this device never had one" and the other device's stale save would
     come right back. load() ignores the tombstone (no required keys)."""
     path = _path(tool)

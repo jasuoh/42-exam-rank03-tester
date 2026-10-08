@@ -80,7 +80,7 @@ dev:
 	@printf "\n  $(DIM)The command line has more (python3 -m examshell --help), see docs/.$(OFF)\n"
 
 update:
-	@git pull --ff-only
+	@git pull --ff-only || { printf "$(RED)✖$(OFF) couldn't update — local changes, or not on a branch? (see git's message above)\n"; exit 1; }
 	@$(MAKE) --no-print-directory install
 
 doctor:

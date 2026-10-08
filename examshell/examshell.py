@@ -829,7 +829,7 @@ def list_ranks() -> None:
 def run_tui_on_last_exam(
     args: argparse.Namespace, cfg: Config
 ) -> Optional[int]:
-    """`make tui` opens on the C exam when that's the one the full-screen
+    """`make` opens on the C exam when that's the one the full-screen
     app was switched to last — unless --rank (or a Python exercise to
     practice) says Python."""
     if (
@@ -1046,7 +1046,7 @@ def run_interactive(args: argparse.Namespace, cfg: Config) -> int:
     """The modes that keep the student in a session: full-screen app, exam,
     practice, training, drill, or the menu."""
     if args.rank:
-        # an explicit `make tui RANK=04` is the exam picked last, too
+        # an explicit `--rank 04` is the exam picked last, too
         settings.remember_exam("py" + RANK.id)
     if args.tui:
         code = run_tui_on_last_exam(args, cfg)

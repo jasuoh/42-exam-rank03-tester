@@ -23,7 +23,7 @@ from typing import Any, Dict, Mapping
 
 # EXAMSHELL_HOME moves everything (stats, saved exams, reports, config) —
 # e.g. into a folder iCloud/Dropbox already syncs, the zero-setup
-# alternative to `make sync` (examshell/sync.py).
+# alternative to sync (examshell/sync.py).
 DATA_DIR = os.environ.get("EXAMSHELL_HOME") or os.path.join(
     os.path.expanduser("~"), ".examshell"
 )
@@ -41,9 +41,9 @@ PERSISTABLE_KEYS = (
     "cc",
     "auto_sync",
     "time_limit",
-    # the exam picked last (remember_exam()), so the next `make run` /
-    # `make tui` opens on it: the Python rank ("03"), and which tester
-    # the full-screen app was on ("py" or "c")
+    # the exam picked last (remember_exam()), so the next `make` opens on
+    # it: the Python rank ("03"), and which tester the app was on ("py" or
+    # "c")
     "rank",
     "tester",
 )

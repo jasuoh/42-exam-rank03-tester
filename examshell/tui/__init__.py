@@ -3,7 +3,7 @@
 """
 examshell/tui  ·  the full-screen terminal interface (optional)
 
-Built on Textual, which needs Python 3.9+ and `pip install textual`. The
+Built on Textual (Python 3.9+), which `make` installs. The
 testers never import anything below this package's __init__ unless the
 student asked for `--tui` AND it is available — the zero-dependency,
 Python 3.8 line-based UI stays the default and the fallback.

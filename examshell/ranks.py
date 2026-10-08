@@ -5,7 +5,7 @@ ranks.py  ·  the Python exam ranks this tester knows about
 
 One tester, three exam pools. A rank is just "which bank, how many levels,
 and under which tag do this student's stats/saved exam/reports live" —
-everything else (grading, the UI, the training pool, hints, badges) is
+everything else (grading, the UI, the training pool, hints) is
 shared, because none of it cares which rank an exercise came from.
 
 The `tool` tag is what keeps a rank's history its own: stats.jsonl rows,

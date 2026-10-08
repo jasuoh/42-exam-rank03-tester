@@ -6,7 +6,7 @@ ui.py  ·  presentation layer for ExamShell (42 · Exam Rank 03 · Python)
 Every byte the student sees goes through this module, so the rest of the
 code never has to branch on which backend is active:
 
-    rich   -> panels, tables, syntax highlighting     (pip install rich)
+    rich   -> panels, tables, syntax highlighting     (make install)
     ANSI   -> plain coloured text, runs anywhere      (exam machines)
 
 Colour is turned off automatically when stdout is not a TTY, when TERM is

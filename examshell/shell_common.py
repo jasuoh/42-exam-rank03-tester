@@ -1135,8 +1135,8 @@ def readiness_mode(sh: Tester, interactive: bool = True) -> None:
     if done < total:
         weakest = min(levels, key=lambda lv: percent(lv[1], lv[2]))
         ui.info(
-            "level %d is your biggest gap — `--drill` builds a short "
-            "session from your gaps" % weakest[0]
+            "level %d is your biggest gap — a daily drill (--drill, "
+            "My gaps in the app) works through your gaps" % weakest[0]
         )
     if interactive:
         _pause_back()
@@ -1288,7 +1288,7 @@ def run_tui(
 
 def sync_dirs(sh: Tester, cfg: TesterConfig) -> Dict[str, str]:
     """{slot: local dir} for examshell/sync.py — this tester's own --rendu, the
-    other tester's default folder, so one `make sync` carries both."""
+    other tester's default folder, so one sync carries both."""
     dirs = {"rendu": "rendu", "c_rendu": "c_rendu"}
     dirs[sh.SYNC_SLOT] = cfg.rendu
     return dirs
@@ -1455,7 +1455,8 @@ def set_auto_sync(on: bool) -> int:
         if not sync.is_configured(settings.DATA_DIR):
             ui.note(
                 "sync isn't set up on this device yet: add your private "
-                "repo in the app's Settings (o) — see docs/sync.md"
+                "repo in the app's Settings (o), or --sync-setup URL — "
+                "see docs/sync.md"
             )
     else:
         ui.success("auto-sync off — sync yourself with s in the app")

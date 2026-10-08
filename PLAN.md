@@ -48,7 +48,7 @@ TUI gemacht und eingestellt.
 | Layout Übung/Exam | Aufgabe oben, Ergebnis unten, keine Code-Ansicht, kein Session-Log ✔ (Commit auf diesem Branch) |
 | TUI-Menü | **5 Einträge:** Exam · Practice · Progress · Switch exam · Quit. Sync (`s`), Feedback (`f`) und **Settings (`o`)** als Tasten in der Fußzeile |
 | Settings im TUI | Eigener Screen (`o`): Watch-Modus, Sync einrichten, Auto-Sync, Timeout, Zeitlimit u.ä. — ersetzt `--save-config` und die meisten Make-Variablen |
-| Exam-grademe | **Ergebnis + erster Fail** (input / expected / got, wie eine Trace) — keine Hinweise, keine weiteren Fails. Extra-Aufgaben nie im Exam |
+| Exam-grademe | Wie im echten Exam: **SUCCESS / FAILURE**, bei FAILURE eine **Trace mit dem fehlschlagenden Testfall** (input / expected / got) — keine Hinweise, keine weiteren Fails. Extra-Aufgaben nie im Exam |
 | Practice | Ein Picker mit Tabs/Filter: **Exam-Aufgaben** · **Meine Lücken** (heutiger Drill) · **Extra** (heutiger Training-Pool) |
 | Progress | Stats + Readiness auf **einem** Screen |
 | Training-Pool | Kein eigener Menüpunkt mehr → Tab „Extra“ in Practice |
@@ -62,7 +62,7 @@ TUI gemacht und eingestellt.
 
 ### Schritte
 
-0. **Branches** — `beta` angelegt ✔; CI auch bei Push auf `beta`.
+0. **Branches** — `beta` angelegt ✔; CI auch bei Push auf `beta` ✔.
 1. **TUI-Menü & Screens bündeln** — 5 Einträge; Practice-Picker mit Tabs
    (Exam / Lücken / Extra); Progress = Stats + Readiness; Sync/Feedback als
    Tasten.

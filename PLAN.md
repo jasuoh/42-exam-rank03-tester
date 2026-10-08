@@ -74,7 +74,7 @@ TUI gemacht und eingestellt.
    (`report_export.py`), Theme-Varianten; Tests/Doku nachziehen.
 5. **Exam = echtes Exam** — grademe im Exam: SUCCESS/FAILURE + Trace ✔;
    Exam-Regeln gegen das echte Exam prüfen (Ablauf, Level, Zeit, Stub).
-6. **Settings-Screen** (`o`) im TUI; **Makefile** auf `make`/`install`/
+6. **Settings-Screen** (`o`) im TUI ✔; **Makefile** auf `make`/`install`/
    `update`/`doctor`/`dev` reduzieren; `--help` zeigt nur die Kern-Flags.
 7. **README neu**, `docs/` an die neue Struktur anpassen, CHANGELOG.
 8. **AGENTS.md** — Projekt, Befehle, Konventionen, Workflow (Branch → PR,

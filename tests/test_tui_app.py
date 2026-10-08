@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
-from typing import Any, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from unittest import mock
 
 from examshell import examshell as py_shell
@@ -449,8 +449,56 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 await pilot.press("s")
                 await pilot.pause()
         self.assertTrue(
-            any("sync-setup" in str(c) for c in notify.call_args_list)
+            any("Settings (o)" in str(c) for c in notify.call_args_list)
         )
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiSettingsTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.isolate()
+        config = mock.patch.object(
+            settings, "CONFIG_PATH", os.path.join(self.rendu, "config.json")
+        )
+        config.start()
+        self.addCleanup(config.stop)
+
+    async def _change(
+        self, app: Any, pilot: Any, key: str, text: Optional[str]
+    ) -> None:
+        menu = app.screen.query_one("#settings", OptionList)
+        ids = [
+            menu.get_option_at_index(i).id for i in range(menu.option_count)
+        ]
+        menu.highlighted = ids.index(key)
+        await pilot.press("enter")
+        await pilot.pause()
+        if text is not None:
+            await pilot.press(*text, "enter")
+            await pilot.pause()
+
+    async def test_settings_are_saved_and_applied(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.press("o")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.SettingsScreen)
+            await self._change(app, pilot, "time_limit", "90")
+            await self._change(app, pilot, "timeout", "7")
+            await self._change(app, pilot, "fuzz", "x")  # not a number
+            await self._change(app, pilot, "auto_sync", None)  # a toggle
+            self.assertEqual(app.cfg.time_limit, 90)
+            self.assertEqual(app.cfg.timeout, 7)
+            self.assertEqual(app.cfg.fuzz, 5)  # unchanged
+            await self._change(app, pilot, "time_limit", "0")
+            self.assertIsNone(app.cfg.time_limit)
+        saved = settings.load_config()
+        self.assertEqual(saved["timeout"], 7)
+        self.assertTrue(saved["auto_sync"])
+        self.assertNotIn("time_limit", saved)  # None isn't stored
+        self.assertNotIn("fuzz", saved)
+        # and a new session starts with them
+        self.assertEqual(py_shell.default_config().timeout, 7)
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")

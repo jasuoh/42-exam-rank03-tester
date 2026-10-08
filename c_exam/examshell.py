@@ -313,7 +313,7 @@ int main(void)
          cc -DSELF_TEST {path} -o /tmp/t && /tmp/t
        then compare the printed output against the Examples above by eye —
        this does NOT check pass/fail like the Python tool's stub does.
-       The real check is `grademe` / `make c-grade EX={short}`. */
+       The real check is grademe (g in the app). */
 {examples}
     return 0;
 }}
@@ -334,7 +334,7 @@ int main(int argc, char **argv)
     /* your code here — try it yourself:
          cc {path} -o /tmp/t && /tmp/t{example_args}
        then compare the output against the Examples above by eye.
-       The real check is `grademe` / `make c-grade EX={short}`. */
+       The real check is grademe (g in the app). */
     (void)argc;
     (void)argv;
     return (0);
@@ -497,16 +497,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog=PROG,
         description="42 Exam Rank 02 (C) practice tester.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="examples:\n"
-        "  python3 -m c_exam                       interactive menu\n"
-        "  python3 -m c_exam --exam --seed 42      reproducible exam\n"
-        "  python3 -m c_exam --practice ft_atoi    drill one exercise\n"
-        "  python3 -m c_exam --train easy          "
-        "drill an easy training exercise\n"
-        "  python3 -m c_exam --grade ft_atoi       grade once, no UI\n"
-        "  python3 -m c_exam --grade-all           "
-        "grade every c_rendu/ solution\n"
-        "  python3 -m c_exam --check                validate the banks\n",
+        epilog="usually you just run `make`: the full-screen app does the "
+        "rest\n(exam, practice, progress, settings).\n\n"
+        "examples:\n"
+        "  python3 -m c_exam --exam            the exam, no menu\n"
+        "  python3 -m c_exam --grade ft_atoi   grade one solution\n\n"
+        "more options (timeouts, strict mode, sync, ...): docs/c.md",
     )
     mode = p.add_mutually_exclusive_group()
     mode.add_argument(
@@ -752,6 +748,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="force the plain ANSI UI even if rich is installed",
     )
+    shell_common.hide_advanced_flags(p)
     return p
 
 
@@ -764,6 +761,7 @@ def apply_saved_settings(args: argparse.Namespace) -> argparse.Namespace:
     )
     args.fuzz = settings.merged(args, file_config, "fuzz", grader.DEFAULT_FUZZ)
     args.show_fails = settings.merged(args, file_config, "show_fails", 4)
+    args.time_limit = settings.merged(args, file_config, "time_limit", None)
     args.cc = settings.merged(args, file_config, "cc", grader.DEFAULT_CC)
     if args.strict_valgrind:
         args.valgrind = True

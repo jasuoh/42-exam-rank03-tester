@@ -222,6 +222,34 @@ class GradeOutcome(object):
         return self.report.ok
 
 
+# What `--help` lists. Everything else still works (scripts, docs/), it
+# just isn't in the way: the app and its Settings cover it.
+CORE_FLAGS = frozenset(
+    (
+        "--help",
+        "--tui",
+        "--exam",
+        "--practice",
+        "--grade",
+        "--stub",
+        "--list",
+        "--rank",
+        "--rendu",
+        "--doctor",
+        "--version",
+    )
+)
+
+
+def hide_advanced_flags(parser: argparse.ArgumentParser) -> None:
+    """Keep `--help` to CORE_FLAGS; the rest is described in docs/."""
+    for action in parser._actions:
+        if action.option_strings and not CORE_FLAGS & set(
+            action.option_strings
+        ):
+            action.help = argparse.SUPPRESS
+
+
 def solution_path(sh: Tester, ex_name: str, cfg: TesterConfig) -> str:
     return os.path.join(cfg.rendu, ex_name + sh.SOURCE_EXT)
 
@@ -1307,8 +1335,8 @@ def sync_hint() -> Optional[str]:
 
     if sync.is_configured(settings.DATA_DIR):
         return (
-            "continue on another device: "
-            "`make sync` here, then `make sync` there"
+            "continue on another device: sync (s in the app) here, "
+            "then on the other device"
         )
     return None
 
@@ -1426,11 +1454,11 @@ def set_auto_sync(on: bool) -> int:
         )
         if not sync.is_configured(settings.DATA_DIR):
             ui.note(
-                "sync isn't set up on this device yet: "
-                "make sync-setup REPO=<your private repo> (see docs/sync.md)"
+                "sync isn't set up on this device yet: add your private "
+                "repo in the app's Settings (o) — see docs/sync.md"
             )
     else:
-        ui.success("auto-sync off — run `make sync` yourself")
+        ui.success("auto-sync off — sync yourself with s in the app")
     return 0
 
 
@@ -1458,7 +1486,7 @@ def auto_sync(
     except (sync.SyncError, OSError) as exc:
         ui.warn(
             "auto-sync skipped — %s "
-            "(your progress stays here; `make sync` later)" % exc
+            "(your progress stays here; sync later with s in the app)" % exc
         )
         return None
     ui.note("🔄 " + result.summary())

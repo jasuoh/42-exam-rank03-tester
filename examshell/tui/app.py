@@ -198,6 +198,7 @@ class ChoiceModal(ModalScreen[Optional[str]]):
 # ══════════════════════════════════════════════════════════════
 class MenuScreen(AppScreen[None]):
     BINDINGS = [
+        Binding("o", "settings", "settings"),
         Binding("s", "app.sync", "sync"),
         Binding("f", "feedback", "feedback"),
         Binding("q", "app.quit", "quit"),
@@ -279,6 +280,9 @@ class MenuScreen(AppScreen[None]):
             )
         elif choice == "quit":
             app.exit()
+
+    def action_settings(self) -> None:
+        self.app.push_screen(SettingsScreen())
 
     def action_feedback(self) -> None:
         from .. import feedback
@@ -962,6 +966,130 @@ class ProgressScreen(AppScreen[None]):
 
 
 # ══════════════════════════════════════════════════════════════
+#  SETTINGS  ·  what used to be flags and --save-config
+# ══════════════════════════════════════════════════════════════
+class SettingsScreen(AppScreen[None]):
+    """The few things worth changing, saved to ~/.examshell/config.json
+    (settings.py) and applied right away. Esc in a prompt keeps the value."""
+
+    BINDINGS = [Binding("escape", "app.pop_screen", "back")]
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Vertical(id="settings-body"):
+            yield OptionList(id="settings")
+            yield Static(
+                "enter to change · saved for every session",
+                classes="modal-hint",
+            )
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.refresh_list()
+        self.query_one("#settings", OptionList).focus()
+
+    def rows(self) -> List[Tuple[str, str, str]]:
+        from .. import sync
+
+        cfg = self.app.cfg
+        limit = getattr(cfg, "time_limit", None)
+        repo = sync.remote_url(settings.DATA_DIR)
+        rows = [
+            (
+                "time_limit",
+                "Exam time limit",
+                "%d min" % limit if limit else "off",
+            ),
+            ("timeout", "Time per test", "%d s" % cfg.timeout),
+            ("fuzz", "Random tests per exercise", str(cfg.fuzz)),
+        ]
+        if hasattr(cfg, "cc"):
+            rows.append(("cc", "C compiler", str(getattr(cfg, "cc"))))
+        rows += [
+            ("sync_repo", "Sync repo", repo or "not set up"),
+            (
+                "auto_sync",
+                "Auto-sync",
+                "on" if shell_common.auto_sync_enabled() else "off",
+            ),
+        ]
+        return rows
+
+    def refresh_list(self) -> None:
+        menu = self.query_one("#settings", OptionList)
+        highlighted = menu.highlighted
+        menu.clear_options()
+        for key, label, value in self.rows():
+            menu.add_option(Option("%-28s [b]%s[/b]" % (label, value), id=key))
+        menu.highlighted = highlighted if highlighted is not None else 0
+
+    def on_option_list_option_selected(
+        self, event: OptionList.OptionSelected
+    ) -> None:
+        key = event.option.id or ""
+        cfg = self.app.cfg
+        if key == "auto_sync":
+            on = not shell_common.auto_sync_enabled()
+            self.save("auto_sync", on)
+            if on:
+                self.app.notify(
+                    "Auto-sync on: every session pulls first and pushes "
+                    "when it ends (once a sync repo is set up)."
+                )
+            return
+        if key == "sync_repo":
+            self.app.push_screen(
+                PromptModal(
+                    "URL of your PRIVATE git repo for sync "
+                    "(see docs/sync.md) — Esc to cancel",
+                ),
+                self.app.setup_sync,
+            )
+            return
+        prompts = {
+            "time_limit": "Exam time limit in minutes (0 = off):",
+            "timeout": "Seconds each test may run:",
+            "fuzz": "Random tests per exercise, on top of the fixed ones:",
+            "cc": "C compiler to use (cc, gcc, clang …):",
+        }
+        current = getattr(cfg, key, None)
+        default = str(current or 0) if key == "time_limit" else str(current)
+        self.app.push_screen(
+            PromptModal(prompts[key], default),
+            lambda value: self.apply(key, value),
+        )
+
+    def apply(self, key: str, value: Optional[str]) -> None:
+        if value is None:
+            return
+        if key == "cc":
+            if value:
+                self.save("cc", value)
+            return
+        try:
+            number = int(value)
+        except ValueError:
+            self.app.notify("%r is not a number" % value, severity="error")
+            return
+        if key == "time_limit":
+            self.save("time_limit", number if number > 0 else None)
+        elif number < (1 if key == "timeout" else 0):
+            self.app.notify("that's too small", severity="error")
+        else:
+            self.save(key, number)
+
+    def save(self, key: str, value: Any) -> None:
+        if not settings.update_config(key, value):
+            self.app.notify(
+                "could not write %s" % settings.CONFIG_PATH, severity="error"
+            )
+            return
+        if key != "auto_sync":
+            setattr(self.app.cfg, key, value)
+        self.refresh_list()
+
+
+# ══════════════════════════════════════════════════════════════
 #  THE APP
 # ══════════════════════════════════════════════════════════════
 class ExamShellApp(App[None]):
@@ -979,6 +1107,8 @@ class ExamShellApp(App[None]):
     #subject-pane { height: 1fr; min-height: 6; }
     #results-pane { height: auto; max-height: 70%; }
     #pools { margin: 0 1; }
+    #settings-body { padding: 1 2; }
+    #settings { height: auto; border: round $border-blurred; }
     #summary-pane { padding: 1 2; margin: 1 2; }
     #summary-pane.passed { border: round $success; }
     #stats-pane { width: 1fr; padding: 1 2; margin: 1 1 1 2; }
@@ -1098,6 +1228,8 @@ class ExamShellApp(App[None]):
         self.notify("Switched to %s" % self.label())
         if isinstance(self.screen, MenuScreen):
             self.screen.refresh_menu()
+        elif isinstance(self.screen, SettingsScreen):
+            self.screen.refresh_list()
 
     # ── feedback ──────────────────────────────────────────────────────
     def open_feedback(
@@ -1135,9 +1267,8 @@ class ExamShellApp(App[None]):
 
         if not sync.is_configured(settings.DATA_DIR):
             self.notify(
-                "Sync isn't set up on this device yet — run "
-                "`make sync-setup REPO=<your private repo>` "
-                "(see docs/sync.md).",
+                "Sync isn't set up on this device yet — add your private "
+                "repo in Settings (o). See docs/sync.md.",
                 severity="warning",
                 timeout=8,
             )
@@ -1145,14 +1276,21 @@ class ExamShellApp(App[None]):
         self.notify("Syncing with your repo …")
         self.sync_worker()
 
+    def setup_sync(self, url: Optional[str]) -> None:
+        if url:
+            self.notify("Connecting to %s …" % url)
+            self.sync_worker(url)
+
     @work(thread=True, exclusive=True, group="sync")
-    def sync_worker(self) -> None:
+    def sync_worker(self, setup_url: Optional[str] = None) -> None:
         from .. import settings, sync
 
+        dirs = shell_common.sync_dirs(self.sh, self.cfg)
         try:
-            result = sync.sync(
-                settings.DATA_DIR, shell_common.sync_dirs(self.sh, self.cfg)
-            )
+            if setup_url:
+                result = sync.setup(setup_url, settings.DATA_DIR, dirs)
+            else:
+                result = sync.sync(settings.DATA_DIR, dirs)
         except sync.SyncError as exc:
             self.call_from_thread(
                 self.notify,

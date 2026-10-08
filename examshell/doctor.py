@@ -237,7 +237,7 @@ def check_git() -> Check:
     return Check(
         WARN,
         "git",
-        "not installed — `make sync` needs it",
+        "not installed — sync needs it",
         "macOS: xcode-select --install · Linux: sudo apt install git",
     )
 
@@ -269,7 +269,7 @@ def check_sync(data_dir: Optional[str] = None) -> Check:
             WARN,
             "Sync",
             "not set up — progress stays on this device",
-            "make sync-setup REPO=<your private repo> (see docs/sync.md)",
+            "add your private repo in the app: Settings (o) · docs/sync.md",
         )
     auto = (
         " · auto-sync on"

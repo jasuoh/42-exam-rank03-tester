@@ -40,6 +40,7 @@ PERSISTABLE_KEYS = (
     "show_fails",
     "cc",
     "auto_sync",
+    "time_limit",
     # the exam picked last (remember_exam()), so the next `make run` /
     # `make tui` opens on it: the Python rank ("03"), and which tester
     # the full-screen app was on ("py" or "c")

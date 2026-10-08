@@ -172,8 +172,8 @@ def sync(
     "c_rendu") to that local directory. Returns a SyncResult."""
     if not is_configured(data_dir):
         raise SyncError(
-            "sync isn't set up on this device — run "
-            "`make sync-setup REPO=<your private repo url>` first"
+            "sync isn't set up on this device — add your private repo in "
+            "the app's Settings (o) first"
         )
     repo = repo_dir(data_dir)
     device = device or socket.gethostname() or "a device"

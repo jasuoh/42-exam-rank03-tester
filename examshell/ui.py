@@ -6,7 +6,7 @@ ui.py  ·  presentation layer for ExamShell (42 · Exam Rank 03 · Python)
 Every byte the student sees goes through this module, so the rest of the
 code never has to branch on which backend is active:
 
-    rich   -> panels, tables, syntax highlighting     (pip install rich)
+    rich   -> panels, tables, syntax highlighting     (make install)
     ANSI   -> plain coloured text, runs anywhere      (exam machines)
 
 Colour is turned off automatically when stdout is not a TTY, when TERM is
@@ -46,7 +46,6 @@ try:
     from rich.syntax import Syntax
     from rich.table import Table
     from rich.text import Text
-    from rich.theme import Theme as _RichTheme
 
     HAVE_RICH = True
 except ImportError:  # pragma: no cover
@@ -69,100 +68,11 @@ DIFFICULTY_STYLE = {"easy": "green", "medium": "yellow", "hard": "red"}
 
 
 # ══════════════════════════════════════════════════════════════
-#  THEMES
-# ══════════════════════════════════════════════════════════════
-# "dark" is the tool's original palette (bright ANSI colours, rich's own
-# built-in colour names) — it needs no override table at all, so it is
-# the zero-risk default. "light" and "highcontrast" remap the same fixed
-# vocabulary of colour names used throughout this module (RED/GREEN/...
-# for ANSI, "red"/"green"/"bold red"/... for rich) so every existing
-# c(...) call and every rich markup tag renders correctly automatically,
-# with no call site touched individually.
-THEME_NAMES = ("dark", "light", "highcontrast")
-
-# ANSI 256-colour codes (\033[38;5;Nm / \033[48;5;Nm), one table per
-# non-default theme. Colours picked to stay readable on a light/white
-# terminal background ("light"), or to avoid a red/green pair entirely
-# for the most common forms of colour-vision deficiency ("highcontrast",
-# using the Okabe–Ito palette: blue/vermillion/orange/sky-blue).
-_ANSI_256 = {
-    "light": {
-        "RED": 160,
-        "GREEN": 28,
-        "YELLOW": 172,
-        "CYAN": 30,
-        "WHITE": 236,
-        "GRAY": 244,
-        "MAGENTA": 127,
-        "BLUE": 25,
-        "BG_RED": 217,
-        "BG_GREEN": 150,
-    },
-    "highcontrast": {
-        "RED": 166,
-        "GREEN": 27,
-        "YELLOW": 208,
-        "CYAN": 39,
-        "WHITE": 255,
-        "GRAY": 246,
-        "MAGENTA": 25,
-        "BLUE": 27,
-        "BG_RED": 208,
-        "BG_GREEN": 27,
-    },
-}
-
-# rich colours, one table per non-default theme, keyed by the exact style
-# string literal as it is written elsewhere in this module (verified:
-# rich's Console(theme=...) resolves an exact-string match — including
-# compound ones like "bold cyan" — before falling back to its own
-# built-in colour parsing, so registering every literal used below is
-# enough to re-theme the whole UI without editing a single call site).
-_RICH_THEMES = {
-    "light": {
-        "cyan": "#0a6e8c",
-        "red": "#a4130f",
-        "green": "#1c6b1c",
-        "yellow": "#8a5a00",
-        "white": "#1c1c1c",
-        "dim": "#5c5c5c",
-        "grey37": "#8a8a8a",
-        "magenta": "#7a1f7a",
-        "bold cyan": "bold #0a6e8c",
-        "bold red": "bold #a4130f",
-        "bold green": "bold #1c6b1c",
-        "bold yellow": "bold #8a5a00",
-        "bold white": "bold #1c1c1c",
-        "on green": "on #1c6b1c",
-        "on red": "on #a4130f",
-    },
-    "highcontrast": {
-        "cyan": "#56b4e9",
-        "red": "#d55e00",
-        "green": "#0072b2",
-        "yellow": "#e69f00",
-        "white": "#f5f5f5",
-        "dim": "#9a9a9a",
-        "grey37": "#8a8a8a",
-        "magenta": "#0072b2",
-        "bold cyan": "bold #56b4e9",
-        "bold red": "bold #d55e00",
-        "bold green": "bold #0072b2",
-        "bold yellow": "bold #e69f00",
-        "bold white": "bold #f5f5f5",
-        "on green": "on #0072b2",
-        "on red": "on #d55e00",
-    },
-}
-
-
-# ══════════════════════════════════════════════════════════════
 #  BACKEND STATE
 # ══════════════════════════════════════════════════════════════
 _rich = False
 _color = True
 _console: Optional[Console] = None
-_theme = "dark"
 
 
 def _out() -> Console:
@@ -181,30 +91,19 @@ def _auto_color() -> bool:
 
 
 def configure(
-    rich: Optional[bool] = None,
-    color: Optional[bool] = None,
-    theme: str = "dark",
+    rich: Optional[bool] = None, color: Optional[bool] = None
 ) -> None:
-    """(Re)configure the backend. None means 'auto-detect'."""
-    global _rich, _color, _console, _theme
+    """(Re)configure the backend. None means 'auto-detect'. Colours are
+    the terminal's own ANSI ones, so the output matches its theme."""
+    global _rich, _color, _console
     _color = _auto_color() if color is None else bool(color)
     want_rich = HAVE_RICH if rich is None else (bool(rich) and HAVE_RICH)
     _rich = want_rich and _color
-    _theme = theme if theme in THEME_NAMES else "dark"
-    rich_theme = (
-        _RichTheme(_RICH_THEMES[_theme])
-        if (_rich and _theme in _RICH_THEMES)
-        else None
-    )
-    _console = Console(highlight=False, theme=rich_theme) if _rich else None
+    _console = Console(highlight=False) if _rich else None
 
 
 def using_rich() -> bool:
     return _rich
-
-
-def current_theme() -> str:
-    return _theme
 
 
 def width() -> int:
@@ -233,18 +132,7 @@ def c(text: str, *styles: str) -> str:
     """Wrap `text` in ANSI styles (no-op when colour is off)."""
     if not _color or not styles:
         return text
-    table = _ANSI_256.get(_theme)
-    codes: List[str] = []
-    for s in styles:
-        code = table.get(s) if table else None
-        if code is None:
-            codes.append(getattr(C, s))
-        else:
-            codes.append(
-                "\033[48;5;%dm" % code
-                if s.startswith("BG_")
-                else "\033[38;5;%dm" % code
-            )
+    codes = [getattr(C, s) for s in styles]
     return "".join(codes) + text + C.RESET
 
 
@@ -348,16 +236,7 @@ def success(msg: str) -> None:
 def hint(msg: str) -> None:
     """A stuck-student nudge (see hints.py) — deliberately calmer than
     warn()/error(): this isn't a problem with the run, just a suggestion."""
-    _line("💡 " + msg, "cyan", "CYAN")
-
-
-def badge_unlocked(emoji: str, label: str) -> None:
-    """A just-earned achievement (see achievements.py) — shown the moment
-    it's detected, not just tucked away in --stats, so it lands like the
-    small reward it's meant to be."""
-    _line(
-        "%s New badge: %s!" % (emoji, label), "bold yellow", "YELLOW", "BOLD"
-    )
+    _line("hint: " + msg, "cyan", "CYAN")
 
 
 def _line(msg: str, rich_style: str, *ansi: str) -> None:
@@ -597,7 +476,7 @@ def _reflow(prose: str) -> str:
 
 def subject_blocks(
     ex: Exercise,
-    lexer_theme: str = "monokai",
+    lexer_theme: str = "ansi_dark",
     code_background: Optional[str] = "default",
 ) -> Group:
     """The subject as a rich Group (metadata table, prose, signature,
@@ -648,7 +527,7 @@ def subject(ex_name: str, ex: Exercise, rendu_dir: str) -> None:
         _out().print(
             Panel(
                 subject_blocks(ex),
-                title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
+                title="[bold yellow]%s[/bold yellow]" % _esc(ex_name),
                 subtitle="[dim]%s  ·  file: %s[/dim]"
                 % (group, _esc(os.path.join(rendu_dir, ex_name + ext))),
                 border_style="yellow",
@@ -662,7 +541,7 @@ def subject(ex_name: str, ex: Exercise, rendu_dir: str) -> None:
     print()
     print(
         IND0
-        + c("📄 " + ex_name, "BOLD", "YELLOW")
+        + c(ex_name, "BOLD", "YELLOW")
         + c("   (%s)" % group, "GRAY")
     )
     print(IND0 + c("─" * (width() - 2), "GRAY"))
@@ -766,46 +645,6 @@ def stats_table(rows: Sequence[Tuple[str, int, int]]) -> None:
             + c(bar, style)
             + "  "
             + c("%d/%d" % (passes, attempts), "GRAY")
-        )
-
-
-def badges_table(rows: Sequence[Tuple[str, str, str, bool]]) -> None:
-    """rows: [(emoji, label, description, earned), …] — the FULL badge
-    roster, not just earned ones: seeing what you don't have yet is part
-    of the motivation. An earned badge shows its real emoji in full
-    colour; a locked one is dimmed with a padlock instead — the
-    description still says how to earn it, nothing is a secret here."""
-    if _rich:
-        t = Table(box=None, show_header=False, pad_edge=False)
-        t.add_column(no_wrap=True)
-        t.add_column(style="bold white", no_wrap=True)
-        t.add_column(style="dim")
-        for emoji, label, desc, earned in rows:
-            if earned:
-                t.add_row(emoji, _esc(label), _esc(desc))
-            else:
-                t.add_row("🔒", "[dim]%s[/dim]" % _esc(label), _esc(desc))
-        _out().print(
-            Panel(
-                t,
-                title="[dim]badges[/dim]",
-                title_align="left",
-                border_style="grey37",
-                box=box.ROUNDED,
-                padding=(0, 1),
-            )
-        )
-        return
-    label_width = max((len(label) for _, label, _, _ in rows), default=0) + 2
-    for emoji, label, desc, earned in rows:
-        icon = emoji if earned else "🔒"
-        style: Tuple[str, ...] = ("WHITE", "BOLD") if earned else ("GRAY",)
-        print(
-            IND0
-            + icon
-            + " "
-            + c(label.ljust(label_width), *style)
-            + c(desc, "GRAY")
         )
 
 
@@ -1156,13 +995,6 @@ def _clip_block(lines: List[str]) -> Tuple[List[str], int]:
     return lines[:_DIFF_BLOCK_MAX_LINES], len(lines) - _DIFF_BLOCK_MAX_LINES
 
 
-# --diff's inline code panel (extract_function_source()) needs a Syntax
-# theme — reuse this project's own THEME_NAMES where there's a clean
-# mapping, "monokai" otherwise (it reads fine on both light and dark
-# terminal backgrounds, which is why subject() already defaults to it).
-_CODE_SYNTAX_THEMES = {"light": "default"}
-
-
 def report(
     rep: Report,
     show_fails: int = 4,
@@ -1181,6 +1013,31 @@ def report(
     if rep.failures:
         _failures(rep, show_fails, diff, filepath)
     _verdict(rep)
+
+
+def exam_trace(rep: Report, blind: bool = False) -> None:
+    """The exam's grademe, like the real one: SUCCESS, or FAILURE and a
+    trace of the first failing test (only FAILURE with --blind) — the
+    line-based twin of the app's render.exam_trace_view(). No other
+    failures, labels or score."""
+    if rep.ok:
+        _line("SUCCESS", "bold green", "GREEN", "BOLD")
+        return
+    _line("FAILURE", "bold red", "RED", "BOLD")
+    if blind:
+        return
+    print()
+    if rep.fatal:
+        _line(rep.fatal_title, "bold", "BOLD")
+        for row in rep.detail.strip().splitlines()[:12]:
+            _line(row, "red", "RED")
+        return
+    if rep.failures:
+        f = rep.failures[0]
+        exp_text, got_text = _failure_texts(f)
+        _line("test     : " + f.call(rep.function), "bold", "BOLD")
+        _line("expected : " + exp_text[:_DIFF_CLIP], "green", "GREEN")
+        _line("got      : " + got_text[:_DIFF_CLIP], "red", "RED")
 
 
 # --diff shows the full value (instead of the usual 70/26-char clip) plus
@@ -1346,11 +1203,10 @@ def _code_panel(source: str, function_name: str, filepath: str) -> None:
     lexer = "c" if filepath.endswith(".c") else "python"
     title = "your %s()" % function_name
     if _rich:
-        theme = _CODE_SYNTAX_THEMES.get(_theme, "monokai")
         syntax = Syntax(
             source,
             lexer,
-            theme=theme,
+            theme="ansi_dark",
             line_numbers=True,
             background_color="default",
             word_wrap=True,

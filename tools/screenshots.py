@@ -24,7 +24,7 @@ from typing import Any
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "img")
-SIZE = (140, 38)
+SIZE = (100, 34)  # a terminal half a screen wide, next to the editor
 
 os.environ["HOME"] = tempfile.mkdtemp(prefix="examshell-shots-")
 os.environ["EXAMSHELL_NO_UPDATE_CHECK"] = "1"
@@ -118,7 +118,11 @@ def config(rendu: str, **overrides: Any) -> c_shell.Config:
 
 async def shoot() -> None:
     os.makedirs(OUT, exist_ok=True)
-    rendu = tempfile.mkdtemp()
+    # a relative c_rendu/, as in real use: the subject pane shows its path
+    workdir = tempfile.mkdtemp()
+    os.chdir(workdir)
+    rendu = "c_rendu"
+    os.makedirs(rendu)
     with open(os.path.join(rendu, "first_word.c"), "w") as fh:
         fh.write(BUGGY_FIRST_WORD)
     fake_history()
@@ -128,14 +132,9 @@ async def shoot() -> None:
         await pilot.pause()
         app.save_screenshot(os.path.join(OUT, "tui-menu.svg"))
 
-        app.push_screen(_screen("ReadinessScreen"))
+        app.push_screen(_screen("ProgressScreen"))
         await pilot.pause()
-        app.save_screenshot(os.path.join(OUT, "tui-readiness.svg"))
-        await pilot.press("escape")
-
-        app.push_screen(_screen("StatsScreen"))
-        await pilot.pause()
-        app.save_screenshot(os.path.join(OUT, "tui-stats.svg"))
+        app.save_screenshot(os.path.join(OUT, "tui-progress.svg"))
         await pilot.press("escape")
 
         app.push_screen(_screen("PracticeScreen", "first_word"))
@@ -163,7 +162,8 @@ async def shoot() -> None:
         await app.workers.wait_for_complete()
         await pilot.pause(1.1)
         app.save_screenshot(os.path.join(OUT, "tui-exam.svg"))
-    shutil.rmtree(rendu, ignore_errors=True)
+    os.chdir(ROOT)
+    shutil.rmtree(workdir, ignore_errors=True)
     print("screenshots written to", OUT)
 
 

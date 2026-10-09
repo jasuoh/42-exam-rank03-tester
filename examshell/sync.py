@@ -3,10 +3,10 @@
 """
 sync.py  ·  carry your progress and solutions between devices via git
 
-`make sync-setup REPO=<url>` once per device, then `make sync` before and
-after practising. The remote is the student's OWN (private) repository —
-there is no server of ours involved, and nothing leaves the machine except
-towards that repo.
+Set up once per device (the app's Settings, or --sync-setup URL), then sync
+before and after practising (`s` in the app, or --sync). The remote is the
+student's OWN (private) repository — there is no server of ours involved,
+and nothing leaves the machine except towards that repo.
 
 What travels, and how two devices' versions are combined:
 
@@ -14,7 +14,7 @@ What travels, and how two devices' versions are combined:
   saved_exam_<tool>.json the newer one wins (a finished exam leaves a
                          tombstone — see session_store.clear() — so it
                          doesn't come back from the other device)
-  reports/*.md           union
+  reports/*.md           union (old exam reports; none are written any more)
   rendu/, c_rendu/       per file, the newer edit wins; the older version
                          is kept in <data dir>/sync-backup/ — code is
                          never thrown away
@@ -48,14 +48,14 @@ GIT_TIMEOUT = 180  # seconds per git call (a password prompt may be waiting)
 
 REPO_README = """# ExamShell progress
 
-Synced by `make sync` from
-[42-exam-tester](https://github.com/jasuoh/42-exam-tester). Don't edit by
-hand — run `make sync` on each device instead.
+Synced by [ExamShell](https://github.com/jasuoh/42-exam-tester). Don't edit
+by hand — sync on each device instead (`s` in the app, or
+`python3 -m examshell --sync`).
 
 **Keep this repository PRIVATE.** It contains your exam solutions, and
 sharing solutions can count as cheating at 42.
 
-- `data/` — practice history, saved exams, exam reports
+- `data/` — practice history, saved exams
 - `solutions/` — your `rendu/` and `c_rendu/` files
 """
 
@@ -172,8 +172,8 @@ def sync(
     "c_rendu") to that local directory. Returns a SyncResult."""
     if not is_configured(data_dir):
         raise SyncError(
-            "sync isn't set up on this device — run "
-            "`make sync-setup REPO=<your private repo url>` first"
+            "sync isn't set up on this device — add your private repo in "
+            "the app's Settings (o) first (or run --sync-setup URL)"
         )
     repo = repo_dir(data_dir)
     device = device or socket.gethostname() or "a device"

@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Tuple
 from unittest import mock
 
 from examshell import hints
-from examshell import report_export
 from examshell import session_store
 from examshell import shell_common
 from examshell import ui
@@ -141,7 +140,7 @@ class ExerciseEntriesTests(unittest.TestCase):
     def test_new_exercises_default_to_extra_not_standard(self) -> None:
         # Fail-CLOSED by design: an exercise that forgets to mark itself
         # "standard": True must never silently become eligible for a real
-        # `make exam` draw (see c_exam/bank.py's own copy of this test —
+        # exam draw (see c_exam/bank.py's own copy of this test —
         # it used to default the opposite way there).
         import examshell.exam_bank as bank_module
 
@@ -501,8 +500,6 @@ class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
         ), mock.patch.object(session_store, "save") as save, mock.patch.object(
             session_store, "clear"
         ) as clear, mock.patch.object(
-            report_export, "write_exam_report", return_value=None
-        ), mock.patch.object(
             stats, "best_exam_time", return_value=None
         ), mock.patch.object(stats, "record_exam_complete"), mock.patch.object(
             ui, "ask", side_effect=ask_calls

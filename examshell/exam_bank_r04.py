@@ -662,7 +662,7 @@ for _lvl, _pool in LEVELS.items():
         raise ValueError("exam_bank_r04: level %d has no exercise" % _lvl)
 
 # Every exercise here is a documented Rank 04 subject, so the Standard pool
-# (what `make exam` draws from) is the whole bank — unlike the Rank 03 bank,
+# (what the exam draws from) is the whole bank — unlike the Rank 03 bank,
 # which also carries an Extra pool for practice only. The split is kept so
 # both banks answer the same questions the same way.
 STANDARD_LEVELS = {

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta]
   pull_request:
   workflow_dispatch:
 
@@ -98,8 +98,8 @@ jobs:
       - name: Lint (ruff · flake8 · mypy --strict)
         run: make lint LINT_STRICT=1
 
-  # README promises "any exam machine with nothing but Python 3.8+" — this
-  # job is what actually keeps that claim true instead of just asserted.
+  # The testers still run on a bare Python 3.8 (the plain menu, no app) —
+  # this job keeps that true instead of just asserted.
   # Kept minimal (no rich, no C compile pass, no lint) since its only job
   # is catching syntax/stdlib usage that 3.8 doesn't have.
   minimum-python-version:

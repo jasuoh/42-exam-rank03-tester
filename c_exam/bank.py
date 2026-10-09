@@ -21,10 +21,10 @@ the Python bank (see examshell/exam_bank.py's own docstring): every entry
 marks itself "standard": True explicitly, and the index-building loop
 below defaults an exercise with no such key to False (Extra) — so a new
 exercise a contributor forgets to mark never silently becomes eligible
-for a real `make c-exam` draw. A handful of exercises are marked
+for a real exam draw. A handful of exercises are marked
 "standard": False ("Extra"): these are this project's own invented
 additions for broader text-manipulation practice, not verified against
-any real exam sheet, and `make c-exam` never draws them — only practice
+any real exam sheet, and the exam never draws them — only practice
 mode does.
 
 Common fields:
@@ -4028,7 +4028,7 @@ EXERCISES: Dict[str, Exercise] = {
             [["111"], (3, 1), (5, 5)],
         ],
     },
-    # ── EXTRA (practice only — never drawn by `make c-exam`) ────
+    # ── EXTRA (practice only — never drawn by the exam) ────
     "count_vowels": {
         "level": 1,
         "function": "count_vowels",
@@ -4339,7 +4339,7 @@ for _lvl, _pool in LEVELS.items():
     if not _pool:
         raise ValueError("c_exam.bank: level %d has no exercise" % _lvl)
 
-# The real, documented subjects — `make c-exam` draws only from this pool,
+# The real, documented subjects — the exam draws only from this pool,
 # same split as the Python bank's Standard/Extra (see module docstring).
 # The invented "Extra" exercises stay reachable through practice mode only.
 STANDARD_LEVELS = {

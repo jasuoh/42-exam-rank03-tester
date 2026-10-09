@@ -237,6 +237,24 @@ class UndeclaredNullTests(unittest.TestCase):
         )
 
 
+class MissingCompilerTests(unittest.TestCase):
+    """A typo'd compiler (--cc, Settings) used to raise FileNotFoundError
+    out of grading — a traceback in the CLI, a crash in the app."""
+
+    def test_unknown_compiler_is_a_failed_compile(self) -> None:
+        ok, err = grader.compile_c(["a.c"], "a.out", cc="clnag-not-there")
+        self.assertFalse(ok)
+        self.assertEqual(err, "compiler 'clnag-not-there' not found")
+        # and grading says so — the student's setup, not a bank bug
+        from c_exam.bank import EXERCISES
+
+        report = grader.grade(
+            "add_prime_sum", EXERCISES["add_prime_sum"], ".", "clnag-not-there"
+        )
+        self.assertEqual(report.fatal, "COMPILE_ERROR")
+        self.assertIn("'clnag-not-there' not found", report.detail)
+
+
 class KrFuncPtrRegexTests(unittest.TestCase):
     """int (*cmp)() compiles fine under Apple Clang's default standard but
     not under GCC's C23 default (() there now means "no parameters", not

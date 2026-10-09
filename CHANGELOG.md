@@ -7,9 +7,35 @@ Versions follow `examshell/version.py`; when a merge to `main` bumps it,
 `.github/workflows/release.yml` tags it and publishes that version's section
 below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
-## Unreleased
+## 1.0.0 — 2026-10-08
+
+**Less, calmer, and the important things work.** One way in (`make`), one
+app with five menu entries, an exam that behaves like the real one, and the
+terminal's own colours. Everything rarely needed still works from the
+command line but no longer gets in the way.
 
 ### Added
+- **`make` is all you need** — on a fresh clone it installs everything
+  with uv (fetching uv into `~/.local/bin` first if the machine has none,
+  no sudo) and opens the app; afterwards it just opens it, on the exam you
+  picked last (C Rank 02 included).
+- **Settings in the app** (`o`): exam time limit, time per test, random
+  tests, C compiler, sync repo (set it up right there) and auto-sync —
+  saved and applied at once.
+- **A first start that asks** which exam you're practising for (C Rank 02
+  or Python Rank 03 / 04 / 05) instead of assuming Rank 03.
+- **`?` lists every key**, on every screen.
+- **Crash log:** an unexpected error is written to
+  `~/.examshell/crash.log`, and the next start offers to report it — a
+  prefilled GitHub bug form, nothing sent until you submit it.
+- **`e` opens your solution in your editor** — VS Code when its `code`
+  command is installed, else `$VISUAL` / `$EDITOR`; a stub first if there
+  is no file yet.
+- **Practice tabs:** *Exam exercises* (only what the exam can draw),
+  *My gaps* (the drill queue) and *Extra* (the banks' extras and the
+  LeetCode-style training pool).
+- **Progress** — readiness and history on one screen; `p` practises your
+  gaps.
 - **`make mutate`** (`tools/mutate.py`) — mutation-tests the exercise
   banks: each reference solution is changed in one small place at a time
   and graded against its own tests; a change the tests miss is reported
@@ -17,34 +43,54 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   found.
 
 ### Changed
-- **The exam you picked last is where the next session opens** — switch
-  to Rank 04 (menu entry 5) or to C Rank 02 (full-screen app), quit, and
-  the next `make run` / `make tui` starts there again instead of on Rank
-  03. Saved as `rank` / `tester` in `~/.examshell/config.json`; `RANK=`
-  still wins (a session started with it becomes the new pick), and `make check` still checks
-  every rank.
-- **Full-screen app uses wide terminals** — the menu's right side is now a
-  dashboard (stat tiles, 4-week activity, readiness chips per level); the
-  exercise picker previews the highlighted subject; practice and exam show
-  **your solution file** under the subject (live, re-read on every save),
-  a compact "this session" log of every grading under the results, and as
-  many failing tests as the results pane fits; stats split into overview
-  and per-exercise columns. Below 120 columns the side panels hide.
-- **Copy text out of the full-screen app** — drag over the subject, your
-  code, the results or the picker preview with the mouse, then ctrl+c.
-  Needs Textual 2.0+ (the `tui` extra now asks for it).
+- **The exam grades like the real one:** `grademe` shows SUCCESS, or
+  FAILURE with a trace of the first failing test — no hints, no other
+  failures. A failed level keeps its exercise until it passes.
+- **Practice results are compact:** one verdict line, the first three
+  failing tests one line each (call, edge case, got ≠ expected); `d` shows
+  every detail.
+- **The menu has five entries** — Exam, Practice, Progress, Switch exam,
+  Quit — with sync (`s`), feedback (`f`) and settings (`o`) as keys.
+  Training, Daily drill, Readiness and Stats are no menu entries of their
+  own any more (see Practice and Progress).
+- **Practice and exam screens:** the subject on top, the results below,
+  full width — made for a terminal next to your editor; the results pane
+  is only as tall as it needs to be.
+- **The terminal's own colours** — the app uses Textual's ANSI theme and
+  one quiet border style; no logo, no emoji.
+- **The Makefile has five commands:** `make` (start), `make install`,
+  `make update` (now also reinstalls), `make doctor` and `make dev` (the
+  developer targets: `test`, `unit`, `check`, `c-test`, `lint`, `format`,
+  `mutate`, `clean`). `make tui` still works.
+- **`--help` lists the main flags only**; the rest still works and is
+  described in `docs/`.
+- **`--save-config` merges** into `config.json` instead of replacing it.
+- **Copy text out of the app** — drag over the subject, the results or the
+  picker preview with the mouse, then ctrl+c. Needs Textual 2.0+.
 - **The exam clock keeps running while an exam is saved** — `quit` and a
-  later resume no longer pause it, so `--time-limit` can't be stretched by
+  later resume no longer pause it, so the time limit can't be stretched by
   quitting; a resume after the limit ran out ends with "TIME'S UP". Total
   and per-level times include the pause.
 - **`make lint` = ruff + flake8 + `mypy --strict`**, and CI runs it as its
-  own job. The whole code base (package, tests, tools) is type-annotated
-  and flake8-clean; `make install` brings flake8 and mypy.
-- **Bare `stub` in the exam** — like the real exam, `stub` now writes only
-  the prototype/signature: no `main()`, no `SELF_TEST` block, no examples
-  or self-check (C and Python, terminal and full-screen app). `--relaxed`
-  (`make exam FLAGS=--relaxed`, `make tui FLAGS=--relaxed`) and practice
-  keep the full helper stub.
+  own job, on `main` and `beta`.
+- **Bare stub in the exam** — like the real exam, the stub is only the
+  prototype/signature: no `main()`, no self-check. Practice and
+  `--relaxed` keep the full helper stub.
+- **Docs:** a short README around `make` and the app; `docs/` rewritten to
+  match; the old step-by-step `TUTORIAL.md` is gone (the README covers a
+  first session).
+
+### Removed
+- **Badges / achievements** — a passed exam still says when it was a
+  personal best.
+- **Markdown exam reports** (`~/.examshell/reports/`) — sync (`s`) still
+  carries old ones.
+- **Colour themes** (`--theme light/highcontrast`) — the terminal's colours
+  are used everywhere.
+- **The plain venv + pip install** and `requirements.txt` — uv only.
+- **The ~50 play targets in the Makefile** (`make run`, `make exam`,
+  `make grade`, `make sync`, all `c-*` play targets …) — the app covers
+  them; the command line still has every mode.
 
 ### Fixed
 - **Copy and paste in the full-screen app outside Ghostty & co.** (beta —
@@ -73,7 +119,7 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   unaffected.
 - Tests run against a throwaway `EXAMSHELL_HOME`, so no test can write
   into the real `~/.examshell` anymore.
-- Full-screen exam: pressing `n` while a grade was still running drew a new
+- In the app's exam: pressing `n` while a grade was still running drew a new
   exercise and then showed (and could pass the level with) the old one's
   result. `n` now waits for the grade.
 - **`ft_atoi_base` tests** — random cases stay within the subject (base
@@ -89,8 +135,6 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 - **`--doctor` honours `--no-update-check`** — it used to ask GitHub anyway.
 - **Resume prompt** — a typo at "Resume saved exam? [Y/n]" counted as
   "no" and threw the saved exam away; anything but y/n now asks again.
-- **Redemption badge** — needs an exercise you failed and then passed; a
-  first-try pass alone no longer unlocks it.
 - **C crash report** — the case the program crashed on shows
   `[crashed: SIGSEGV]` instead of an empty result, later cases show
   `[not run — crashed on case N]`.
@@ -109,6 +153,25 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   `paramsum` with 10 arguments, `rev_wstr` with a one-letter first word,
   `last_word ""`, `wdmatch` failing on the first character, `max_gap`
   with two elements, `ft_atoi` with a `0` inside the number.
+- **Release check before 1.0.0** — found by testing beta like a student:
+  - `make RENDU=...` is kept when you pick or switch the exam in the app;
+    it used to fall back to `./rendu` (solutions, stubs and the exam
+    archive went there).
+  - The app's exam is saved as you go, so ctrl+q or a crash no longer
+    loses it. Esc on "Resume your saved exam?" goes back to the menu and
+    keeps the save (it used to delete it); esc on the login goes back too
+    instead of starting the exam and archiving your solutions.
+  - The line-based exam (`--exam` without the app) shows only SUCCESS or
+    FAILURE + the first failing test, like the app — no more four
+    failures and a score. With `--blind` it says only SUCCESS or FAILURE.
+  - An unknown C compiler fails the grade with "compiler 'x' not found"
+    instead of crashing the app; Settings refuses one that isn't on PATH,
+    and the C tester's CLI stops at start instead of counting every grade
+    as a failed attempt.
+  - `s` in the app syncs your `RENDU` folder too while the app is on C.
+  - `crash.log` holds the real error and its traceback when a grade
+    crashes, not just Textual's wrapper.
+  - No emoji left in the app or the CLI output; hints start with `hint:`.
 
 ## 0.6.0 — 2026-10-01
 

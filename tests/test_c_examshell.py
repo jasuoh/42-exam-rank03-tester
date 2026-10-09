@@ -23,7 +23,6 @@ from unittest import mock
 from c_exam import bank as c_bank
 from c_exam import grader as c_grader
 from examshell import hints
-from examshell import report_export
 from examshell import session_store
 from examshell import shell_common
 from examshell import ui
@@ -153,7 +152,7 @@ class ExerciseEntriesTests(unittest.TestCase):
         # Same opt-IN convention as examshell/exam_bank.py's own bank — every
         # exercise must mark "standard": True explicitly, and an entry
         # that forgets to must fail CLOSED (Extra) rather than silently
-        # becoming eligible for a real `make c-exam` draw. Source-level
+        # becoming eligible for a real exam draw. Source-level
         # check (not a live-dict one: EXERCISES already has the key on
         # every entry, whether from the source or from this fallback, so
         # only the source pins down which one actually happened).
@@ -448,6 +447,19 @@ class TrainCliCaseTests(unittest.TestCase):
         training_mode.assert_called_once_with(mock.ANY, ex_name="array_sum")
 
 
+class MissingCompilerCliTests(unittest.TestCase):
+    def test_an_unknown_cc_stops_before_grading(self) -> None:
+        # Grading with it would record a failed attempt (and hints) per try.
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            examshell, "grade_exercise"
+        ) as grade, contextlib.redirect_stdout(io.StringIO()):
+            rc = examshell.main(
+                ["--grade", "ft_strlen", "--cc", "no-such-cc", "--rendu", tmp]
+            )
+        self.assertEqual(rc, 2)
+        grade.assert_not_called()
+
+
 class NewCommandResetsLevelTimingTests(unittest.TestCase):
     """Mirrors tests/test_examshell.py's class of the same name — same
     fix, same regression, both examshell.py's exam_mode()."""
@@ -505,8 +517,6 @@ class ExamModeAbortAtLevelPauseTests(unittest.TestCase):
         ), mock.patch.object(session_store, "save") as save, mock.patch.object(
             session_store, "clear"
         ) as clear, mock.patch.object(
-            report_export, "write_exam_report", return_value=None
-        ), mock.patch.object(
             stats, "best_exam_time", return_value=None
         ), mock.patch.object(stats, "record_exam_complete"), mock.patch.object(
             ui, "ask", side_effect=ask_calls

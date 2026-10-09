@@ -19,7 +19,7 @@ def run(argv: Optional[List[str]] = None) -> int:
         return main(argv)
     except KeyboardInterrupt:
         print()
-        ui.info("See you! 🍀")
+        ui.info("See you!")
         print()
         return 130
 

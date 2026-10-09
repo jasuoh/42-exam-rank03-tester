@@ -2715,7 +2715,7 @@ for _lvl, _pool in LEVELS.items():
         raise ValueError("exam_bank: level %d has no exercise" % _lvl)
 
 # The 14 exercises verified against publicly documented Rank-03 subjects
-# (see README) — `make exam` draws only from this pool, so a real exam run
+# (see README) — the exam draws only from this pool, so a real exam run
 # only ever contains exercises confirmed to plausibly appear on the actual
 # 42 exam. The other 26 ("Extra") stay reachable through practice/training
 # mode for open-ended drilling, just never during a real exam emulation.

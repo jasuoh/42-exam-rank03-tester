@@ -8,7 +8,7 @@ examshell/training_bank.py's role for the Python tester: exercises here are
 grouped by DIFFICULTY (easy / medium / hard) instead of exam level, and
 `c_exam/examshell.py` keeps this pool's index (TRAINING_BY_DIFFICULTY)
 completely separate from bank.py's LEVELS, so it is never drawn into
-`make c-exam`.
+the exam (`make`, then Exam).
 
 Every exercise here is deliberately "function"-kind with only int/int_arr
 args and an int return — the same "safe to randomise" shape

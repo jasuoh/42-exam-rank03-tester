@@ -13,7 +13,7 @@ Two layers:
 
   * the ENGINE — `ExamRun` (one exam as pure state: level, exercise,
     attempts, clocks, RNGs, save/resume, time limit) and `grade()` (grade,
-    record stats, work out new badges and a hint) — no input, no output.
+    record stats, work out a hint) — no input, no output.
     Anything that wants to drive an exam (the line-based UI below, a
     full-screen TUI) builds on these.
   * the line-based UI — exam_mode(), practice_mode(), … — which drives the
@@ -52,7 +52,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    Iterable,
     List,
     Optional,
     Sequence,
@@ -63,9 +62,7 @@ from typing import (
 )
 
 from . import (
-    achievements,
     hints,
-    report_export,
     session_store,
     stats,
     ui,
@@ -173,7 +170,7 @@ def countdown(session: Session, cfg: TesterConfig) -> str:
 # ══════════════════════════════════════════════════════════════
 class Session(object):
     """One exam's bookkeeping — what session_store saves and
-    report_export writes out."""
+    finish_exam() sums up."""
 
     def __init__(self, login: Optional[str] = None, n_levels: int = 1) -> None:
         self.login = login or os.environ.get("USER") or "student"
@@ -212,22 +209,45 @@ class GradingJob(object):
 
 
 class GradeOutcome(object):
-    """The result of grade(): the Report plus everything that follows from
-    it — badges unlocked by it and, for a stuck student, a hint."""
+    """The result of grade(): the Report plus, for a stuck student, a
+    hint."""
 
     def __init__(
-        self,
-        report: Report,
-        filepath: str,
-        badges: Iterable[Tuple[str, str]] = (),
-        hint: Optional[str] = None,
+        self, report: Report, filepath: str, hint: Optional[str] = None
     ) -> None:
-        self.report, self.filepath = report, filepath
-        self.badges, self.hint = list(badges), hint
+        self.report, self.filepath, self.hint = report, filepath, hint
 
     @property
     def ok(self) -> bool:
         return self.report.ok
+
+
+# What `--help` lists. Everything else still works (scripts, docs/), it
+# just isn't in the way: the app and its Settings cover it.
+CORE_FLAGS = frozenset(
+    (
+        "--help",
+        "--tui",
+        "--exam",
+        "--practice",
+        "--grade",
+        "--stub",
+        "--list",
+        "--rank",
+        "--rendu",
+        "--doctor",
+        "--version",
+    )
+)
+
+
+def hide_advanced_flags(parser: argparse.ArgumentParser) -> None:
+    """Keep `--help` to CORE_FLAGS; the rest is described in docs/."""
+    for action in parser._actions:
+        if action.option_strings and not CORE_FLAGS & set(
+            action.option_strings
+        ):
+            action.help = argparse.SUPPRESS
 
 
 def solution_path(sh: Tester, ex_name: str, cfg: TesterConfig) -> str:
@@ -237,11 +257,10 @@ def solution_path(sh: Tester, ex_name: str, cfg: TesterConfig) -> str:
 def record(
     sh: Tester, ex_name: str, report: Report, cfg: TesterConfig, mode: str
 ) -> GradeOutcome:
-    """Persist one graded attempt and work out what it unlocked: returns
-    a GradeOutcome. A hint is only offered outside the exam, once the
-    student has failed this exercise STUCK_THRESHOLD times in a row."""
+    """Persist one graded attempt: returns a GradeOutcome. A hint is only
+    offered outside the exam, once the student has failed this exercise
+    STUCK_THRESHOLD times in a row."""
     ex = sh.ALL_EXERCISES[ex_name]
-    before = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
     stats.record(
         sh.TOOL,
         ex_name,
@@ -251,17 +270,11 @@ def record(
         report.total,
         mode,
     )
-    badges = [
-        (emoji, label)
-        for _bid, emoji, label, _desc in achievements.new_since(
-            before, achievements.unlocked(sh.TOOL, sh.N_LEVELS)
-        )
-    ]
     hint = None
     if not report.ok and mode != "exam":
         if stats.consecutive_fails(sh.TOOL, ex_name) >= hints.STUCK_THRESHOLD:
             hint = hints.hint_for(ex, report)
-    return GradeOutcome(report, solution_path(sh, ex_name, cfg), badges, hint)
+    return GradeOutcome(report, solution_path(sh, ex_name, cfg), hint)
 
 
 def grade(
@@ -510,15 +523,15 @@ def grade_exercise(
     # --blind: in the exam, like the real one, you learn THAT you failed,
     # not on which input — testing your own edge cases is part of the exam.
     blind = mode == "exam" and getattr(cfg, "blind", False)
-    ui.report(
-        report,
-        0 if blind else cfg.show_fails,
-        cfg.diff,
-        solution_path(sh, ex_name, cfg),
-    )
+    if mode == "exam":
+        # The real grademe shows the first failing test, nothing more —
+        # all failures, edge-case labels and the score are Practice.
+        ui.exam_trace(report, blind)
+    else:
+        ui.report(
+            report, cfg.show_fails, cfg.diff, solution_path(sh, ex_name, cfg)
+        )
     outcome = record(sh, ex_name, report, cfg, mode)
-    for emoji, label in outcome.badges:
-        ui.badge_unlocked(emoji, label)
     if outcome.hint:
         ui.hint(outcome.hint)
     return report.ok
@@ -726,7 +739,7 @@ def exam_mode(sh: Tester, cfg: TesterConfig) -> None:
     if cfg.time_limit:
         ui.note("time limit: %d minutes" % cfg.time_limit)
     if getattr(cfg, "blind", False):
-        ui.note("blind grading — you'll see how many tests failed, not which")
+        ui.note("blind grading — you'll see THAT a test failed, not which")
 
     commands = exam_commands(sh, cfg)
     while not run.finished:
@@ -810,25 +823,19 @@ def exam_mode(sh: Tester, cfg: TesterConfig) -> None:
 
 class ExamResult(object):
     """What finish_exam() produces: the summary panel's title and rows,
-    whether the exam was passed, any badges earned, and the report path."""
+    and whether the exam was passed."""
 
     def __init__(
-        self,
-        title: str,
-        rows: List[Tuple[str, object]],
-        passed: bool,
-        badges: List[str],
-        report_path: Optional[str],
+        self, title: str, rows: List[Tuple[str, object]], passed: bool
     ) -> None:
         self.title, self.rows, self.passed = title, rows, passed
-        self.badges, self.report_path = badges, report_path
 
 
 def finish_exam(
     sh: Tester, session: Session, passed: bool, timed_out: bool = False
 ) -> ExamResult:
-    """Close an exam: record a completion (badges, personal best), write
-    the Markdown report, and return an ExamResult to show. No output."""
+    """Close an exam: record a completion (and whether it's a personal
+    best) and return an ExamResult to show. No output."""
     rows: List[Tuple[str, object]] = [
         ("Total time", session.elapsed()),
         ("Attempts", session.attempts),
@@ -848,42 +855,27 @@ def finish_exam(
             )
         )
 
-    badge_lines: List[str] = []
     if passed:
         seconds = time.time() - session.start_time if session.start_time else 0
-        # Both computed BEFORE this run is persisted, so they reflect
-        # history up to (not including) this exam — see
-        # achievements.unlocked()'s before/after convention.
-        before = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
-        new_best = achievements.is_new_best_time(sh.TOOL, seconds)
+        # looked up BEFORE this run is recorded, so it's the best so far
+        best = stats.best_exam_time(sh.TOOL)
         stats.record_exam_complete(
             sh.TOOL, seconds, session.attempts, session.score()
         )
-        after = achievements.unlocked(sh.TOOL, sh.N_LEVELS)
-        badge_lines = [
-            "%s %s!" % (emoji, label)
-            for _bid, emoji, label, _desc in achievements.new_since(
-                before, after
-            )
-        ]
-        if new_best:
-            badge_lines.append("⏱ New personal best time!")
-        rows.append(("Badges", ", ".join(badge_lines) if badge_lines else "—"))
+        if best is not None and seconds < best:
+            rows.append(("Personal best", "yes — %s" % fmt_duration(seconds)))
 
     title = (
-        "🎉  EXAM PASSED — all %d levels cleared!" % sh.N_LEVELS
+        "EXAM PASSED — all %d levels cleared" % sh.N_LEVELS
         if passed
         else "%s — %d/%d levels cleared"
         % (
-            "⏰ TIME'S UP" if timed_out else "EXAM ABORTED",
+            "TIME'S UP" if timed_out else "EXAM ABORTED",
             len(session.passed),
             sh.N_LEVELS,
         )
     )
-    report_path = report_export.write_exam_report(
-        sh.TOOL, session, sh.N_LEVELS, passed, badge_lines
-    )
-    return ExamResult(title, rows, passed, badge_lines, report_path)
+    return ExamResult(title, rows, passed)
 
 
 def exam_summary(
@@ -894,8 +886,6 @@ def exam_summary(
     ui.status_bar(session, sh.N_LEVELS)
     result = finish_exam(sh, session, passed, timed_out)
     ui.summary(result.title, result.rows, result.passed)
-    if result.report_path:
-        ui.note("Session report saved to %s" % result.report_path)
     hint = sync_hint() if not passed and not timed_out else None
     if hint:
         ui.note(hint)
@@ -1107,13 +1097,6 @@ def show_stats(sh: Tester) -> None:
         ui.stats_table(per_ex_rows)
     else:
         ui.note("no grading history yet — practice or grade something first")
-    print()
-    earned = {b[0] for b in achievements.unlocked(sh.TOOL, sh.N_LEVELS)}
-    badge_rows = [
-        (emoji, label, desc, bid in earned)
-        for bid, emoji, label, desc, _check in achievements.BADGES
-    ]
-    ui.badges_table(badge_rows)
 
 
 _READY_GLYPH = {"passed": "ok", "failed": "ko", "untried": "missing"}
@@ -1154,8 +1137,8 @@ def readiness_mode(sh: Tester, interactive: bool = True) -> None:
     if done < total:
         weakest = min(levels, key=lambda lv: percent(lv[1], lv[2]))
         ui.info(
-            "level %d is your biggest gap — `--drill` builds a short "
-            "session from your gaps" % weakest[0]
+            "level %d is your biggest gap — a daily drill (--drill, "
+            "My gaps in the app) works through your gaps" % weakest[0]
         )
     if interactive:
         _pause_back()
@@ -1242,7 +1225,7 @@ def main_menu(sh: Tester, cfg: TesterConfig) -> None:
         elif choice == "4":
             sh.training_mode(cfg)
         elif choice in ("q", "quit", "exit"):
-            ui.info("Good luck on the real exam! 🍀")
+            ui.info("Good luck on the real exam!")
             print()
             return
         elif choice in ("s", "f"):
@@ -1283,11 +1266,15 @@ def resolve_exercise(sh: Tester, name: str, prefix: str) -> Optional[str]:
 
 
 def run_tui(
-    sh: Tester, cfg: TesterConfig, args: argparse.Namespace
+    sh: Tester,
+    cfg: TesterConfig,
+    args: argparse.Namespace,
+    rendus: Optional[Dict[str, str]] = None,
 ) -> Optional[int]:
     """--tui: hand over to the full-screen app (examshell/tui/) when it can run
     here, starting where the other flags point (--exam, --practice X).
-    Returns an exit code, or None — after saying why — to fall back to the
+    `rendus`: the other testers' solution folders, by SYNC_SLOT. Returns
+    an exit code, or None — after saying why — to fall back to the
     line-based UI."""
     from . import tui
 
@@ -1302,12 +1289,12 @@ def run_tui(
         if not name:
             return 2
         start = ("practice", name)
-    return tui.run(sh, cfg, start)
+    return tui.run(sh, cfg, start, rendus)
 
 
 def sync_dirs(sh: Tester, cfg: TesterConfig) -> Dict[str, str]:
     """{slot: local dir} for examshell/sync.py — this tester's own --rendu, the
-    other tester's default folder, so one `make sync` carries both."""
+    other tester's default folder, so one sync carries both."""
     dirs = {"rendu": "rendu", "c_rendu": "c_rendu"}
     dirs[sh.SYNC_SLOT] = cfg.rendu
     return dirs
@@ -1354,8 +1341,8 @@ def sync_hint() -> Optional[str]:
 
     if sync.is_configured(settings.DATA_DIR):
         return (
-            "continue on another device: "
-            "`make sync` here, then `make sync` there"
+            "continue on another device: sync (s in the app) here, "
+            "then on the other device"
         )
     return None
 
@@ -1473,11 +1460,12 @@ def set_auto_sync(on: bool) -> int:
         )
         if not sync.is_configured(settings.DATA_DIR):
             ui.note(
-                "sync isn't set up on this device yet: "
-                "make sync-setup REPO=<your private repo> (see docs/sync.md)"
+                "sync isn't set up on this device yet: add your private "
+                "repo in the app's Settings (o), or --sync-setup URL — "
+                "see docs/sync.md"
             )
     else:
-        ui.success("auto-sync off — run `make sync` yourself")
+        ui.success("auto-sync off — sync yourself with s in the app")
     return 0
 
 
@@ -1505,10 +1493,10 @@ def auto_sync(
     except (sync.SyncError, OSError) as exc:
         ui.warn(
             "auto-sync skipped — %s "
-            "(your progress stays here; `make sync` later)" % exc
+            "(your progress stays here; sync later with s in the app)" % exc
         )
         return None
-    ui.note("🔄 " + result.summary())
+    ui.note(result.summary())
     for backup in result.backups:
         ui.note(
             "a newer version came from the repo — your older one is kept at %s"

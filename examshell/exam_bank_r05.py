@@ -811,7 +811,7 @@ for _lvl, _pool in LEVELS.items():
         raise ValueError("exam_bank_r05: level %d has no exercise" % _lvl)
 
 # Every exercise here is a documented Rank 05 subject, so the Standard pool
-# (what `make exam` draws from) is the whole bank — see exam_bank_r04.py.
+# (what the exam draws from) is the whole bank — see exam_bank_r04.py.
 STANDARD_LEVELS = {
     lvl: [name for name in pool if EXERCISES[name]["standard"]]
     for lvl, pool in LEVELS.items()

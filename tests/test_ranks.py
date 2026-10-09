@@ -195,10 +195,14 @@ class LastExamTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.addCleanup(examshell.use_rank)
+        # main() creates the solution folder; keep it out of the CWD
+        self.rendu = os.path.join(tmp.name, "rendu")
 
     def _main(self, *argv: str) -> int:
         with contextlib.redirect_stdout(io.StringIO()):
-            return examshell.main(list(argv) + ["--no-color", "--no-rich"])
+            return examshell.main(
+                list(argv) + ["--no-color", "--no-rich", "--rendu", self.rendu]
+            )
 
     def test_remember_exam_keeps_the_python_rank_under_c(self) -> None:
         settings.update_config("timeout", 5)

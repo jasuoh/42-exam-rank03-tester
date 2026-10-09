@@ -291,10 +291,11 @@ def exam_config(sh: Tester, cfg: _Config) -> _Config:
     """The config the exam actually grades with. Unless --relaxed, it is as
     strict as the real exam (the tester's STRICT_EXAM_FLAGS all on).
     Practice and training keep the lenient warn-only feedback — that is
-    where mistakes are supposed to be cheap."""
-    if cfg.relaxed:
-        return cfg
+    where mistakes are supposed to be cheap. Always a copy: an option
+    changed while the exam runs (the app's ctrl+p) can't reach it."""
     strict = copy.copy(cfg)
+    if cfg.relaxed:
+        return strict
     for flag in sh.STRICT_EXAM_FLAGS:
         setattr(strict, flag, True)
     return strict

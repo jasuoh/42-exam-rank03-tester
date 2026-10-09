@@ -11,7 +11,7 @@ import sys
 import tempfile
 import threading
 import unittest
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from unittest import mock
 
 from examshell import examshell as py_shell
@@ -766,6 +766,217 @@ class TuiFirstImpressionTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
         self.assertIn("RuntimeError", opened.call_args[0][0])
         self.assertIsNone(crashlog.pending())  # answered: not asked again
+
+
+@unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
+class TuiPaletteTests(_Isolated, unittest.IsolatedAsyncioTestCase):
+    """ctrl+p: the settings and the options that are otherwise flags."""
+
+    GRADING = {
+        "Exam time limit",
+        "Time per test",
+        "Random tests per exercise",
+        "C compiler",
+        "Relaxed exam",
+        "Blind grading",
+        "Seed",
+        "Strict imports",
+        "Strict warnings",
+        "Strict forbidden calls",
+        "Valgrind",
+        "Strict valgrind",
+        "Solutions folder",
+        "Switch exam",
+    }
+
+    def setUp(self) -> None:
+        self.isolate()
+
+    def _commands(self, app: Any) -> Dict[str, Any]:
+        return {c.title: c for c in app.get_system_commands(app.screen)}
+
+    async def test_the_menu_offers_settings_and_session_options(
+        self,
+    ) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            titles = set(self._commands(app))
+        for title in (
+            "Exam time limit",
+            "Time per test",
+            "Random tests per exercise",
+            "Sync repo",
+            "Auto-sync",
+            "Relaxed exam",
+            "Blind grading",
+            "Strict imports",
+            "Seed",
+            "Solutions folder",
+            "Settings",
+            "Sync now",
+            "Switch exam",
+            "Feedback",
+            "Theme",  # Textual's own stay
+            "Quit",
+        ):
+            self.assertIn(title, titles)
+        # only what the Python tester has
+        self.assertNotIn("C compiler", titles)
+        self.assertNotIn("Valgrind", titles)
+
+    async def test_the_c_tester_offers_its_own_options(self) -> None:
+        from c_exam import examshell as c_shell
+
+        cfg = c_shell.default_config(no_update_check=True)
+        app = tui_app.ExamShellApp(c_shell, cfg)
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            commands = self._commands(app)
+            for title in (
+                "C compiler",
+                "Strict warnings",
+                "Strict forbidden calls",
+                "Valgrind",
+                "Strict valgrind",
+            ):
+                self.assertIn(title, commands)
+            self.assertNotIn("Strict imports", commands)
+            commands["Strict valgrind"].callback()
+            self.assertTrue(cfg.strict_valgrind)
+            self.assertTrue(cfg.valgrind)  # like --strict-valgrind
+            commands["Valgrind"].callback()
+            self.assertFalse(cfg.valgrind)
+            self.assertFalse(cfg.strict_valgrind)
+
+    async def test_time_limit_through_the_palette_is_saved(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press("ctrl+p")
+            await pilot.pause()
+            await pilot.press(*"Exam time limit")
+            await pilot.pause(0.3)
+            await pilot.press("down", "enter")
+            await pilot.pause(0.2)
+            self.assertIsInstance(app.screen, tui_app.PromptModal)
+            await pilot.press("ctrl+u", *"45", "enter")
+            await pilot.pause()
+            self.assertEqual(app.cfg.time_limit, 45)
+            # the same validation as the settings screen
+            self._commands(app)["Time per test"].callback()
+            await pilot.pause()
+            await pilot.press("ctrl+u", *"0", "enter")
+            await pilot.pause()
+            self.assertEqual(app.cfg.timeout, 3)
+        self.assertEqual(settings.load_config()["time_limit"], 45)
+        self.assertNotIn("timeout", settings.load_config())
+
+    async def test_an_open_settings_screen_shows_the_change(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press("o")
+            await pilot.pause()
+            self._commands(app)["Random tests per exercise"].callback()
+            await pilot.pause()
+            await pilot.press("ctrl+u", *"9", "enter")
+            await pilot.pause()
+            menu = app.screen.query_one("#settings", OptionList)
+            self.assertIn("9", str(menu.get_option("fuzz").prompt))
+
+    async def test_session_options_change_cfg_but_not_config(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        other = os.path.join(self.rendu, "elsewhere")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            commands = self._commands(app)
+            with mock.patch.object(App, "notify") as notify:
+                commands["Blind grading"].callback()
+            self.assertTrue(app.cfg.blind)
+            self.assertIn(
+                "Blind grading: on (this session)",
+                notify.call_args[0][0],
+            )
+            commands["Seed"].callback()
+            await pilot.pause()
+            await pilot.press("ctrl+u", *"42", "enter")
+            await pilot.pause()
+            self.assertEqual(app.cfg.seed, 42)
+            commands["Solutions folder"].callback()
+            await pilot.pause()
+            await pilot.press("ctrl+u", *other, "enter")
+            await pilot.pause()
+            self.assertEqual(app.cfg.rendu, other)
+            self.assertTrue(os.path.isdir(other))
+            self.assertEqual(app.rendus["rendu"], other)
+            # an exam switch keeps them, like the flags
+            app.switch_exam("py04")
+            self.assertTrue(app.cfg.blind)
+            self.assertEqual(app.cfg.seed, 42)
+            self.assertEqual(app.cfg.rendu, other)
+        py_shell.use_rank("03")
+        self.assertEqual(
+            settings.load_config(), {"tester": "py", "rank": "04"}
+        )
+
+    async def test_a_running_exam_hides_what_could_change_it(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            await pilot.press(*"alice", "enter")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.ExamScreen)
+            titles = set(self._commands(app))
+            self.assertFalse(titles & self.GRADING, titles & self.GRADING)
+            self.assertNotIn("Settings", titles)
+            self.assertNotIn("Sync now", titles)
+            for title in ("Theme", "Keys", "Quit", "Auto-sync"):
+                self.assertIn(title, titles)
+
+    async def test_the_exam_stays_strict_after_a_toggle(self) -> None:
+        cfg = _cfg(self.rendu, strict_imports=True)
+        app = tui_app.ExamShellApp(py_shell, cfg)
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            self._commands(app)["Strict imports"].callback()
+            self.assertFalse(cfg.strict_imports)
+            await self._start_exam(app, pilot)
+            exam = app.screen
+            assert isinstance(exam, tui_app.ExamScreen)
+            self.assertTrue(getattr(exam.run.cfg, "strict_imports"))
+
+    async def test_relaxed_exam_is_a_snapshot(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            self._commands(app)["Relaxed exam"].callback()
+            await self._start_exam(app, pilot)
+            exam = app.screen
+            assert isinstance(exam, tui_app.ExamScreen)
+            self.assertTrue(exam.run.cfg.relaxed)
+            self.assertIsNot(exam.run.cfg, app.cfg)
+
+    async def _start_exam(self, app: Any, pilot: Any) -> None:
+        app.push_screen(tui_app.ExamScreen())
+        await pilot.pause()
+        await pilot.press(*"alice", "enter")
+        await pilot.pause()
+
+    async def test_switch_exam_from_practice_goes_back_to_the_menu(
+        self,
+    ) -> None:
+        from c_exam import examshell as c_shell
+
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            self._commands(app)["Switch exam"].callback()
+            await pilot.pause()
+            app.screen.dismiss("c")
+            await pilot.pause()
+            self.assertIs(app.sh, c_shell)
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
 
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")

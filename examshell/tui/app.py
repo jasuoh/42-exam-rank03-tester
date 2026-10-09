@@ -21,9 +21,11 @@ import shlex
 import shutil
 import subprocess
 import time
+from functools import partial
 from typing import (
     Any,
     Dict,
+    Iterable,
     List,
     Optional,
     Sequence,
@@ -37,7 +39,7 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 from textual import events, work
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
@@ -90,6 +92,34 @@ NARROW = 120
 LogEntry = Tuple[str, str, Report]
 
 _ResultT = TypeVar("_ResultT")
+
+# ctrl+p: options that so far were only flags (`--blind`, `--strict` …).
+# Like a flag they last until the app quits, never saved; each tester
+# offers the ones its Config has. (attribute, title, what it does)
+SESSION_TOGGLES = (
+    ("relaxed", "Relaxed exam", "next exam: lenient grading, 'new' redraws"),
+    ("blind", "Blind grading", "next exam: grademe hides the failing test"),
+    (
+        "strict_imports",
+        "Strict imports",
+        "practice: any import fails, like the exam",
+    ),
+    (
+        "strict_norm",
+        "Strict warnings",
+        "practice: a compiler warning fails, like the exam",
+    ),
+    (
+        "strict_forbidden",
+        "Strict forbidden calls",
+        "practice: a forbidden call fails, like the exam",
+    ),
+    ("valgrind", "Valgrind", "check for leaks and memory errors (warns)"),
+    ("strict_valgrind", "Strict valgrind", "a leak or memory error fails"),
+)
+# what the palette still offers while an exam runs: nothing that changes
+# grading or the exam, which stays like the real one
+EXAM_SAFE_SETTINGS = ("auto_sync",)
 
 
 class AppScreen(Screen[_ResultT]):
@@ -220,6 +250,8 @@ class HelpModal(ModalScreen[None]):
         ("/", "filter by name"),
         ("Progress", ""),
         ("p", "practise your gaps"),
+        ("Everywhere", ""),
+        ("ctrl+p", "palette — settings and options"),
     )
 
     def compose(self) -> ComposeResult:
@@ -344,26 +376,15 @@ class MenuScreen(AppScreen[None]):
         elif choice == "progress":
             app.push_screen(ProgressScreen())
         elif choice == "switch":
-            app.push_screen(
-                ChoiceModal("Switch exam", app.exam_choices()), app.switch_exam
-            )
+            app.ask_switch_exam()
         elif choice == "quit":
             app.exit()
 
     def action_settings(self) -> None:
-        self.app.push_screen(SettingsScreen())
+        self.app.open_settings()
 
     def action_feedback(self) -> None:
-        from .. import feedback
-
-        self.app.push_screen(
-            ChoiceModal(
-                "Give feedback — opens a GitHub form, nothing is "
-                "sent until you submit it",
-                list(feedback.KIND_LABELS),
-            ),
-            self.app.open_feedback,
-        )
+        self.app.ask_feedback()
 
 
 # ══════════════════════════════════════════════════════════════
@@ -811,9 +832,7 @@ class ExamScreen(SplitScreen):
         if not self.over and self.run.session.start_time is not None:
             self.run.save()
 
-    def after_resume_question(
-        self, yes: Optional[bool], saved: Event
-    ) -> None:
+    def after_resume_question(self, yes: Optional[bool], saved: Event) -> None:
         if yes is None:  # esc: back to the menu, the save stays
             self.app.pop_screen()
         elif yes:
@@ -1349,6 +1368,169 @@ class ExamShellApp(App[None]):
             if isinstance(screen, SettingsScreen):
                 screen.refresh_list()
 
+    # ── ctrl+p: the command palette ───────────────────────────────────
+    def exam_running(self) -> bool:
+        return any(
+            isinstance(screen, ExamScreen) and not screen.over
+            for screen in self.screen_stack
+        )
+
+    def get_system_commands(
+        self, screen: Screen[Any]
+    ) -> Iterable[SystemCommand]:
+        """Textual's own commands, then the settings, the options that are
+        otherwise flags, and the menu's keys. While an exam runs, nothing
+        that could change it: the exam stays like the real one."""
+        yield from super().get_system_commands(screen)
+        exam = self.exam_running()
+        for key, label, value in self.setting_rows():
+            if not exam or key in EXAM_SAFE_SETTINGS:
+                yield SystemCommand(
+                    label,
+                    "now %s · saved for every session" % value,
+                    partial(self.change_setting, key),
+                )
+        if not exam:
+            cfg = self.cfg
+            for attr, title, what in SESSION_TOGGLES:
+                if hasattr(cfg, attr):
+                    yield SystemCommand(
+                        title,
+                        "now %s · %s · this session"
+                        % ("on" if getattr(cfg, attr) else "off", what),
+                        partial(self.toggle_option, attr, title),
+                    )
+            yield SystemCommand(
+                "Seed",
+                "now %s · next exam: the same exercises and tests every "
+                "time · this session"
+                % ("random" if cfg.seed is None else cfg.seed),
+                self.ask_seed,
+            )
+            yield SystemCommand(
+                "Solutions folder",
+                "now %s · where your solutions are graded and stubs "
+                "written · this session" % cfg.rendu,
+                self.ask_rendu,
+            )
+            yield SystemCommand(
+                "Settings", "the saved settings (o)", self.open_settings
+            )
+            yield SystemCommand(
+                "Sync now",
+                "sync with your other device (s)",
+                self.start_sync,
+            )
+            yield SystemCommand(
+                "Switch exam",
+                "now %s · back to the menu" % self.label(),
+                self.ask_switch_exam,
+            )
+        yield SystemCommand(
+            "Feedback", "opens a GitHub form (f)", self.ask_feedback
+        )
+
+    def toggle_option(self, attr: str, title: str) -> None:
+        """Flip a session-only option, like starting with its flag."""
+        on = not getattr(self.cfg, attr)
+        setattr(self.cfg, attr, on)
+        # as the flags do: --strict-valgrind needs valgrind to run
+        if attr == "strict_valgrind" and on:
+            setattr(self.cfg, "valgrind", True)
+        if attr == "valgrind" and not on:
+            setattr(self.cfg, "strict_valgrind", False)
+        self.notify("%s: %s (this session)" % (title, "on" if on else "off"))
+        if on and "valgrind" in attr:
+            for note in self.sh.grading_notes(self.cfg):
+                self.notify(note, severity="warning", timeout=10)
+
+    def ask_seed(self) -> None:
+        seed = self.cfg.seed
+        self.push_screen(
+            PromptModal(
+                "Seed for the next exam — the same exercises and tests "
+                "every time (empty = random):",
+                "" if seed is None else str(seed),
+            ),
+            self.apply_seed,
+        )
+
+    def apply_seed(self, value: Optional[str]) -> None:
+        if value is None:
+            return
+        seed: Optional[int] = None
+        if value.strip():
+            try:
+                seed = int(value)
+            except ValueError:
+                self.notify("%r is not a number" % value, severity="error")
+                return
+        self.cfg.seed = seed
+        self.notify(
+            "Seed: %s (this session)" % ("random" if seed is None else seed)
+        )
+
+    def ask_rendu(self) -> None:
+        self.push_screen(
+            PromptModal("Folder with your solutions:", self.cfg.rendu),
+            self.apply_rendu,
+        )
+
+    def apply_rendu(self, value: Optional[str]) -> None:
+        """Like --rendu / `make RENDU=...`: grading, stubs, the editor and
+        sync use the new folder, and a switch of exam keeps it."""
+        if value is None:
+            return
+        folder = os.path.expanduser(value.strip())
+        if not folder:
+            self.notify("no folder given", severity="error")
+            return
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError as exc:
+            self.notify("can't use %s: %s" % (folder, exc), severity="error")
+            return
+        self.cfg.rendu = folder
+        self.rendus[self.sh.SYNC_SLOT] = folder
+        self.notify("Solutions folder: %s (this session)" % folder)
+        for screen in self.screen_stack:  # its paths and hint point there
+            if isinstance(screen, PracticeScreen) and screen.ex_name:
+                screen.show_exercise(screen.ex_name)
+
+    def open_settings(self) -> None:
+        if not isinstance(self.screen, SettingsScreen):
+            self.push_screen(SettingsScreen())
+
+    def ask_feedback(self) -> None:
+        from .. import feedback
+
+        self.push_screen(
+            ChoiceModal(
+                "Give feedback — opens a GitHub form, nothing is "
+                "sent until you submit it",
+                list(feedback.KIND_LABELS),
+            ),
+            self.open_feedback,
+        )
+
+    def ask_switch_exam(self) -> None:
+        self.push_screen(
+            ChoiceModal("Switch exam", self.exam_choices()),
+            self.switch_from_anywhere,
+        )
+
+    def switch_from_anywhere(self, choice: Optional[str]) -> None:
+        """A switch from ctrl+p: back to the menu first — an open exercise,
+        list or progress view belongs to the exam you leave."""
+        if not choice:
+            return
+        while (
+            not isinstance(self.screen, MenuScreen)
+            and len(self.screen_stack) > 2
+        ):
+            self.pop_screen()
+        self.switch_exam(choice)
+
     # ── switching between the Python ranks and the C exam ─────────────
     def exam_choices(self) -> List[Tuple[str, str]]:
         from .. import ranks
@@ -1373,9 +1555,10 @@ class ExamShellApp(App[None]):
 
     def switch_exam(self, choice: Optional[str]) -> None:
         """Point the whole app at another tester (and rank). Exam-wide
-        choices made on the command line (--relaxed, --time-limit, --blind)
-        and each tester's own --rendu carry over; everything else comes
-        from that tester's own defaults and your saved settings."""
+        choices made on the command line or with ctrl+p (--relaxed,
+        --time-limit, --blind, --seed) and each tester's own --rendu carry
+        over; everything else comes from that tester's own defaults and
+        your saved settings."""
         if not choice:
             return
         new_sh: Tester
@@ -1391,7 +1574,13 @@ class ExamShellApp(App[None]):
         settings.remember_exam(choice)
         keep = {
             k: getattr(self.cfg, k, None)
-            for k in ("relaxed", "time_limit", "blind", "no_update_check")
+            for k in (
+                "relaxed",
+                "time_limit",
+                "blind",
+                "seed",
+                "no_update_check",
+            )
         }
         if new_sh.SYNC_SLOT in self.rendus:
             keep["rendu"] = self.rendus[new_sh.SYNC_SLOT]

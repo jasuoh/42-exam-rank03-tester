@@ -9,6 +9,13 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
 ## 1.0.1 — unreleased
 
+### Added
+- **Command palette** (`ctrl+p`): the settings, Sync now, Feedback,
+  Switch exam, and the options that were command-line flags only —
+  relaxed, blind, seed, strict grading, valgrind, the solutions folder —
+  for this session. While an exam runs it offers nothing that could
+  change the exam.
+
 ### Removed
 - **Watch mode** (`w` in Practice): the app grades only when you press
   `g`, like `grademe`.

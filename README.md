@@ -78,6 +78,7 @@ next time.
 | `f` | menu · practice | report an exercise that differs from your real exam |
 | `o` | menu | settings: exam time limit, time per test, C compiler, sync |
 | `s` | menu | sync with your other device |
+| `ctrl+p` | everywhere | palette: settings, and options like blind grading or the solutions folder for this session |
 | `esc` | exam | quit & save (elsewhere: back) |
 | `?` | everywhere | all the keys |
 

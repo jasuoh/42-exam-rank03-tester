@@ -74,7 +74,6 @@ next time.
 | `g` | exam · practice | grademe |
 | `e` | exam · practice | open your solution in VS Code (or `$EDITOR`) — a stub first if there's none |
 | `t` | exam · practice | write a stub |
-| `w` | practice | grade every time you save |
 | `d` | practice | all the details of the last grade |
 | `f` | menu · practice | report an exercise that differs from your real exam |
 | `o` | menu | settings: exam time limit, time per test, C compiler, sync |

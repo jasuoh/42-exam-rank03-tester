@@ -42,7 +42,6 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
 from textual.selection import Selection
-from textual.timer import Timer
 from textual.widgets import (
     DataTable,
     Footer,
@@ -71,7 +70,6 @@ from . import render
 # (your Ghostty / VS Code theme) instead of bringing its own
 THEME = "ansi-dark"
 SUBJECT_SYNTAX = "ansi_dark"
-WATCH_INTERVAL = 1.0  # seconds between solution-file checks
 
 
 def editor_command(path: str) -> Optional[List[str]]:
@@ -215,7 +213,6 @@ class HelpModal(ModalScreen[None]):
         ("esc", "back — in the exam: quit and save"),
         ("Practice only", ""),
         ("d", "all the details of the last grade"),
-        ("w", "grade every time you save"),
         ("n", "next exercise of My gaps"),
         ("f", "feedback on this exercise"),
         ("Exercise list", ""),
@@ -645,13 +642,12 @@ class SplitScreen(AppScreen[None]):
 
 
 class PracticeScreen(SplitScreen):
-    """Practice/training/drill: grade as often as you like, optional watch
-    mode (re-grade on every save), hints after repeated fails."""
+    """Practice/training/drill: grade as often as you like, hints after
+    repeated fails."""
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),
         Binding("d", "details", "details"),
-        Binding("w", "toggle_watch", "watch"),
         Binding("e", "edit", "edit"),
         Binding("t", "stub", "stub"),
         Binding("f", "feedback", "differs from exam?"),
@@ -673,8 +669,6 @@ class PracticeScreen(SplitScreen):
         self.queue, self.position = queue, position
         self.rng = random.Random()
         self.grading = False
-        self.watch_timer: Optional[Timer] = None
-        self.watch_mtime: Optional[float] = None
 
     def on_mount(self) -> None:
         self.show_exercise(self.start_ex)
@@ -690,11 +684,6 @@ class PracticeScreen(SplitScreen):
             )
             if self.position + 1 < len(self.queue):
                 text.append("  ·  n = next exercise", style="dim")
-        text.append("   watch: ", style="dim")
-        text.append(
-            "ON — grading on every save" if self.watch_timer else "off (w)",
-            style="bold green" if self.watch_timer else "dim",
-        )
         self.query_one("#status", Static).update(text)
 
     # ── grading ───────────────────────────────────────────────────────
@@ -757,35 +746,6 @@ class PracticeScreen(SplitScreen):
         if self.outcome is not None and not self.outcome.report.ok:
             self.details = not self.details
             self.show_report()
-
-    # ── watch mode ────────────────────────────────────────────────────
-    def _mtime(self) -> Optional[float]:
-        try:
-            return os.path.getmtime(
-                shell_common.solution_path(
-                    self.app.sh, self.ex_name, self.app.cfg
-                )
-            )
-        except OSError:
-            return None
-
-    def action_toggle_watch(self) -> None:
-        if self.watch_timer:
-            self.watch_timer.stop()
-            self.watch_timer = None
-        else:
-            self.watch_mtime = self._mtime()
-            self.watch_timer = self.set_interval(
-                WATCH_INTERVAL, self.check_watch
-            )
-            self.notify("Watching your file — every save re-grades it.")
-        self.update_status()
-
-    def check_watch(self) -> None:
-        mtime = self._mtime()
-        if mtime is not None and mtime != self.watch_mtime:
-            self.watch_mtime = mtime
-            self.action_grade()
 
     def action_feedback(self) -> None:
         self.app.open_feedback("exam", self.ex_name)

@@ -27,7 +27,6 @@ subject on top, results below.
 | `e` | practice · exam | open your solution: VS Code if its `code` command is installed, else `$VISUAL` / `$EDITOR` in the terminal; writes a stub first if there's no file |
 | `t` | practice · exam | write a stub (never overwrites) |
 | `d` | practice | every detail of the last grade, and back |
-| `w` | practice | grade on every save |
 | `n` | practice | next exercise of *My gaps* |
 | `f` | menu · practice | report an exercise that differs from your real exam |
 | `o` | menu | settings |

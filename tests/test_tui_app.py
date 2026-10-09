@@ -9,7 +9,6 @@ import argparse
 import os
 import sys
 import tempfile
-import time
 import unittest
 from typing import Any, Optional, TYPE_CHECKING
 from unittest import mock
@@ -140,29 +139,6 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await pilot.resize_terminal(80, 24)
             await pilot.pause()
             self.assertFalse(app.screen.query_one("#menu-right").display)
-
-    async def test_watch_mode_regrades_on_save(self) -> None:
-        path = os.path.join(self.rendu, "py_inter.py")
-        with open(path, "w") as fh:
-            fh.write("def inter(s1, s2):\n    return ''\n")
-        app = tui_app.ExamShellApp(
-            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
-        )
-        with mock.patch.object(tui_app, "WATCH_INTERVAL", 0.1):
-            async with app.run_test(size=(120, 36)) as pilot:
-                await pilot.press("w")
-                with open(path, "w") as fh:
-                    fh.write(GOOD_INTER)
-                os.utime(path, (time.time() + 5, time.time() + 5))
-                screen = app.screen
-                assert isinstance(screen, tui_app.PracticeScreen)
-                for _ in range(40):
-                    await pilot.pause(0.1)
-                    await app.workers.wait_for_complete()
-                    if screen.outcome and screen.outcome.report.ok:
-                        break
-                assert screen.outcome is not None
-                self.assertTrue(screen.outcome.report.ok)
 
     async def test_exam_login_refused_new_and_quit_to_summary(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")

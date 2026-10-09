@@ -55,6 +55,7 @@ from textual.widgets import (
 )
 from textual.visual import VisualType
 from textual.widgets.option_list import Option
+from textual.worker import WorkerFailed
 
 from .. import session_store, settings, shell_common, stats, ui, update_check
 from .._types import Event, Tester, TesterConfig
@@ -1269,7 +1270,10 @@ class ExamShellApp(App[None]):
         """An unexpected error ends the app (Textual's own handling) — but
         first it goes to crash.log, so the next start can offer to report
         it instead of the traceback just scrolling away."""
-        crashlog.record(error, type(self.screen).__name__)
+        # A worker's WorkerFailed is raised fresh, without frames: log the
+        # error it wraps, whose traceback says where it actually broke.
+        cause = error.error if isinstance(error, WorkerFailed) else error
+        crashlog.record(cause, type(self.screen).__name__)
         super()._handle_exception(error)
 
     # ── clipboard: OSC 52 plus the system's own tool ─────────────────

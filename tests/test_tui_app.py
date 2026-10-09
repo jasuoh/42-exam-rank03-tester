@@ -630,6 +630,22 @@ class TuiFirstImpressionTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         assert log is not None
         self.assertIn("ZeroDivisionError: on purpose", log)
 
+    async def test_a_worker_crash_logs_where_it_broke(self) -> None:
+        from examshell.tui import crashlog
+
+        def boom() -> None:
+            raise RuntimeError("boom in a worker")
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
+        with self.assertRaises(Exception):
+            async with app.run_test(size=(100, 36)) as pilot:
+                app.run_worker(boom, thread=True)
+                await pilot.pause(0.2)
+        log = crashlog.pending()
+        assert log is not None
+        self.assertIn("RuntimeError: boom in a worker", log)
+        self.assertIn("in boom", log)  # the frame, not just the summary
+
     async def test_a_crash_is_logged_and_offered_as_a_bug_report(
         self,
     ) -> None:

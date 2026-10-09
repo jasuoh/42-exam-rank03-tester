@@ -141,13 +141,14 @@ class Copyable(Static):
 # ══════════════════════════════════════════════════════════════
 #  SMALL MODALS
 # ══════════════════════════════════════════════════════════════
-class ConfirmModal(ModalScreen[bool]):
-    """Yes/no question → dismisses with True/False."""
+class ConfirmModal(ModalScreen[Optional[bool]]):
+    """Yes/no question → dismisses with True/False (Esc → None, so a
+    caller can tell "back" from "no")."""
 
     BINDINGS = [
         Binding("y", "answer(True)", "yes"),
         Binding("n", "answer(False)", "no"),
-        Binding("escape", "answer(False)", "no"),
+        Binding("escape", "cancel", "back"),
     ]
 
     def __init__(self, question: str) -> None:
@@ -164,11 +165,15 @@ class ConfirmModal(ModalScreen[bool]):
     def action_answer(self, value: bool) -> None:
         self.dismiss(value)
 
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
-class PromptModal(ModalScreen[str]):
-    """One line of text → dismisses with the string (Esc → default)."""
 
-    BINDINGS = [Binding("escape", "cancel", "use default")]
+class PromptModal(ModalScreen[Optional[str]]):
+    """One line of text → dismisses with the string (Enter on an empty
+    line → default, Esc → None)."""
+
+    BINDINGS = [Binding("escape", "cancel", "back")]
 
     def __init__(self, question: str, default: str = "") -> None:
         super().__init__()
@@ -183,7 +188,7 @@ class PromptModal(ModalScreen[str]):
         self.dismiss(event.value.strip() or self.default)
 
     def action_cancel(self) -> None:
-        self.dismiss(self.default)
+        self.dismiss(None)
 
 
 class HelpModal(ModalScreen[None]):
@@ -824,13 +829,17 @@ class ExamScreen(SplitScreen):
             )
             app.push_screen(
                 ConfirmModal(question),
-                lambda yes: self.after_resume_question(bool(yes), saved),
+                lambda yes: self.after_resume_question(yes, saved),
             )
         else:
             self.ask_login()
 
-    def after_resume_question(self, yes: bool, saved: Event) -> None:
-        if yes:
+    def after_resume_question(
+        self, yes: Optional[bool], saved: Event
+    ) -> None:
+        if yes is None:  # esc: back to the menu, the save stays
+            self.app.pop_screen()
+        elif yes:
             self.run.resume(saved)
             self.notify("Resumed at level %d." % self.run.level)
             self.begin()
@@ -844,6 +853,9 @@ class ExamScreen(SplitScreen):
         self.app.push_screen(PromptModal("Login", default), self.after_login)
 
     def after_login(self, login: Optional[str]) -> None:
+        if login is None:  # esc: nothing started, nothing archived
+            self.app.pop_screen()
+            return
         archived = self.run.start(login)
         cfg = self.run.cfg
         notes: List[str] = []

@@ -190,6 +190,36 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             (saved["login"], saved["current_ex"]), ("alice", first)
         )
 
+    async def test_esc_on_resume_and_login_goes_back_to_the_menu(
+        self,
+    ) -> None:
+        run = shell_common.ExamRun(py_shell, _cfg(self.rendu))
+        run.start("alice")
+        run.ensure_exercise()
+        run.save()
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.ConfirmModal)
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+        self.assertIsNotNone(session_store.load("py"))  # kept
+
+        session_store.clear("py")
+        solution = os.path.join(self.rendu, "py_inter.py")
+        with open(solution, "w") as fh:
+            fh.write(GOOD_INTER)
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.PromptModal)
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+        self.assertTrue(os.path.isfile(solution))  # nothing archived
+        self.assertIsNone(session_store.load("py"))  # nothing started
+
     async def test_passing_every_level_ends_on_a_passed_summary(self) -> None:
         report = Report("x", "f")
         report.total = report.passed = 3

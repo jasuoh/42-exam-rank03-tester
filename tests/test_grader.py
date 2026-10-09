@@ -149,6 +149,16 @@ class FindImportsTests(unittest.TestCase):
         path = self._write("# import os\nx = 1\n")
         self.assertEqual(grader.find_imports(path), [])
 
+    def test_future_import_is_not_flagged(self) -> None:
+        # the exam's stub needs it for `list[int]` hints on Python 3.8
+        path = self._write(
+            "from __future__ import annotations\n"
+            "def f(x: list[int]) -> int:\n    return 0\n"
+        )
+        self.assertEqual(grader.find_imports(path), [])
+        path = self._write("from __future__ import annotations\nimport os\n")
+        self.assertEqual(grader.find_imports(path), [(2, "import os")])
+
     def test_missing_file_returns_empty_not_an_exception(self) -> None:
         self.assertEqual(grader.find_imports("/no/such/file.py"), [])
 

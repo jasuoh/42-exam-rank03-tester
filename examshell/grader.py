@@ -368,7 +368,9 @@ def build_tests(
 #  STATIC CHECK  ·  imports
 # ══════════════════════════════════════════════════════════════
 def find_imports(path: str) -> List[Tuple[int, str]]:
-    """Real import statements only — strings and comments do not count."""
+    """Real import statements only — strings and comments do not count,
+    nor does `from __future__ import ...`: a compiler directive, not an
+    import, and what makes the stub's `list[int]` hints load on 3.8."""
     import ast
 
     try:
@@ -386,6 +388,8 @@ def find_imports(path: str) -> List[Tuple[int, str]]:
                 )
             )
         elif isinstance(node, ast.ImportFrom):
+            if node.module == "__future__" and not node.level:
+                continue
             found.append(
                 (node.lineno, "from %s import …" % (node.module or "."))
             )

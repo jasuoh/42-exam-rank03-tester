@@ -215,6 +215,7 @@ FATAL_TITLES = {
     ),
     "VALGRIND_ERRORS": "valgrind found memory error(s) (--strict-valgrind)",
     "FORBIDDEN_CALL": "Forbidden call found for this exercise",
+    "CRASHED": "Your program crashed",
 }
 
 
@@ -367,7 +368,9 @@ def build_tests(
 #  STATIC CHECK  ·  imports
 # ══════════════════════════════════════════════════════════════
 def find_imports(path: str) -> List[Tuple[int, str]]:
-    """Real import statements only — strings and comments do not count."""
+    """Real import statements only — strings and comments do not count,
+    nor does `from __future__ import ...`: a compiler directive, not an
+    import, and what makes the stub's `list[int]` hints load on 3.8."""
     import ast
 
     try:
@@ -385,6 +388,8 @@ def find_imports(path: str) -> List[Tuple[int, str]]:
                 )
             )
         elif isinstance(node, ast.ImportFrom):
+            if node.module == "__future__" and not node.level:
+                continue
             found.append(
                 (node.lineno, "from %s import …" % (node.module or "."))
             )
@@ -475,7 +480,9 @@ timeout, max_timeouts, deadline = (int(a) for a in sys.argv[5:8])
 started = time.monotonic()
 
 
-class Timeout(Exception):
+# BaseException, like KeyboardInterrupt: a student's `except Exception:`
+# must not swallow the per-test alarm and return as if nothing happened.
+class Timeout(BaseException):
     pass
 
 

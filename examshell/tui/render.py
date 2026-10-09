@@ -411,10 +411,13 @@ def per_exercise_view(summary: Dict[str, Any]) -> RenderableType:
 
 
 def attempt_summary(
-    entries: Sequence[Tuple[str, str, Report]], exercise: str
+    entries: Sequence[Tuple[str, str, Report]],
+    exercise: str,
+    score: bool = True,
 ) -> str:
     """One line on this session's gradings of `exercise` — how many, and
-    how the last one went: "graded 3× · last 14:02:11 ✖ 1/2"."""
+    how the last one went: "graded 3× · last 14:02:11 ✖ 1/2". Without
+    `score` (the exam) only ✔ or ✖, like the real grademe."""
     mine = [
         (clock, report) for clock, name, report in entries if name == exercise
     ]
@@ -423,6 +426,8 @@ def attempt_summary(
     clock, report = mine[-1]
     if report.ok:
         last = "✔"
+    elif not score:
+        last = "✖"
     elif report.fatal:
         last = "✖ " + report.fatal_title
     else:

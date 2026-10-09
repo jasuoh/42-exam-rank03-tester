@@ -628,6 +628,22 @@ class GradeEndToEndTests(unittest.TestCase):
             self.assertEqual(report.passed, 0)
             self.assertEqual(report.failures[0].got, "42")
 
+    def test_crash_after_every_right_output_still_fails(self) -> None:
+        # e.g. abort() in free() or the stack protector on return: every
+        # case printed the right thing, but a crash is never a pass
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(
+                tmp,
+                "#include <stdlib.h>\n"
+                "__attribute__((destructor)) static void boom(void)\n"
+                "{\n    abort();\n}\n" + self.EX["oracle_c"],
+            )
+            report = grader.grade("ft_strlen", self.EX, tmp)
+        self.assertFalse(report.ok)
+        self.assertEqual(report.fatal, "CRASHED")
+        self.assertIn("SIGABRT", report.detail)
+        self.assertEqual(report.fatal_title, "Your program crashed")
+
     def test_unguarded_main_is_reported_as_forbidden(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(
@@ -960,6 +976,21 @@ class ProgramNewlineDisplayTests(unittest.TestCase):
             report = grader.grade("echo_arg", self.EX, tmp, timeout=2)
         failure = report.failures[0]
         self.assertEqual((failure.expected, failure.got), ("a\n", "a"))
+
+    def test_carriage_return_is_kept_and_fails(self) -> None:
+        # text-mode pipes used to turn "\r\n" into "\n", so this passed
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
+                fh.write(
+                    "#include <unistd.h>\n#include <string.h>\n"
+                    "int main(int ac, char **av)\n{\n"
+                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                    '    write(1, "\\r\\n", 2);\n    return 0;\n}\n'
+                )
+            report = grader.grade("echo_arg", self.EX, tmp, timeout=2)
+        self.assertFalse(report.ok)
+        failure = report.failures[0]
+        self.assertEqual((failure.expected, failure.got), ("a\n", "a\r\n"))
 
 
 class CaseFuzzerTests(unittest.TestCase):

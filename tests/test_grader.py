@@ -149,12 +149,43 @@ class FindImportsTests(unittest.TestCase):
         path = self._write("# import os\nx = 1\n")
         self.assertEqual(grader.find_imports(path), [])
 
+    def test_future_import_is_not_flagged(self) -> None:
+        # the exam's stub needs it for `list[int]` hints on Python 3.8
+        path = self._write(
+            "from __future__ import annotations\n"
+            "def f(x: list[int]) -> int:\n    return 0\n"
+        )
+        self.assertEqual(grader.find_imports(path), [])
+        path = self._write("from __future__ import annotations\nimport os\n")
+        self.assertEqual(grader.find_imports(path), [(2, "import os")])
+
     def test_missing_file_returns_empty_not_an_exception(self) -> None:
         self.assertEqual(grader.find_imports("/no/such/file.py"), [])
 
     def test_syntax_error_returns_empty_not_an_exception(self) -> None:
         path = self._write("def broken(:\n")
         self.assertEqual(grader.find_imports(path), [])
+
+
+class SandboxTimeoutTests(unittest.TestCase):
+    def test_except_exception_cannot_swallow_the_timeout(self) -> None:
+        # the per-test alarm used to be an Exception: a solution that
+        # caught it returned normally and could pass an infinite loop
+        fd, path = tempfile.mkstemp(suffix=".py")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(
+                "def stuck(x):\n"
+                "    try:\n"
+                "        while True:\n"
+                "            pass\n"
+                "    except Exception:\n"
+                "        return x\n"
+            )
+        self.addCleanup(os.remove, path)
+        payload = grader.run_sandbox(path, "stuck", [([5], 5)], timeout=1)
+        self.assertEqual(
+            payload["results"], [{"ok": False, "got": "[TIMEOUT > 1s]"}]
+        )
 
 
 class FindForbiddenCallsTests(unittest.TestCase):

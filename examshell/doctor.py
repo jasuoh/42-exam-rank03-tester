@@ -255,7 +255,7 @@ def check_data_dir(data_dir: Optional[str] = None) -> Check:
         return Check(
             FAIL,
             "Data folder",
-            "%s isn't writable (%s) — no stats, saves or reports"
+            "%s isn't writable (%s) — no stats or saves"
             % (data_dir, exc),
             "set EXAMSHELL_HOME to a writable folder",
         )

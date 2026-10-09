@@ -171,10 +171,6 @@ class AutoSyncTests(unittest.TestCase):
         self.assertIn("auto-sync skipped", warn.call_args[0][0])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CrashLogTests(unittest.TestCase):
     def test_report_text_keeps_the_head_and_the_end(self) -> None:
         from examshell.tui import crashlog
@@ -192,3 +188,7 @@ class CrashLogTests(unittest.TestCase):
 
         url = feedback.issue_url("bug", details="Traceback: boom")
         self.assertIn("what=Traceback%3A+boom", url)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -7,6 +7,50 @@ Versions follow `examshell/version.py`; when a merge to `main` bumps it,
 `.github/workflows/release.yml` tags it and publishes that version's section
 below as a GitHub Release. Entries before 0.2.0 are grouped by date.
 
+## 1.0.1 — unreleased
+
+### Added
+- **Command palette** (`ctrl+p`): the settings, Sync now, Feedback,
+  Switch exam, and the options that were command-line flags only —
+  relaxed, blind, seed, strict grading, valgrind, the solutions folder —
+  for this session. While an exam runs it offers nothing that could
+  change the exam.
+
+### Removed
+- **Watch mode** (`w` in Practice): the app grades only when you press
+  `g`, like `grademe`.
+
+### Fixed
+- **The exam grades like the real one, again:**
+  - every `grademe` of a level runs the same random tests, so grading
+    unchanged code again can't turn FAILURE into SUCCESS;
+  - the results line shows no passed/total score in the exam (Practice
+    still does).
+- **C tester:**
+  - a program that crashes after printing every expected output fails
+    instead of passing;
+  - output is compared with its `\r` intact, so `\r\n` no longer passes
+    for `\n`.
+- **Python tester:**
+  - a solution's `except Exception:` can no longer swallow the per-test
+    time limit;
+  - `from __future__ import annotations` is no longer a forbidden
+    import, so Rank 04/05 can be passed on Python 3.8.
+- **Saved data:** settings, a saved exam and a synced attempt history
+  are written to a temp file first and then swapped in, so a run killed
+  mid-write can no longer leave a cut-off file that the next start reads
+  as empty.
+- **App:**
+  - an exam that ends while a dialog is open (quit question, `?`) now
+    reaches the summary;
+  - leaving Practice while it grades no longer delivers the result to
+    the screen you left;
+  - starting with `--practice` (no exercise named) opens on the exercise
+    picker instead of falling back to the main menu.
+- **Makefile:**
+  - `make install` finds `uv` in `/opt/homebrew/bin` and `/usr/local/bin`
+    when `PATH` lacks Homebrew, instead of re-downloading it.
+
 ## 1.0.0 — 2026-10-08
 
 **Less, calmer, and the important things work.** One way in (`make`), one

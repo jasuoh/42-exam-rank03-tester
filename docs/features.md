@@ -27,13 +27,13 @@ subject on top, results below.
 | `e` | practice · exam | open your solution: VS Code if its `code` command is installed, else `$VISUAL` / `$EDITOR` in the terminal; writes a stub first if there's no file |
 | `t` | practice · exam | write a stub (never overwrites) |
 | `d` | practice | every detail of the last grade, and back |
-| `w` | practice | grade on every save |
 | `n` | practice | next exercise of *My gaps* |
 | `f` | menu · practice | report an exercise that differs from your real exam |
 | `o` | menu | settings |
 | `s` | menu | sync |
 | `/` | practice list | filter by name |
 | `q` | menu | quit |
+| `ctrl+p` | everywhere | palette — settings and options (below) |
 | `esc` | screens, dialogs | back (in the exam: quit & save) |
 | `?` | everywhere | all the keys |
 
@@ -106,6 +106,19 @@ Saved in `config.json`, applied right away:
 | C compiler | `cc`, `gcc`, `clang` … (C exam only) |
 | Sync repo | connect this device to your private repo |
 | Auto-sync | pull when a session starts, push when it ends |
+
+The palette (`ctrl+p`) offers the same settings, the menu's keys, and
+options that are otherwise command-line flags. Those last until you quit
+and are never saved:
+
+| | |
+|---|---|
+| Relaxed exam · Blind grading · Seed | for the next exam (`--relaxed`, `--blind`, `--seed`) |
+| Strict imports (Python) · Strict warnings, Strict forbidden calls (C) | practice grades like the exam (`--strict-*`) |
+| Valgrind · Strict valgrind | C only: leak check, warning or failure |
+| Solutions folder | where solutions are graded (`--rendu`, `make RENDU=`) |
+
+While an exam runs, the palette offers nothing that could change it.
 
 ## Sync
 

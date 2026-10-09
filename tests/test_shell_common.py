@@ -153,6 +153,31 @@ class ExamRunTests(_TempDataDir):
         self.assertEqual(resumed.ensure_exercise(), first)
         self.assertEqual(resumed.level_attempts, 5)
 
+    def test_every_grademe_of_a_level_draws_the_same_tests(self) -> None:
+        # re-grading unchanged code must not draw new random tests and
+        # turn FAILURE into SUCCESS — not even across a resume
+        sh = py_shell
+        run = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        run.start("frank")
+        run.ensure_exercise()
+        first = [run.grade_rng.random() for _ in range(3)]
+        self.assertEqual(len(set(first)), 1)  # a fresh RNG each time
+        run.begin_attempt()
+        run.save()
+        resumed = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        saved = session_store.load(sh.TOOL)
+        assert saved is not None
+        resumed.resume(saved)
+        self.assertEqual(resumed.grade_rng.random(), first[0])
+        resumed.pass_level()
+        resumed.ensure_exercise()
+        self.assertNotEqual(resumed.grade_rng.random(), first[0])
+        # another exam grades with other tests
+        other = shell_common.ExamRun(sh, _cfg(sh, seed=None))
+        other.start()
+        other.session.current_ex = run.current_ex
+        self.assertNotEqual(other.grade_rng.random(), first[0])
+
     def test_redraw_only_when_relaxed(self) -> None:
         sh = py_shell
         strict = shell_common.ExamRun(sh, _cfg(sh))
@@ -460,6 +485,30 @@ class FinishAndBlindTests(_TempDataDir):
         self.assertNotIn("'y'", text)
         self.assertNotIn("[KO]", text)
         self.assertNotIn("tests passed", text)
+
+
+class RunTuiTests(unittest.TestCase):
+    def test_practice_flag_without_exercise_starts_on_picker(self) -> None:
+        args = argparse.Namespace(exam=False, practice="")
+        with mock.patch(
+            "examshell.tui.available", return_value=True
+        ), mock.patch(
+            "examshell.tui.run", return_value=0
+        ) as run:
+            code = shell_common.run_tui(py_shell, _cfg(py_shell), args)
+            self.assertEqual(code, 0)
+            self.assertEqual(run.call_args[0][2], "practice")
+
+    def test_practice_flag_with_exercise_starts_on_exercise(self) -> None:
+        args = argparse.Namespace(exam=False, practice="py_inter")
+        with mock.patch(
+            "examshell.tui.available", return_value=True
+        ), mock.patch(
+            "examshell.tui.run", return_value=0
+        ) as run:
+            code = shell_common.run_tui(py_shell, _cfg(py_shell), args)
+            self.assertEqual(code, 0)
+            self.assertEqual(run.call_args[0][2], ("practice", "py_inter"))
 
 
 if __name__ == "__main__":

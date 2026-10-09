@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 from ._types import Event
 
-from .settings import DATA_DIR
+from .settings import DATA_DIR, write_atomic
 
 if TYPE_CHECKING:
     from .shell_common import Session
@@ -84,8 +84,7 @@ def save(
     }
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(_path(tool), "w", encoding="utf-8") as fh:
-            json.dump(data, fh)
+        write_atomic(_path(tool), json.dumps(data))
         return True
     except OSError:
         return False
@@ -125,8 +124,7 @@ def clear(tool: str) -> None:
     if not os.path.exists(path):
         return
     try:
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump({"cleared_at": time.time()}, fh)
+        write_atomic(path, json.dumps({"cleared_at": time.time()}))
     except OSError:
         pass
 
@@ -181,8 +179,7 @@ def draw_fresh(
     draws[key] = seen + [name]
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(_draws_path(tool), "w", encoding="utf-8") as fh:
-            json.dump(draws, fh)
+        write_atomic(_draws_path(tool), json.dumps(draws))
     except OSError:
         pass
     return name

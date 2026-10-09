@@ -628,6 +628,22 @@ class GradeEndToEndTests(unittest.TestCase):
             self.assertEqual(report.passed, 0)
             self.assertEqual(report.failures[0].got, "42")
 
+    def test_crash_after_every_right_output_still_fails(self) -> None:
+        # e.g. abort() in free() or the stack protector on return: every
+        # case printed the right thing, but a crash is never a pass
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(
+                tmp,
+                "#include <stdlib.h>\n"
+                "__attribute__((destructor)) static void boom(void)\n"
+                "{\n    abort();\n}\n" + self.EX["oracle_c"],
+            )
+            report = grader.grade("ft_strlen", self.EX, tmp)
+        self.assertFalse(report.ok)
+        self.assertEqual(report.fatal, "CRASHED")
+        self.assertIn("SIGABRT", report.detail)
+        self.assertEqual(report.fatal_title, "Your program crashed")
+
     def test_unguarded_main_is_reported_as_forbidden(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._write(

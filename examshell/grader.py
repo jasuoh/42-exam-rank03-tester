@@ -215,6 +215,7 @@ FATAL_TITLES = {
     ),
     "VALGRIND_ERRORS": "valgrind found memory error(s) (--strict-valgrind)",
     "FORBIDDEN_CALL": "Forbidden call found for this exercise",
+    "CRASHED": "Your program crashed",
 }
 
 

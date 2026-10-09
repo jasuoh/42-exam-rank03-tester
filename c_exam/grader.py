@@ -1622,6 +1622,18 @@ def _grade_function(
         # assignment already does; only the early TIMEOUT/VALGRIND_ERRORS
         # fatal returns above keep the earlier, valgrind-time-free value.
         report.duration = time.time() - started
+        if crash and report.passed == n:
+            # Every case printed the right thing, then the program died
+            # (abort in free(), the stack protector on return, ...). No
+            # case failed, but a crash is never a pass — the real exam's
+            # grader fails it too.
+            return report.fail(
+                "CRASHED",
+                "killed by %s after printing the expected output of every "
+                "test — "
+                "at the end of a call or at exit (a bad free(), a buffer "
+                "overflow on the stack, ...)" % crash,
+            )
         return report
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

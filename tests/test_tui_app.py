@@ -496,10 +496,27 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             app.switch_exam("py05")
             self.assertIs(app.sh, py_shell)
             self.assertEqual(py_shell.RANK.id, "05")
+            self.assertEqual(app.cfg.rendu, self.rendu)  # --rendu kept
             # remembered for the next `make`
             self.assertEqual(
                 settings.load_config(), {"tester": "py", "rank": "05"}
             )
+        py_shell.use_rank("03")
+
+    async def test_switch_from_c_keeps_the_python_rendu(self) -> None:
+        """`make RENDU=x` with C picked last: the app opens on C and x
+        must still be Python's folder after a switch to Python."""
+        from c_exam import examshell as c_shell
+
+        app = tui_app.ExamShellApp(
+            c_shell, c_shell.default_config(), rendus={"rendu": self.rendu}
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.pause()
+            app.switch_exam("py04")
+            self.assertEqual(app.cfg.rendu, self.rendu)
+            app.switch_exam("c")
+            self.assertEqual(app.cfg.rendu, "c_rendu")
         py_shell.use_rank("03")
 
     async def test_feedback_from_practice_prefills_the_exercise(self) -> None:

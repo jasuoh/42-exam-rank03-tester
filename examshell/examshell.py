@@ -844,7 +844,13 @@ def run_tui_on_last_exam(
         k: getattr(cfg, k, None)
         for k in ("relaxed", "time_limit", "blind", "no_update_check")
     }
-    return shell_common.run_tui(c_shell, c_shell.default_config(**keep), args)
+    # --rendu is Python's folder: kept for a later switch back to Python
+    return shell_common.run_tui(
+        c_shell,
+        c_shell.default_config(**keep),
+        args,
+        rendus={SYNC_SLOT: cfg.rendu},
+    )
 
 
 def check_banks(

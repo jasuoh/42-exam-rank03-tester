@@ -1269,11 +1269,15 @@ def resolve_exercise(sh: Tester, name: str, prefix: str) -> Optional[str]:
 
 
 def run_tui(
-    sh: Tester, cfg: TesterConfig, args: argparse.Namespace
+    sh: Tester,
+    cfg: TesterConfig,
+    args: argparse.Namespace,
+    rendus: Optional[Dict[str, str]] = None,
 ) -> Optional[int]:
     """--tui: hand over to the full-screen app (examshell/tui/) when it can run
     here, starting where the other flags point (--exam, --practice X).
-    Returns an exit code, or None — after saying why — to fall back to the
+    `rendus`: the other testers' solution folders, by SYNC_SLOT. Returns
+    an exit code, or None — after saying why — to fall back to the
     line-based UI."""
     from . import tui
 
@@ -1288,7 +1292,7 @@ def run_tui(
         if not name:
             return 2
         start = ("practice", name)
-    return tui.run(sh, cfg, start)
+    return tui.run(sh, cfg, start, rendus)
 
 
 def sync_dirs(sh: Tester, cfg: TesterConfig) -> Dict[str, str]:

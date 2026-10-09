@@ -1264,9 +1264,14 @@ class ExamShellApp(App[None]):
         cfg: TesterConfig,
         start: Union[None, str, Tuple[str, str]] = None,
         ask_exam: bool = False,
+        rendus: Optional[Dict[str, str]] = None,
     ) -> None:
         super().__init__()
         self.sh, self.cfg, self.start = sh, cfg, start
+        # each tester's solution folder (by SYNC_SLOT), so a switch keeps
+        # --rendu / `make RENDU=...` instead of falling back to ./rendu
+        self.rendus: Dict[str, str] = dict(rendus or {})
+        self.rendus[sh.SYNC_SLOT] = cfg.rendu
         # the very first start: ask which exam, instead of assuming Rank 03
         self.ask_exam = ask_exam
         self.update_notice: Dict[str, Optional[str]] = {"notice": None}
@@ -1381,8 +1386,8 @@ class ExamShellApp(App[None]):
     def switch_exam(self, choice: Optional[str]) -> None:
         """Point the whole app at another tester (and rank). Exam-wide
         choices made on the command line (--relaxed, --time-limit, --blind)
-        carry over; everything else comes from that tester's own defaults
-        and your saved settings."""
+        and each tester's own --rendu carry over; everything else comes
+        from that tester's own defaults and your saved settings."""
         if not choice:
             return
         new_sh: Tester
@@ -1400,6 +1405,8 @@ class ExamShellApp(App[None]):
             k: getattr(self.cfg, k, None)
             for k in ("relaxed", "time_limit", "blind", "no_update_check")
         }
+        if new_sh.SYNC_SLOT in self.rendus:
+            keep["rendu"] = self.rendus[new_sh.SYNC_SLOT]
         self.cfg = new_sh.default_config(**keep)
         self.sh = new_sh
         self.notify("Switched to %s" % self.label())

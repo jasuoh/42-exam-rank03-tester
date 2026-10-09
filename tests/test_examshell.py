@@ -140,7 +140,7 @@ class ExerciseEntriesTests(unittest.TestCase):
     def test_new_exercises_default_to_extra_not_standard(self) -> None:
         # Fail-CLOSED by design: an exercise that forgets to mark itself
         # "standard": True must never silently become eligible for a real
-        # `make exam` draw (see c_exam/bank.py's own copy of this test —
+        # exam draw (see c_exam/bank.py's own copy of this test —
         # it used to default the opposite way there).
         import examshell.exam_bank as bank_module
 

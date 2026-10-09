@@ -170,7 +170,7 @@ def countdown(session: Session, cfg: TesterConfig) -> str:
 # ══════════════════════════════════════════════════════════════
 class Session(object):
     """One exam's bookkeeping — what session_store saves and
-    report_export writes out."""
+    finish_exam() sums up."""
 
     def __init__(self, login: Optional[str] = None, n_levels: int = 1) -> None:
         self.login = login or os.environ.get("USER") or "student"

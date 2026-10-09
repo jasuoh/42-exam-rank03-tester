@@ -448,7 +448,7 @@ class TuiSwitchAndSyncTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             app.switch_exam("py05")
             self.assertIs(app.sh, py_shell)
             self.assertEqual(py_shell.RANK.id, "05")
-            # remembered for the next `make tui` / `make run`
+            # remembered for the next `make`
             self.assertEqual(
                 settings.load_config(), {"tester": "py", "rank": "05"}
             )

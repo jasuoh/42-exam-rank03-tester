@@ -152,7 +152,7 @@ class ExerciseEntriesTests(unittest.TestCase):
         # Same opt-IN convention as examshell/exam_bank.py's own bank — every
         # exercise must mark "standard": True explicitly, and an entry
         # that forgets to must fail CLOSED (Extra) rather than silently
-        # becoming eligible for a real `make c-exam` draw. Source-level
+        # becoming eligible for a real exam draw. Source-level
         # check (not a live-dict one: EXERCISES already has the key on
         # every entry, whether from the source or from this fallback, so
         # only the source pins down which one actually happened).

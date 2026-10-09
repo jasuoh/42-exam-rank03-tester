@@ -25,6 +25,7 @@ import argparse
 import os
 import random
 import shlex
+import shutil
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -894,6 +895,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.stub:
         name = resolve_exercise(args.stub)
         return 0 if name and make_stub(name, cfg) else 1
+
+    # Everything below compiles: a typo'd --cc (or an old saved one) would
+    # otherwise count every grade as a failed attempt, with hints.
+    if shutil.which(cfg.cc) is None:
+        ui.error(
+            "compiler '%s' not found — pick one with --cc (add "
+            "--save-config to keep it)" % cfg.cc
+        )
+        return 2
 
     if args.grade:
         name = resolve_exercise(args.grade)

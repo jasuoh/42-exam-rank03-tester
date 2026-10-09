@@ -447,6 +447,19 @@ class TrainCliCaseTests(unittest.TestCase):
         training_mode.assert_called_once_with(mock.ANY, ex_name="array_sum")
 
 
+class MissingCompilerCliTests(unittest.TestCase):
+    def test_an_unknown_cc_stops_before_grading(self) -> None:
+        # Grading with it would record a failed attempt (and hints) per try.
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+            examshell, "grade_exercise"
+        ) as grade, contextlib.redirect_stdout(io.StringIO()):
+            rc = examshell.main(
+                ["--grade", "ft_strlen", "--cc", "no-such-cc", "--rendu", tmp]
+            )
+        self.assertEqual(rc, 2)
+        grade.assert_not_called()
+
+
 class NewCommandResetsLevelTimingTests(unittest.TestCase):
     """Mirrors tests/test_examshell.py's class of the same name — same
     fix, same regression, both examshell.py's exam_mode()."""

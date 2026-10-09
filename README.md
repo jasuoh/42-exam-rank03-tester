@@ -58,10 +58,10 @@ until it passes. Quit any time — the next start offers to resume.
 </p>
 
 **Practice** — any exercise, full feedback. Three tabs: the exercises the
-exam can draw, **My gaps** (what you failed or never tried) and **Extra**
-(LeetCode-style training, never in the exam). The first three failing tests
-show up one line each; `d` shows everything. After a few fails in a row you
-get a hint.
+exam can draw, **My gaps** (what you failed, never tried or passed longest
+ago) and **Extra** (LeetCode-style training, never in the exam). The first
+three failing tests show up one line each; `d` shows everything. After a few
+fails in a row you get a hint.
 
 **Progress** — every exercise the exam can draw, level by level: passed,
 failed, never tried. `p` practises your gaps.

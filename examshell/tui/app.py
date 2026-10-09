@@ -713,10 +713,16 @@ class PracticeScreen(SplitScreen):
 
     def show_error(self, message: str) -> None:
         self.grading = False
+        if not self.is_attached:  # left while grading (see show_outcome)
+            return
         self.set_results(Text(message, style="bold red"), "error")
 
     def show_outcome(self, outcome: GradeOutcome) -> None:
         self.grading = False
+        # esc / n while grading: Textual cancels the worker, but its thread
+        # still delivers the result here, to a screen no longer shown
+        if not self.is_attached:
+            return
         report = outcome.report
         self.log_report(report)
         self.outcome, self.details = outcome, False
@@ -898,11 +904,13 @@ class ExamScreen(SplitScreen):
 
     def show_error(self, message: str) -> None:
         self.grading = False
+        if not self.is_attached:  # left while grading (see show_outcome)
+            return
         self.set_results(Text(message, style="bold red"), "error")
 
     def show_outcome(self, outcome: GradeOutcome) -> None:
         self.grading = False
-        if self.over:
+        if self.over or not self.is_attached:
             return
         report = outcome.report
         self.log_report(report)

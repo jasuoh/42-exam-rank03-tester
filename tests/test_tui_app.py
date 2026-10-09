@@ -295,6 +295,36 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertIsInstance(app.screen, tui_app.MenuScreen)
 
+    async def test_leaving_practice_while_grading_is_safe(self) -> None:
+        report = Report("py_inter", "inter")
+        report.total, report.passed = 3, 1
+        release = threading.Event()
+
+        def slow_grade(
+            *args: object, **kwargs: object
+        ) -> shell_common.GradeOutcome:
+            release.wait(5)
+            return shell_common.GradeOutcome(report, "unused")
+
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start=("practice", "py_inter")
+        )
+        with mock.patch.object(shell_common, "grade", side_effect=slow_grade):
+            async with app.run_test(size=(120, 36)) as pilot:
+                await pilot.pause()
+                practice = app.screen
+                assert isinstance(practice, tui_app.PracticeScreen)
+                await pilot.press("g", "escape")
+                self.assertIsInstance(app.screen, tui_app.MenuScreen)
+                release.set()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui_app.MenuScreen)
+                # the result for the screen we left is dropped, not
+                # half-applied to it
+                self.assertEqual(practice.log_entries, [])
+                self.assertIsNone(practice.outcome)
+
     async def test_redraw_is_ignored_while_grading(self) -> None:
         app = tui_app.ExamShellApp(
             py_shell, _cfg(self.rendu, relaxed=True), start="exam"

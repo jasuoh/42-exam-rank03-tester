@@ -98,6 +98,14 @@ class SettingsTests(unittest.TestCase):
         ):
             self.assertFalse(settings.save_config({"timeout": 3}))
 
+    def test_interrupted_save_keeps_the_old_config(self) -> None:
+        # The run dies after writing the new data, before it is swapped in:
+        # config.json must still be the complete old file.
+        settings.save_config({"timeout": 3})
+        with patch("examshell.settings.os.replace", side_effect=OSError):
+            self.assertFalse(settings.save_config({"timeout": 9}))
+        self.assertEqual(settings.load_config(), {"timeout": 3})
+
     def test_merged_prefers_explicit_cli_flag(self) -> None:
         args = argparse.Namespace(theme="highcontrast")
         config = {"theme": "light"}

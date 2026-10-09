@@ -300,8 +300,11 @@ def _merge_stats(
     for path, side in ((local_path, local), (remote_path, remote)):
         if side != set(merged):
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as fh:
+            # temp file + replace: an interrupted sync must not leave a
+            # cut-off stats file — it holds the whole attempt history
+            with open(path + ".tmp", "w", encoding="utf-8") as fh:
                 fh.write(text)
+            os.replace(path + ".tmp", path)
 
 
 def _exam_stamp(path: str) -> float:

@@ -29,6 +29,17 @@ DATA_DIR = os.environ.get("EXAMSHELL_HOME") or os.path.join(
 )
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
 
+
+def write_atomic(path: str, text: str) -> None:
+    """Write `text` to `path` via a temp file and os.replace: a run killed
+    mid-write (ctrl+c, a closed laptop) leaves the old file, never a cut-off
+    one that the next start reads as empty. Raises OSError like open()."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.replace(tmp, path)
+
+
 # Keys this module will persist. Kept deliberately small: boolean flags
 # like --no-color/--no-rich are left out because a plain store_true has
 # no way to represent "explicitly turn back on" from the CLI, which would
@@ -68,9 +79,9 @@ def save_config(values: Mapping[str, Any]) -> bool:
     }
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=2, sort_keys=True)
-            fh.write("\n")
+        write_atomic(
+            CONFIG_PATH, json.dumps(data, indent=2, sort_keys=True) + "\n"
+        )
         return True
     except OSError:
         return False

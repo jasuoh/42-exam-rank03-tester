@@ -29,6 +29,10 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
     time limit;
   - `from __future__ import annotations` is no longer a forbidden
     import, so Rank 04/05 can be passed on Python 3.8.
+- **Saved data:** settings, a saved exam and a synced attempt history
+  are written to a temp file first and then swapped in, so a run killed
+  mid-write can no longer leave a cut-off file that the next start reads
+  as empty.
 - **App:**
   - an exam that ends while a dialog is open (quit question, `?`) now
     reaches the summary;

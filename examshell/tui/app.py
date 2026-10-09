@@ -538,6 +538,8 @@ class SplitScreen(AppScreen[None]):
     """The subject on top, the grading results below — your code stays in
     your editor. Subclasses decide what grading means (practice vs exam)."""
 
+    SHOW_SCORE = True  # passed/total under the results; not in the exam
+
     def __init__(self) -> None:
         super().__init__()
         self.ex_name = ""  # empty while the exam still asks for the login
@@ -589,7 +591,7 @@ class SplitScreen(AppScreen[None]):
         self.query_one(
             "#results-pane"
         ).border_subtitle = render.attempt_summary(
-            self.log_entries, self.ex_name
+            self.log_entries, self.ex_name, score=self.SHOW_SCORE
         )
 
     def set_results(
@@ -762,6 +764,8 @@ class PracticeScreen(SplitScreen):
 
 class ExamScreen(SplitScreen):
     """The exam, driving one shell_common.ExamRun."""
+
+    SHOW_SCORE = False  # the real grademe says SUCCESS or FAILURE, no score
 
     BINDINGS = [
         Binding("g", "grade", "grademe"),

@@ -155,6 +155,10 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             await app.workers.wait_for_complete()
             await pilot.pause()
             self.assertEqual(exam.run.session.attempts, 1)
+            # like the real grademe: FAILURE, no passed/total score
+            subtitle = str(exam.query_one("#results-pane").border_subtitle)
+            self.assertIn("graded 1×", subtitle)
+            self.assertTrue(subtitle.endswith(" ✖"), subtitle)
             await pilot.press("escape", "y")
             await pilot.pause()
             summary = app.screen

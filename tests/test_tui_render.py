@@ -145,6 +145,14 @@ class ChartTests(unittest.TestCase):
             render.attempt_summary(entries, "a"), "graded 2× · last 10:02:00 ✔"
         )
 
+    def test_attempt_summary_without_score_hides_the_count(self) -> None:
+        bad = Report("a", "a")
+        bad.total, bad.passed = 17, 5
+        self.assertEqual(
+            render.attempt_summary([("14:02:11", "a", bad)], "a", score=False),
+            "graded 1× · last 14:02:11 ✖",
+        )
+
     def test_per_exercise_worst_first(self) -> None:
         summary = {
             "per_exercise": {

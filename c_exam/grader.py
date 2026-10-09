@@ -1268,7 +1268,11 @@ def run_bin(
     timeout: float = DEFAULT_TIMEOUT,
     argv: Optional[Sequence[str]] = None,
 ) -> Tuple[str, Optional[str]]:
-    """Returns (stdout, crash_note). crash_note is None on a clean exit."""
+    """Returns (stdout, crash_note). crash_note is None on a clean exit.
+
+    stdout is read as bytes and decoded here, not with text=True: text
+    mode translates "\r\n" and "\r" to "\n", and a solution printing
+    "\r\n" must fail like it does in the real exam."""
     cmd = [path] + list(argv or ())
     try:
         proc = subprocess.run(
@@ -1277,18 +1281,17 @@ def run_bin(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=timeout,
-            text=True,
-            errors="replace",
         )
     except subprocess.TimeoutExpired:
         return "", "TIMEOUT"
+    out = proc.stdout.decode("utf-8", errors="replace")
     if proc.returncode < 0:
         try:
             name = signal.Signals(-proc.returncode).name
         except ValueError:
             name = "signal %d" % (-proc.returncode)
-        return proc.stdout, "CRASHED:" + name
-    return proc.stdout, None
+        return out, "CRASHED:" + name
+    return out, None
 
 
 def have_valgrind() -> bool:

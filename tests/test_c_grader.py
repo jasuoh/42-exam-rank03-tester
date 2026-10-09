@@ -977,6 +977,21 @@ class ProgramNewlineDisplayTests(unittest.TestCase):
         failure = report.failures[0]
         self.assertEqual((failure.expected, failure.got), ("a\n", "a"))
 
+    def test_carriage_return_is_kept_and_fails(self) -> None:
+        # text-mode pipes used to turn "\r\n" into "\n", so this passed
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(tmp + "/echo_arg.c", "w", encoding="utf-8") as fh:
+                fh.write(
+                    "#include <unistd.h>\n#include <string.h>\n"
+                    "int main(int ac, char **av)\n{\n"
+                    "    if (ac == 2) write(1, av[1], strlen(av[1]));\n"
+                    '    write(1, "\\r\\n", 2);\n    return 0;\n}\n'
+                )
+            report = grader.grade("echo_arg", self.EX, tmp, timeout=2)
+        self.assertFalse(report.ok)
+        failure = report.failures[0]
+        self.assertEqual((failure.expected, failure.got), ("a\n", "a\r\n"))
+
 
 class CaseFuzzerTests(unittest.TestCase):
     """Whole-case generators for flood_fill / ft_list_foreach /

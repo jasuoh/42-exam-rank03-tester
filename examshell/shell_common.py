@@ -143,12 +143,6 @@ def percent(part: float, whole: float) -> int:
     return int(round(100.0 * part / whole)) if whole else 0
 
 
-def exam_grade_rng(seed: Optional[int]) -> random.Random:
-    """The exam's grading RNG — independent of the exercise-draw RNG, but
-    still deterministic under --seed (string seeds are hashed stably)."""
-    return random.Random(None if seed is None else "grade-%d" % seed)
-
-
 def time_left(session: Session, cfg: TesterConfig) -> Optional[float]:
     """Seconds left under --time-limit (negative once it ran out), or None
     when the exam has no limit."""
@@ -341,16 +335,16 @@ class ExamRun(object):
     Levels are cleared in order, one exercise drawn per level from the
     Standard pool; you advance only by passing it. The exercise draw and
     the grading use separate RNGs, so `--seed N` reproduces the same
-    exercises however often the student grades. Each level keeps its own
-    attempt count and clock (restarted by redraw()), which is what ends
-    up in the session history / report.
+    exercises however often the student grades — and every grademe of a
+    level draws the same random tests (see grade_rng). Each level keeps
+    its own attempt count and clock (restarted by redraw()), which is what
+    ends up in the session history / report.
     """
 
     def __init__(self, sh: Tester, cfg: TesterConfig) -> None:
         self.sh = sh
         self.cfg = exam_config(sh, cfg)
         self.rng = random.Random(cfg.seed)
-        self.grade_rng = exam_grade_rng(cfg.seed)
         self.session: Session = sh.Session()
         self.level_attempts = 0
         self.level_started: Optional[float] = None
@@ -423,6 +417,21 @@ class ExamRun(object):
                 self.sh.TOOL, self.session.level, self.rng, pool, avoid
             )
         self.level_started, self.level_attempts = time.time(), 0
+
+    @property
+    def grade_rng(self) -> random.Random:
+        """A fresh grading RNG for the current level, the same on every
+        grademe: re-grading unchanged code must not draw new random tests
+        and flip FAILURE into SUCCESS. It is derived from the draw RNG's
+        state without advancing it — that state is what session_store
+        saves, so a resumed exam grades with the same tests too (and
+        --seed N reproduces them)."""
+        peek = random.Random()
+        peek.setstate(self.rng.getstate())
+        return random.Random(
+            "grade-%d-%d-%s"
+            % (peek.getrandbits(64), self.session.level, self.current_ex)
+        )
 
     def ensure_exercise(self) -> str:
         """The exercise for the current level, drawn if there isn't one yet

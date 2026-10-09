@@ -13,7 +13,10 @@ SHELL       := /bin/sh
 # has none that fits. No uv yet? `make install` fetches it into ~/.local/bin
 # with the official installer — no sudo, nothing else on the machine touched.
 UV_HOME     := $(HOME)/.local/bin
-UV           = $(or $(shell command -v uv 2>/dev/null),$(wildcard $(UV_HOME)/uv))
+UV           = $(or $(shell command -v uv 2>/dev/null),\
+                    $(wildcard $(UV_HOME)/uv),\
+                    $(wildcard /opt/homebrew/bin/uv),\
+                    $(wildcard /usr/local/bin/uv))
 VENV_PYTHON := .venv/bin/python
 
 # The project venv once it exists, the system python before that (the
@@ -146,7 +149,7 @@ format:
 
 # ── install ───────────────────────────────────────────────────
 install: uv
-	@uv="$$(command -v uv || echo $(UV_HOME)/uv)"; "$$uv" sync --quiet --extra tui
+	@uv="$(or $(UV),$(UV_HOME)/uv)"; "$$uv" sync --quiet --extra tui
 	@printf "$(GREEN)✔$(OFF) installed with uv into .venv/\n"
 
 # uv itself, if this machine doesn't have it yet

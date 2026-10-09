@@ -47,6 +47,9 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
     the screen you left;
   - starting with `--practice` (no exercise named) opens on the exercise
     picker instead of falling back to the main menu.
+- **Makefile:**
+  - `make install` finds `uv` in `/opt/homebrew/bin` and `/usr/local/bin`
+    when `PATH` lacks Homebrew, instead of re-downloading it.
 
 ## 1.0.0 — 2026-10-08
 

@@ -157,6 +157,27 @@ class FindImportsTests(unittest.TestCase):
         self.assertEqual(grader.find_imports(path), [])
 
 
+class SandboxTimeoutTests(unittest.TestCase):
+    def test_except_exception_cannot_swallow_the_timeout(self) -> None:
+        # the per-test alarm used to be an Exception: a solution that
+        # caught it returned normally and could pass an infinite loop
+        fd, path = tempfile.mkstemp(suffix=".py")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(
+                "def stuck(x):\n"
+                "    try:\n"
+                "        while True:\n"
+                "            pass\n"
+                "    except Exception:\n"
+                "        return x\n"
+            )
+        self.addCleanup(os.remove, path)
+        payload = grader.run_sandbox(path, "stuck", [([5], 5)], timeout=1)
+        self.assertEqual(
+            payload["results"], [{"ok": False, "got": "[TIMEOUT > 1s]"}]
+        )
+
+
 class FindForbiddenCallsTests(unittest.TestCase):
     def _write(self, source: str) -> str:
         fd, path = tempfile.mkstemp(suffix=".py")

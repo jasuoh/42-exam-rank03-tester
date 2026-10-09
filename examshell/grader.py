@@ -476,7 +476,9 @@ timeout, max_timeouts, deadline = (int(a) for a in sys.argv[5:8])
 started = time.monotonic()
 
 
-class Timeout(Exception):
+# BaseException, like KeyboardInterrupt: a student's `except Exception:`
+# must not swallow the per-test alarm and return as if nothing happened.
+class Timeout(BaseException):
     pass
 
 

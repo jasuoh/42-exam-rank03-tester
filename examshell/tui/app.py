@@ -1472,7 +1472,8 @@ class ExamShellApp(App[None]):
     def sync_worker(self, setup_url: Optional[str] = None) -> None:
         from .. import settings, sync
 
-        dirs = shell_common.sync_dirs(self.sh, self.cfg)
+        # the other tester's folder too, e.g. RENDU while the app is on C
+        dirs = dict(shell_common.sync_dirs(self.sh, self.cfg), **self.rendus)
         try:
             if setup_url:
                 result = sync.setup(setup_url, settings.DATA_DIR, dirs)

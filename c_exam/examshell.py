@@ -715,8 +715,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--blind",
         action="store_true",
-        help="exam mode only: like the real exam, show how many "
-        "tests failed but not which inputs",
+        help="exam mode only: grademe says SUCCESS or FAILURE, "
+        "without the failing test",
     )
     p.add_argument(
         "--tui",

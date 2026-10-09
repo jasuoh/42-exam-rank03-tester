@@ -1015,14 +1015,17 @@ def report(
     _verdict(rep)
 
 
-def exam_trace(rep: Report) -> None:
+def exam_trace(rep: Report, blind: bool = False) -> None:
     """The exam's grademe, like the real one: SUCCESS, or FAILURE and a
-    trace of the first failing test — the line-based twin of the app's
-    render.exam_trace_view(). No other failures, labels or score."""
+    trace of the first failing test (only FAILURE with --blind) — the
+    line-based twin of the app's render.exam_trace_view(). No other
+    failures, labels or score."""
     if rep.ok:
         _line("SUCCESS", "bold green", "GREEN", "BOLD")
         return
     _line("FAILURE", "bold red", "RED", "BOLD")
+    if blind:
+        return
     print()
     if rep.fatal:
         _line(rep.fatal_title, "bold", "BOLD")

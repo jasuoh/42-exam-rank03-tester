@@ -274,7 +274,7 @@ python3 -m examshell --doctor
 | `--seed N` | a reproducible exam: the same draw every time |
 | `--relaxed` | lenient exam: imports only warn, `new` allowed |
 | `--time-limit MIN` | end the exam after MIN minutes |
-| `--blind` | exam grading says that you failed, not on which input |
+| `--blind` | exam grademe says SUCCESS or FAILURE, without the failing test |
 | `--timeout SEC` · `--fuzz N` · `--show-fails N` | time per test, random tests, failures shown |
 | `--strict-imports` · `--strict` · `--diff` | strict grading outside the exam, side-by-side values |
 | `--save-config` | remember `--timeout` / `--fuzz` / `--show-fails` |

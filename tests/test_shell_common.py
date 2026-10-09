@@ -401,11 +401,17 @@ class FinishAndBlindTests(_TempDataDir):
         sh = py_shell
         report = Report("py_inter", "inter")
         report.total, report.passed = 3, 1
+        report.failures = [Failure(("ab", "b"), "b", "'x'")]
         job = shell_common.GradingJob(3, lambda: report)
+        out = io.StringIO()
         with mock.patch.object(
             sh, "prepare_grading", return_value=job
         ), mock.patch.object(ui, "report") as rendered, mock.patch.object(
             ui, "spinner"
+        ), mock.patch.object(ui, "_rich", False), mock.patch.object(
+            ui, "_color", False
+        ), contextlib.redirect_stdout(
+            out
         ):
             shell_common.grade_exercise(
                 sh,
@@ -414,7 +420,9 @@ class FinishAndBlindTests(_TempDataDir):
                 _cfg(sh, blind=True),
                 mode="exam",
             )
-            self.assertEqual(rendered.call_args[0][1], 0)
+            rendered.assert_not_called()
+            self.assertIn("FAILURE", out.getvalue())
+            self.assertNotIn("inter(", out.getvalue())
             shell_common.grade_exercise(
                 sh,
                 "py_inter",

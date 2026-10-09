@@ -249,7 +249,7 @@ python3 -m c_exam --doctor
 | `--cc COMPILER` | the compiler (also a setting in the app) |
 | `--seed N` | a reproducible exam |
 | `--relaxed` | lenient exam: warnings only, `new` allowed, full stub |
-| `--time-limit MIN` · `--blind` | exam clock · grading without the failing input |
+| `--time-limit MIN` · `--blind` | exam clock · grademe without the failing test |
 | `--valgrind` · `--strict-valgrind` | leak checks (warn · fail) |
 | `--strict-norm` · `--strict-forbidden` · `--strict` | fail on warnings / forbidden calls outside the exam too (`--strict`: both) |
 | `--diff` | point at the first differing character |

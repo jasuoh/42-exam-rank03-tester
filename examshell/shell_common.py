@@ -523,12 +523,17 @@ def grade_exercise(
     # --blind: in the exam, like the real one, you learn THAT you failed,
     # not on which input — testing your own edge cases is part of the exam.
     blind = mode == "exam" and getattr(cfg, "blind", False)
-    ui.report(
-        report,
-        0 if blind else cfg.show_fails,
-        cfg.diff,
-        solution_path(sh, ex_name, cfg),
-    )
+    if mode == "exam" and not blind:
+        # The real grademe shows the first failing test, nothing more —
+        # all failures, edge-case labels and the score are Practice.
+        ui.exam_trace(report)
+    else:
+        ui.report(
+            report,
+            0 if blind else cfg.show_fails,
+            cfg.diff,
+            solution_path(sh, ex_name, cfg),
+        )
     outcome = record(sh, ex_name, report, cfg, mode)
     if outcome.hint:
         ui.hint(outcome.hint)

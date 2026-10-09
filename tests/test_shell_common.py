@@ -8,6 +8,8 @@ supplies its own hooks."""
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import os
 import random
 import tempfile
@@ -23,7 +25,7 @@ from examshell import hints
 from examshell._types import Tester, TesterConfig
 from examshell import ui
 from examshell import session_store, shell_common, stats
-from examshell.grader import Report
+from examshell.grader import Failure, Report
 
 
 def _cfg(sh: Tester, **overrides: Any) -> TesterConfig:
@@ -421,6 +423,35 @@ class FinishAndBlindTests(_TempDataDir):
                 mode="practice",
             )
             self.assertEqual(rendered.call_args[0][1], 4)
+
+    def test_exam_grademe_shows_only_the_first_failure(self) -> None:
+        # The line exam must match the real grademe: FAILURE and one trace,
+        # no other failures, edge-case labels or score.
+        sh = py_shell
+        report = Report("py_inter", "inter")
+        report.total, report.passed = 3, 1
+        report.failures = [
+            Failure(("ab", "b"), "b", "'x'"),
+            Failure(("", ""), "", "'y'"),
+        ]
+        job = shell_common.GradingJob(3, lambda: report)
+        out = io.StringIO()
+        with mock.patch.object(
+            sh, "prepare_grading", return_value=job
+        ), mock.patch.object(ui, "_rich", False), mock.patch.object(
+            ui, "_color", False
+        ), contextlib.redirect_stdout(
+            out
+        ):
+            shell_common.grade_exercise(
+                sh, "py_inter", random.Random(0), _cfg(sh), mode="exam"
+            )
+        text = out.getvalue()
+        self.assertIn("FAILURE", text)
+        self.assertIn("inter('ab', 'b')", text)
+        self.assertNotIn("'y'", text)
+        self.assertNotIn("[KO]", text)
+        self.assertNotIn("tests passed", text)
 
 
 if __name__ == "__main__":

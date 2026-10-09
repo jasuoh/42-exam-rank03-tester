@@ -1015,6 +1015,28 @@ def report(
     _verdict(rep)
 
 
+def exam_trace(rep: Report) -> None:
+    """The exam's grademe, like the real one: SUCCESS, or FAILURE and a
+    trace of the first failing test — the line-based twin of the app's
+    render.exam_trace_view(). No other failures, labels or score."""
+    if rep.ok:
+        _line("SUCCESS", "bold green", "GREEN", "BOLD")
+        return
+    _line("FAILURE", "bold red", "RED", "BOLD")
+    print()
+    if rep.fatal:
+        _line(rep.fatal_title, "bold", "BOLD")
+        for row in rep.detail.strip().splitlines()[:12]:
+            _line(row, "red", "RED")
+        return
+    if rep.failures:
+        f = rep.failures[0]
+        exp_text, got_text = _failure_texts(f)
+        _line("test     : " + f.call(rep.function), "bold", "BOLD")
+        _line("expected : " + exp_text[:_DIFF_CLIP], "green", "GREEN")
+        _line("got      : " + got_text[:_DIFF_CLIP], "red", "RED")
+
+
 # --diff shows the full value (instead of the usual 70/26-char clip) plus
 # a pointer at the first differing character — clipped only at this much
 # higher cap, so an absurdly long value still can't flood the terminal.

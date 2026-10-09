@@ -1173,7 +1173,9 @@ class SettingsScreen(AppScreen[None]):
         if value is None:
             return
         if key == "cc":
-            if value:
+            if value and shutil.which(value) is None:
+                self.app.notify("%r is not on PATH" % value, severity="error")
+            elif value:
                 self.save("cc", value)
             return
         try:

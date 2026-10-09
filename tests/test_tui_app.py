@@ -556,6 +556,18 @@ class TuiSettingsTests(_Isolated, unittest.IsolatedAsyncioTestCase):
         # and a new session starts with them
         self.assertEqual(py_shell.default_config().timeout, 7)
 
+    async def test_a_compiler_not_on_path_is_refused(self) -> None:
+        from c_exam import examshell as c_shell
+
+        cfg = c_shell.default_config(no_update_check=True)
+        app = tui_app.ExamShellApp(c_shell, cfg)
+        async with app.run_test(size=(100, 36)) as pilot:
+            await pilot.press("o")
+            await pilot.pause()
+            await self._change(app, pilot, "cc", "clnag-not-there")
+            self.assertEqual(cfg.cc, "cc")
+        self.assertNotIn("cc", settings.load_config())
+
 
 @unittest.skipUnless(HAVE_TEXTUAL, "Textual not installed (optional)")
 class TuiFirstImpressionTests(_Isolated, unittest.IsolatedAsyncioTestCase):

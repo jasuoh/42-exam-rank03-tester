@@ -1254,6 +1254,12 @@ def compile_c(
         )
     except subprocess.TimeoutExpired:
         return False, "compiler timed out after %ds" % COMPILE_TIMEOUT
+    # A typo'd --cc / Settings value: a failed grade that says so, not a
+    # traceback out of every caller (CLI, exam, the TUI's worker).
+    except FileNotFoundError:
+        return False, "compiler '%s' not found" % cc
+    except OSError as exc:
+        return False, "compiler '%s' could not be run: %s" % (cc, exc)
     return proc.returncode == 0, proc.stderr
 
 
@@ -1383,6 +1389,12 @@ def grade(
     `strict_forbidden` — the real exam's own moulinette does fail on one,
     same as Python's --strict-imports; this project's own default stays
     lenient so a beginner's warning-only feedback loop isn't lost."""
+    # Checked first: the reference compiles before the student's file, and
+    # a typo'd --cc must not read as "bug in the bank, please report".
+    if shutil.which(cc) is None:
+        return Report(ex_name, ex["function"]).fail(
+            "COMPILE_ERROR", "compiler '%s' not found" % cc
+        )
     if ex.get("kind") == "program":
         return _grade_program(
             ex_name,

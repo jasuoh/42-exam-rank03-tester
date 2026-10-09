@@ -224,3 +224,6 @@ c_rendu/
 # stray C build artefacts from manually compiling a solution
 *.o
 a.out
+
+# agent worktrees and local Claude Code state
+.claude/

@@ -153,6 +153,22 @@ command line but no longer gets in the way.
   `paramsum` with 10 arguments, `rev_wstr` with a one-letter first word,
   `last_word ""`, `wdmatch` failing on the first character, `max_gap`
   with two elements, `ft_atoi` with a `0` inside the number.
+- **Release check before 1.0.0** — found by testing beta like a student:
+  - `make RENDU=...` is kept when you pick or switch the exam in the app;
+    it used to fall back to `./rendu` (solutions, stubs and the exam
+    archive went there).
+  - The app's exam is saved as you go, so ctrl+q or a crash no longer
+    loses it. Esc on "Resume your saved exam?" goes back to the menu and
+    keeps the save (it used to delete it); esc on the login goes back too
+    instead of starting the exam and archiving your solutions.
+  - The line-based exam (`--exam` without the app) shows only SUCCESS or
+    FAILURE + the first failing test, like the app — no more four
+    failures and a score.
+  - An unknown C compiler fails the grade with "compiler 'x' not found"
+    instead of crashing the app; Settings refuses one that isn't on PATH.
+  - `crash.log` holds the real error and its traceback when a grade
+    crashes, not just Textual's wrapper.
+  - No emoji left in the app or the CLI output; hints start with `hint:`.
 
 ## 0.6.0 — 2026-10-01
 

@@ -1067,7 +1067,8 @@ class ProgressScreen(AppScreen[None]):
 # ══════════════════════════════════════════════════════════════
 class SettingsScreen(AppScreen[None]):
     """The few things worth changing, saved to ~/.examshell/config.json
-    (settings.py) and applied right away. Esc in a prompt keeps the value."""
+    (settings.py) and applied right away. Esc in a prompt keeps the value.
+    Changing one is ExamShellApp.change_setting(), shared with ctrl+p."""
 
     BINDINGS = [Binding("escape", "app.pop_screen", "back")]
 
@@ -1085,107 +1086,18 @@ class SettingsScreen(AppScreen[None]):
         self.refresh_list()
         self.query_one("#settings", OptionList).focus()
 
-    def rows(self) -> List[Tuple[str, str, str]]:
-        from .. import sync
-
-        cfg = self.app.cfg
-        limit = getattr(cfg, "time_limit", None)
-        repo = sync.remote_url(settings.DATA_DIR)
-        rows = [
-            (
-                "time_limit",
-                "Exam time limit",
-                "%d min" % limit if limit else "off",
-            ),
-            ("timeout", "Time per test", "%d s" % cfg.timeout),
-            ("fuzz", "Random tests per exercise", str(cfg.fuzz)),
-        ]
-        if hasattr(cfg, "cc"):
-            rows.append(("cc", "C compiler", str(getattr(cfg, "cc"))))
-        rows += [
-            ("sync_repo", "Sync repo", repo or "not set up"),
-            (
-                "auto_sync",
-                "Auto-sync",
-                "on" if shell_common.auto_sync_enabled() else "off",
-            ),
-        ]
-        return rows
-
     def refresh_list(self) -> None:
         menu = self.query_one("#settings", OptionList)
         highlighted = menu.highlighted
         menu.clear_options()
-        for key, label, value in self.rows():
+        for key, label, value in self.app.setting_rows():
             menu.add_option(Option("%-28s [b]%s[/b]" % (label, value), id=key))
         menu.highlighted = highlighted if highlighted is not None else 0
 
     def on_option_list_option_selected(
         self, event: OptionList.OptionSelected
     ) -> None:
-        key = event.option.id or ""
-        cfg = self.app.cfg
-        if key == "auto_sync":
-            on = not shell_common.auto_sync_enabled()
-            self.save("auto_sync", on)
-            if on:
-                self.app.notify(
-                    "Auto-sync on: every session pulls first and pushes "
-                    "when it ends (once a sync repo is set up)."
-                )
-            return
-        if key == "sync_repo":
-            self.app.push_screen(
-                PromptModal(
-                    "URL of your PRIVATE git repo for sync "
-                    "(see docs/sync.md) — Esc to cancel",
-                ),
-                self.app.setup_sync,
-            )
-            return
-        prompts = {
-            "time_limit": "Exam time limit in minutes (0 = off):",
-            "timeout": "Seconds each test may run:",
-            "fuzz": "Random tests per exercise, on top of the fixed ones:",
-            "cc": "C compiler to use (cc, gcc, clang …):",
-        }
-        current = getattr(cfg, key, None)
-        default = str(current or 0) if key == "time_limit" else str(current)
-        self.app.push_screen(
-            PromptModal(prompts[key], default),
-            lambda value: self.apply(key, value),
-        )
-
-    def apply(self, key: str, value: Optional[str]) -> None:
-        if value is None:
-            return
-        if key == "cc":
-            if value and shutil.which(value) is None:
-                self.app.notify("%r is not on PATH" % value, severity="error")
-            elif value:
-                self.save("cc", value)
-            return
-        try:
-            number = int(value)
-        except ValueError:
-            self.app.notify("%r is not a number" % value, severity="error")
-            return
-        if key == "time_limit":
-            self.save("time_limit", number if number > 0 else None)
-        elif number < (1 if key == "timeout" else 0):
-            self.app.notify("that's too small", severity="error")
-        else:
-            self.save(key, number)
-
-    def save(self, key: str, value: Any) -> None:
-        if not settings.update_config(key, value):
-            self.app.notify(
-                "could not write %s" % settings.CONFIG_PATH, severity="error"
-            )
-            return
-        if key != "auto_sync":
-            setattr(self.app.cfg, key, value)
-        self.refresh_list()
+        self.app.change_setting(event.option.id or "")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1337,6 +1249,105 @@ class ExamShellApp(App[None]):
         crashlog.mark_seen()
         if yes:
             self.open_feedback("bug", details=crashlog.report_text(log))
+
+    # ── settings: the settings screen and the palette share these ─────
+    SETTING_PROMPTS = {
+        "time_limit": "Exam time limit in minutes (0 = off):",
+        "timeout": "Seconds each test may run:",
+        "fuzz": "Random tests per exercise, on top of the fixed ones:",
+        "cc": "C compiler to use (cc, gcc, clang …):",
+    }
+
+    def setting_rows(self) -> List[Tuple[str, str, str]]:
+        """(key, label, current value) of every saved setting."""
+        from .. import sync
+
+        cfg = self.cfg
+        limit = getattr(cfg, "time_limit", None)
+        repo = sync.remote_url(settings.DATA_DIR)
+        rows = [
+            (
+                "time_limit",
+                "Exam time limit",
+                "%d min" % limit if limit else "off",
+            ),
+            ("timeout", "Time per test", "%d s" % cfg.timeout),
+            ("fuzz", "Random tests per exercise", str(cfg.fuzz)),
+        ]
+        if hasattr(cfg, "cc"):
+            rows.append(("cc", "C compiler", str(getattr(cfg, "cc"))))
+        rows += [
+            ("sync_repo", "Sync repo", repo or "not set up"),
+            (
+                "auto_sync",
+                "Auto-sync",
+                "on" if shell_common.auto_sync_enabled() else "off",
+            ),
+        ]
+        return rows
+
+    def change_setting(self, key: str) -> None:
+        """Change one saved setting: a toggle flips, the rest ask for the
+        new value (Esc keeps the old one)."""
+        if key == "auto_sync":
+            on = not shell_common.auto_sync_enabled()
+            self.save_setting("auto_sync", on)
+            if on:
+                self.notify(
+                    "Auto-sync on: every session pulls first and pushes "
+                    "when it ends (once a sync repo is set up)."
+                )
+            return
+        if key == "sync_repo":
+            self.push_screen(
+                PromptModal(
+                    "URL of your PRIVATE git repo for sync "
+                    "(see docs/sync.md) — Esc to cancel",
+                ),
+                self.setup_sync,
+            )
+            return
+        current = getattr(self.cfg, key, None)
+        default = str(current or 0) if key == "time_limit" else str(current)
+        self.push_screen(
+            PromptModal(self.SETTING_PROMPTS[key], default),
+            lambda value: self.apply_setting(key, value),
+        )
+
+    def apply_setting(self, key: str, value: Optional[str]) -> None:
+        if value is None:
+            return
+        if key == "cc":
+            if value and shutil.which(value) is None:
+                self.notify("%r is not on PATH" % value, severity="error")
+            elif value:
+                self.save_setting("cc", value)
+            return
+        try:
+            number = int(value)
+        except ValueError:
+            self.notify("%r is not a number" % value, severity="error")
+            return
+        if key == "time_limit":
+            self.save_setting("time_limit", number if number > 0 else None)
+        elif number < (1 if key == "timeout" else 0):
+            self.notify("that's too small", severity="error")
+        else:
+            self.save_setting(key, number)
+
+    def save_setting(self, key: str, value: Any) -> None:
+        """Save to config.json, apply to this session, and show it on an
+        open settings screen."""
+        if not settings.update_config(key, value):
+            self.notify(
+                "could not write %s" % settings.CONFIG_PATH, severity="error"
+            )
+            return
+        if key != "auto_sync":
+            setattr(self.cfg, key, value)
+        for screen in self.screen_stack:
+            if isinstance(screen, SettingsScreen):
+                screen.refresh_list()
 
     # ── switching between the Python ranks and the C exam ─────────────
     def exam_choices(self) -> List[Tuple[str, str]]:

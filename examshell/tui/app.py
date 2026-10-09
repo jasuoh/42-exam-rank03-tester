@@ -960,6 +960,11 @@ class ExamScreen(SplitScreen):
         result = shell_common.finish_exam(
             self.app.sh, self.run.session, passed, timed_out
         )
+        # switch_screen replaces the top screen: a dialog still open when
+        # the last level passes or the time runs out (quit?, help) must go
+        # first, or it's the dialog that's replaced and the dead exam stays
+        while self.app.screen is not self and self in self.app.screen_stack:
+            self.app.pop_screen()
         self.app.switch_screen(SummaryScreen(result))
 
 

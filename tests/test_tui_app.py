@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from typing import Any, Optional, TYPE_CHECKING
 from unittest import mock
@@ -244,6 +245,55 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(summary.result.passed)
         self.assertIsNone(session_store.load("py"))
         self.assertEqual(len(stats.exam_history("py")), 1)
+
+    async def test_exam_ending_under_a_dialog_reaches_the_summary(
+        self,
+    ) -> None:
+        report = Report("x", "f")
+        report.total = report.passed = 3
+        release = threading.Event()
+
+        def slow_pass(
+            *args: object, **kwargs: object
+        ) -> shell_common.GradeOutcome:
+            release.wait(5)
+            return shell_common.GradeOutcome(report, "unused")
+
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
+        with mock.patch.object(shell_common, "grade", side_effect=slow_pass):
+            async with app.run_test(size=(120, 36)) as pilot:
+                await pilot.press(*"alice", "enter")
+                exam = app.screen
+                assert isinstance(exam, tui_app.ExamScreen)
+                exam.run.session.level = py_shell.N_LEVELS  # the last one
+                await pilot.press("g", "escape")  # quit? open on the pass
+                self.assertIsInstance(app.screen, tui_app.ConfirmModal)
+                release.set()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.assertIsInstance(app.screen, tui_app.SummaryScreen)
+                self.assertNotIn(exam, app.screen_stack)
+
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu, time_limit=1), start="exam"
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press(*"bob", "enter")
+            exam = app.screen
+            assert isinstance(exam, tui_app.ExamScreen)
+            await pilot.press("question_mark")  # help open when time is up
+            self.assertIsInstance(app.screen, tui_app.HelpModal)
+            start = exam.run.session.start_time
+            assert start is not None
+            exam.run.session.start_time = start - 120
+            exam.tick()
+            await pilot.pause()
+            summary = app.screen
+            assert isinstance(summary, tui_app.SummaryScreen)
+            self.assertNotIn(exam, app.screen_stack)
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
 
     async def test_redraw_is_ignored_while_grading(self) -> None:
         app = tui_app.ExamShellApp(

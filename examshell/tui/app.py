@@ -835,6 +835,12 @@ class ExamScreen(SplitScreen):
         else:
             self.ask_login()
 
+    def on_unmount(self) -> None:
+        # ctrl+q leaves without esc → y: keep the run resumable with its
+        # current attempts and clock, like the line UI's quit does.
+        if not self.over and self.run.session.start_time is not None:
+            self.run.save()
+
     def after_resume_question(
         self, yes: Optional[bool], saved: Event
     ) -> None:
@@ -881,6 +887,9 @@ class ExamScreen(SplitScreen):
     def load_level(self) -> None:
         self.show_exercise(self.run.ensure_exercise())
         self.update_status()
+        # every new exercise (start, resume, cleared level, redraw) is
+        # saved at once, so even a crash resumes on the right level
+        self.run.save()
 
     def update_status(self) -> None:
         run = self.run

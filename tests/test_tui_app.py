@@ -190,6 +190,24 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             (saved["login"], saved["current_ex"]), ("alice", first)
         )
 
+    async def test_leaving_without_esc_saves_the_exam(self) -> None:
+        app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu), start="exam")
+        async with app.run_test(size=(120, 36)) as pilot:
+            await pilot.press(*"alice", "enter")
+            exam = app.screen
+            assert isinstance(exam, tui_app.ExamScreen)
+            first = exam.run.current_ex
+            await pilot.press("g")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+        # the pilot exits like ctrl+q: no esc → y, yet the run is saved
+        saved = session_store.load("py")
+        assert saved is not None
+        self.assertEqual(
+            (saved["login"], saved["current_ex"], saved["attempts"]),
+            ("alice", first, 1),
+        )
+
     async def test_esc_on_resume_and_login_goes_back_to_the_menu(
         self,
     ) -> None:

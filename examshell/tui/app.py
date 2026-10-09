@@ -703,7 +703,7 @@ class PracticeScreen(SplitScreen):
             return
         self.grading = True
         self.set_results(
-            render.waiting_view("⏳ grading %s …" % self.ex_name), "grading …"
+            render.waiting_view("grading %s …" % self.ex_name), "grading …"
         )
         self.grade_worker(self.ex_name)
 
@@ -906,7 +906,7 @@ class ExamScreen(SplitScreen):
         self.run.begin_attempt()
         self.update_status()
         self.set_results(
-            render.waiting_view("⏳ grading %s …" % self.ex_name), "grading …"
+            render.waiting_view("grading %s …" % self.ex_name), "grading …"
         )
         self.grade_worker(self.run.current_ex)
 

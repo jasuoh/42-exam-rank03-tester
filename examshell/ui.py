@@ -236,7 +236,7 @@ def success(msg: str) -> None:
 def hint(msg: str) -> None:
     """A stuck-student nudge (see hints.py) — deliberately calmer than
     warn()/error(): this isn't a problem with the run, just a suggestion."""
-    _line("💡 " + msg, "cyan", "CYAN")
+    _line("hint: " + msg, "cyan", "CYAN")
 
 
 def _line(msg: str, rich_style: str, *ansi: str) -> None:
@@ -527,7 +527,7 @@ def subject(ex_name: str, ex: Exercise, rendu_dir: str) -> None:
         _out().print(
             Panel(
                 subject_blocks(ex),
-                title="[bold yellow]📄 %s[/bold yellow]" % _esc(ex_name),
+                title="[bold yellow]%s[/bold yellow]" % _esc(ex_name),
                 subtitle="[dim]%s  ·  file: %s[/dim]"
                 % (group, _esc(os.path.join(rendu_dir, ex_name + ext))),
                 border_style="yellow",
@@ -541,7 +541,7 @@ def subject(ex_name: str, ex: Exercise, rendu_dir: str) -> None:
     print()
     print(
         IND0
-        + c("📄 " + ex_name, "BOLD", "YELLOW")
+        + c(ex_name, "BOLD", "YELLOW")
         + c("   (%s)" % group, "GRAY")
     )
     print(IND0 + c("─" * (width() - 2), "GRAY"))

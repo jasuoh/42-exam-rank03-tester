@@ -1228,7 +1228,7 @@ def main_menu(sh: Tester, cfg: TesterConfig) -> None:
         elif choice == "4":
             sh.training_mode(cfg)
         elif choice in ("q", "quit", "exit"):
-            ui.info("Good luck on the real exam! 🍀")
+            ui.info("Good luck on the real exam!")
             print()
             return
         elif choice in ("s", "f"):
@@ -1495,7 +1495,7 @@ def auto_sync(
             "(your progress stays here; sync later with s in the app)" % exc
         )
         return None
-    ui.note("🔄 " + result.summary())
+    ui.note(result.summary())
     for backup in result.backups:
         ui.note(
             "a newer version came from the repo — your older one is kept at %s"

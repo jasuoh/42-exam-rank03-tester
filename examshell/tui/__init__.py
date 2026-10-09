@@ -46,8 +46,9 @@ def run(
     rendus: Optional[Dict[str, str]] = None,
 ) -> int:
     """Run the app for tester module `sh`. `start` is None (main menu),
-    "exam", or ("practice", exercise_name); `rendus` the other testers'
-    solution folders by SYNC_SLOT. Returns a process exit code."""
+    "exam", "practice", or ("practice", exercise_name); `rendus` the
+    other testers' solution folders by SYNC_SLOT. Returns a process exit
+    code."""
     from .. import settings
     from .app import ExamShellApp
 

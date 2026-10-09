@@ -1230,6 +1230,8 @@ class ExamShellApp(App[None]):
         self.push_screen(MenuScreen())
         if self.start == "exam":
             self.push_screen(ExamScreen())
+        elif self.start == "practice":
+            self.push_screen(PickerScreen())
         elif isinstance(self.start, tuple) and self.start[0] == "practice":
             self.push_screen(PracticeScreen(self.start[1]))
         if self.ask_exam:

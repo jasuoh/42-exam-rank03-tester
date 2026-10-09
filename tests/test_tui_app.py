@@ -133,6 +133,15 @@ class TuiAppTests(_Isolated, unittest.IsolatedAsyncioTestCase):
             "passed",
         )
 
+    async def test_start_practice_opens_picker(self) -> None:
+        app = tui_app.ExamShellApp(
+            py_shell, _cfg(self.rendu), start="practice"
+        )
+        async with app.run_test(size=(120, 36)) as pilot:
+            self.assertIsInstance(app.screen, tui_app.PickerScreen)
+            await pilot.press("escape")
+            self.assertIsInstance(app.screen, tui_app.MenuScreen)
+
     async def test_side_panels_hide_on_narrow_terminals(self) -> None:
         app = tui_app.ExamShellApp(py_shell, _cfg(self.rendu))
         async with app.run_test(size=(140, 36)) as pilot:

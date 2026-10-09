@@ -1294,11 +1294,14 @@ def run_tui(
     start: Union[None, str, Tuple[str, str]] = None
     if args.exam:
         start = "exam"
-    elif getattr(args, "practice", None):
-        name: Optional[str] = sh.resolve_exercise(args.practice)
-        if not name:
-            return 2
-        start = ("practice", name)
+    elif getattr(args, "practice", None) is not None:
+        if args.practice:
+            name: Optional[str] = sh.resolve_exercise(args.practice)
+            if not name:
+                return 2
+            start = ("practice", name)
+        else:
+            start = "practice"
     return tui.run(sh, cfg, start, rendus)
 
 

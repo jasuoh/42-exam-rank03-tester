@@ -44,7 +44,9 @@ below as a GitHub Release. Entries before 0.2.0 are grouped by date.
   - an exam that ends while a dialog is open (quit question, `?`) now
     reaches the summary;
   - leaving Practice while it grades no longer delivers the result to
-    the screen you left.
+    the screen you left;
+  - starting with `--practice` (no exercise named) opens on the exercise
+    picker instead of falling back to the main menu.
 
 ## 1.0.0 — 2026-10-08
 

@@ -487,5 +487,29 @@ class FinishAndBlindTests(_TempDataDir):
         self.assertNotIn("tests passed", text)
 
 
+class RunTuiTests(unittest.TestCase):
+    def test_practice_flag_without_exercise_starts_on_picker(self) -> None:
+        args = argparse.Namespace(exam=False, practice="")
+        with mock.patch(
+            "examshell.tui.available", return_value=True
+        ), mock.patch(
+            "examshell.tui.run", return_value=0
+        ) as run:
+            code = shell_common.run_tui(py_shell, _cfg(py_shell), args)
+            self.assertEqual(code, 0)
+            self.assertEqual(run.call_args[0][2], "practice")
+
+    def test_practice_flag_with_exercise_starts_on_exercise(self) -> None:
+        args = argparse.Namespace(exam=False, practice="py_inter")
+        with mock.patch(
+            "examshell.tui.available", return_value=True
+        ), mock.patch(
+            "examshell.tui.run", return_value=0
+        ) as run:
+            code = shell_common.run_tui(py_shell, _cfg(py_shell), args)
+            self.assertEqual(code, 0)
+            self.assertEqual(run.call_args[0][2], ("practice", "py_inter"))
+
+
 if __name__ == "__main__":
     unittest.main()

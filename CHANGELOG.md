@@ -163,9 +163,12 @@ command line but no longer gets in the way.
     instead of starting the exam and archiving your solutions.
   - The line-based exam (`--exam` without the app) shows only SUCCESS or
     FAILURE + the first failing test, like the app — no more four
-    failures and a score.
+    failures and a score. With `--blind` it says only SUCCESS or FAILURE.
   - An unknown C compiler fails the grade with "compiler 'x' not found"
-    instead of crashing the app; Settings refuses one that isn't on PATH.
+    instead of crashing the app; Settings refuses one that isn't on PATH,
+    and the C tester's CLI stops at start instead of counting every grade
+    as a failed attempt.
+  - `s` in the app syncs your `RENDU` folder too while the app is on C.
   - `crash.log` holds the real error and its traceback when a grade
     crashes, not just Textual's wrapper.
   - No emoji left in the app or the CLI output; hints start with `hint:`.
